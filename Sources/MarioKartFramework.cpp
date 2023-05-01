@@ -2521,7 +2521,7 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::OnRacePauseEvent(bool pauseOpen) {
 		isRacePaused = pauseOpen;
 		SpeedometerController::OnPauseEvent(pauseOpen);
-		if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::OnPauseEvent(pauseOpen);
+		if (!MissionHandler::isMissionMode && SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::OnPauseEvent(pauseOpen);
 	}
 
 	void MarioKartFramework::OnRaceStartCountdown() {
