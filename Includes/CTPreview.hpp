@@ -49,9 +49,9 @@ namespace CTRPluginFramework {
         static bool globalLoaded;
         std::vector<VisualControl::GameVisualControl*> control;
         static VisualControl::GameVisualControlVtable* controlVtable;
+        static VisualControl::AnimationDefineVtable animDefineVtable;
         ExtraResource::StreamedSarc* sarc;
         static Task* fileReplaceTask;
-        static VisualControl::AnimationDefineVtable animDefineVtable;
         ReplaceTarget* replaceTargets[2];
         static s32 fileReplaceFunc(void* args);
         static void defineAnimation(VisualControl::AnimationDefine* animDefine);

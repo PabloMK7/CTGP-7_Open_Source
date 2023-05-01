@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VisualControl.cpp
-Open source lines: 231/231 (100.00%)
+Open source lines: 241/241 (100.00%)
 *****************************************************/
 
 #include "VisualControl.hpp"
@@ -15,7 +15,9 @@ Open source lines: 231/231 (100.00%)
 
 namespace CTRPluginFramework {
 
-    
+    VisualControl::AnimationDefineVtable VisualControl::AnimationDefine::empty = {
+        .defineAnimation = (decltype(VisualControl::AnimationDefineVtable::defineAnimation))VisualControl::nullFunc
+    };
 
     void VisualControl::AnimationFamily::SetAnimation(u32 subAnimationID, float frame) {
         ((void(*)(AnimationFamily*, int, float))VisualControl::GameFuncs::animFamilySetAnimation)(this, subAnimationID, frame);
@@ -182,6 +184,14 @@ namespace CTRPluginFramework {
             ((u8*)visualControl)[0x222] = 2;
             ((u8*)visualControl)[0x223] = 3;
             break;
+        case ControlType::CHARA_NAME:
+            visualControl = (u32*)GameAlloc::game_operator_new_autoheap(0xB4); // 0x001097C8
+            memset(visualControl, 0, 0xB4);
+            ((u32*(*)(u32*))(GameFuncs::BaseMenuViewControlCons))(visualControl);
+            *visualControl = (u32)gameVisualControlVtable;
+            ((float*)visualControl)[0xAC/4] = 1.f;
+            ((float*)visualControl)[0xB0/4] = 0.f;
+            break;
 
         default:
             break;
@@ -203,7 +213,7 @@ namespace CTRPluginFramework {
 		// Finish initializing visualcontrol
 		controlInitializer[0x8/4] = (u32)visualControlCreateArg;
 		((u32(*)(u32*, u8*))GameFuncs::EndSetupControlFunc)(controlInitializer, visualControlCreateArg);
-        if (type == ControlType::BASEMENUVIEW_CONTROL || type == ControlType::CUP_SELECT_BG_CONTROL || type == ControlType::CUP_BTN_CONTROL) *((u32*)visualControlCreateArg) = (u32)BaseMenuViewCreateArgVtable;
+        if (type == ControlType::BASEMENUVIEW_CONTROL || type == ControlType::CUP_SELECT_BG_CONTROL || type == ControlType::CUP_BTN_CONTROL || type == ControlType::CHARA_NAME) *((u32*)visualControlCreateArg) = (u32)BaseMenuViewCreateArgVtable;
 
 		// Append visualcontrol to the race page
         SeadArrayPtr<GameVisualControl*>* elementArray = (SeadArrayPtr<GameVisualControl*>*)(page + 0xAC/4);

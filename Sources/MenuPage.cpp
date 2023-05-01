@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2108/2425 (86.93%)
+Open source lines: 2168/2502 (86.65%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -20,6 +20,8 @@ Open source lines: 2108/2425 (86.93%)
 #include "UserCTHandler.hpp"
 #include "MarioKartTimer.hpp"
 #include "HookInit.hpp"
+#include "Unicode.h"
+#include "CharacterManager.hpp"
 
 extern "C" {
     void coursePageInitOmakaseTfunc();
@@ -68,6 +70,13 @@ namespace CTRPluginFramework {
     RT_HOOK MenuPageHandler::thankyouPageInitControlHook;
 
     bool MenuPageHandler::MenuEndingPage::loadCTGPCredits = false;
+
+    VisualControl::GameVisualControlVtable* MenuPageHandler::MenuSingleCharaPage::controlVtable;
+    bool MenuPageHandler::MenuSingleCharaPage::isInSingleCharaPage = false;
+    void (*MenuPageHandler::MenuSingleCharaPage::initControlBackup)(GameSequenceSection* own) = nullptr;
+    void (*MenuPageHandler::MenuSingleCharaPage::pageEnterBackup)(GameSequenceSection* own) = nullptr;
+    void (*MenuPageHandler::MenuSingleCharaPage::pageExitBackup)(GameSequenceSection* own) = nullptr;
+    void (*MenuPageHandler::MenuSingleCharaPage::pagePreStepBackup)(GameSequenceSection* own) = nullptr;
 
     u32 MenuPageHandler::GameFuncs::SectionClassInfoBaseSubObject = 0; // 0x004C0E14;
     u32 MenuPageHandler::GameFuncs::SectionClassInfoListAddSectionClassInfo = 0; // 0x004B9A80;
@@ -1893,6 +1902,54 @@ namespace CTRPluginFramework {
         delete obj->staffroll;
         obj->staffroll = nullptr;
     }
+    
+    void MenuPageHandler::MenuSingleCharaPage::OnInitControl(GameSequenceSection* own) {
+        initControlBackup(own);
+
+        u32* ownU32 = (u32*)own;
+        if (!controlVtable) {
+            controlVtable = (VisualControl::GameVisualControlVtable*)operator new(sizeof(VisualControl::GameVisualControlVtable));
+            memcpy(controlVtable, (u32*)GameFuncs::omakaseViewVtable, sizeof(VisualControl::GameVisualControlVtable));
+            controlVtable->onReset = (decltype(controlVtable->onReset))VisualControl::nullFunc;
+        }
+        VisualControl::GameVisualControl* charmngr = VisualControl::Build(ownU32, "chara_mngr", "omakase_T", &VisualControl::AnimationDefine::empty, controlVtable, VisualControl::ControlType::BASEMENUVIEW_CONTROL);
+        SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
+        ((void(*)(void*, VisualControl::GameVisualControl*))GameFuncs::ControlSliderSetSlideH)(controlSliderArray[0], charmngr);
+
+        string16 msg;
+        Utils::ConvertUTF8ToUTF16(msg, NAME("charman"));
+        u32 textElementHandle = charmngr->GetNwlytControl()->vtable->getElementHandle(charmngr->GetNwlytControl(), SafeStringBase("T_mngr"), 0);
+        charmngr->GetNwlytControl()->vtable->replaceMessageImpl(charmngr->GetNwlytControl(), textElementHandle, VisualControl::Message(msg.c_str()), nullptr, nullptr);
+    }
+
+    void MenuPageHandler::MenuSingleCharaPage::OnPageEnter(GameSequenceSection* own) {
+        isInSingleCharaPage = true;
+        pageEnterBackup(own);
+    }
+
+    void MenuPageHandler::MenuSingleCharaPage::OnPageExit(GameSequenceSection* own) {
+        pageExitBackup(own);
+        isInSingleCharaPage = false;
+    }
+
+    static bool g_pageprestepcallbackadded = false;
+    static void OnPagePreStepCallback() {
+	    extern MenuEntry *customCharactersEntry;
+        *(PluginMenu::GetRunningInstance()) -= OnPagePreStepCallback;
+		Process::Pause();
+        SoundEngine::PlayMenuSound(SoundEngine::Event::ACCEPT);
+        CharacterManager::characterManagerSettings(customCharactersEntry);
+		Process::Play();
+        g_pageprestepcallbackadded = false;
+    }
+
+    void MenuPageHandler::MenuSingleCharaPage::OnPagePreStep(GameSequenceSection* own) {
+        pagePreStepBackup(own);
+        if (Controller::IsKeyPressed(Key::Select) && !g_pageprestepcallbackadded) {
+            g_pageprestepcallbackadded = true;
+           *(PluginMenu::GetRunningInstance()) += OnPagePreStepCallback;
+        }
+    }
 
     void MenuPageHandler::InitHooksFromSingleCupGP(u32 sectionVtable) {
     }
@@ -1901,6 +1958,9 @@ namespace CTRPluginFramework {
     }
 
     void MenuPageHandler::InitHooksFromSingleCourse(u32 sectionVtable) {
+    }
+
+    void MenuPageHandler::InitHooksFromSingleChara(u32 sectionVtable) {
     }
 
     VisualControl::GameVisualControl* MenuPageHandler::MenuSingleCourseBasePage::GenerateCTPreview(GameSequenceSection* own, bool isTopScreen) {

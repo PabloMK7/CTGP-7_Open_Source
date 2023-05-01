@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 729/729 (100.00%)
+Open source lines: 730/730 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -666,7 +666,8 @@ namespace CTRPluginFramework {
 			//
 			static u32 NetUtilStartWriteKartSendBufferAddr;
 			static u32 NetUtilEndWriteKartSendBufferAddr;
-			static bool onlinePlayersRunningCTGP[8];
+			static StarGrade onlinePlayersStarGrade[8];
+			static void (*BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade);
 			static void BaseResultBar_SetTeam(u32 resultbar, int teamMode); // 0 -> None, 1 -> Red, 2 -> Blue
 			static void BaseResultBar_SetCTGPOnline(u32 resultBar);
 			static void UpdateResultBars(u32 racePage);

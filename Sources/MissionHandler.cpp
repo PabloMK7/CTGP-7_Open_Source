@@ -743,7 +743,7 @@ namespace CTRPluginFramework {
 			MarioKartFramework::RacePageInitFunctions[RacePageInitID::RANK_BOARD](racePage);
 			if (missionParam->MissionFlags->flags.lapCounterVisible) MarioKartFramework::RacePageInitFunctions[RacePageInitID::LAP](racePage);
 			if (!missionParam->MissionFlags->flags.coinCounterHidden) MarioKartFramework::RacePageInitFunctions[RacePageInitID::COIN](racePage);
-            if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::initAutoAccelIcon();
+            //if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::initAutoAccelIcon();
 			MusicCreditsController::Init();
 		}
 		MarioKartFramework::RacePageInitFunctions[RacePageInitID::WIPE](racePage);

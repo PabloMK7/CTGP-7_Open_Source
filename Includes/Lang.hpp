@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.hpp
-Open source lines: 334/334 (100.00%)
+Open source lines: 340/340 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -239,6 +239,11 @@ namespace CTRPluginFramework
 					RENDERING = 0,
 					STRFORMAT = 1,
 				};
+				enum class RenderingType : u16 {
+					RUBY_TEXT = 0,
+					FONT_SIZE = 2,
+					FONT_COLOR = 3,
+				};
 				enum class DashColor {
 					RED = 0,
 					BLUE = 1,
@@ -261,6 +266,7 @@ namespace CTRPluginFramework
 
 				bool GetChoice(u16* out, int choice) const;
 
+				static string16 GenSizeControlString(s16 size);
 				static string16 GenColorControlString(DashColor color, const Color& customColor = Color::White);
 				static void GetColor(u32* out, u32 messageWritter, u16 color);
 			};

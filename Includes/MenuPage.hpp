@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 696/696 (100.00%)
+Open source lines: 714/714 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -539,6 +539,23 @@ namespace CTRPluginFramework {
                 
         };
 
+        class MenuSingleCharaPage {
+            public:
+                static bool isInSingleCharaPage;
+
+                static void (*initControlBackup)(GameSequenceSection* own);
+                static void (*pageEnterBackup)(GameSequenceSection* own);
+                static void (*pageExitBackup)(GameSequenceSection* own);
+                static void (*pagePreStepBackup)(GameSequenceSection* own);
+                
+                static void OnInitControl(GameSequenceSection* own);
+                static void OnPageEnter(GameSequenceSection* own);
+                static void OnPageExit(GameSequenceSection* own);
+                static void OnPagePreStep(GameSequenceSection* own);
+            private:
+                static VisualControl::GameVisualControlVtable* controlVtable;
+        };
+
         static GameSequenceSection* LoadSingleModeMenu(ExecutableSectionClassInfo* own, void* sectionDirector);
 
         static GameSequenceSection* LoadSingleCupGPMenu(ExecutableSectionClassInfo* own, void* sectionDirector);
@@ -652,6 +669,7 @@ namespace CTRPluginFramework {
         static void InitHooksFromSingleCupGP(u32 sectionVtable);
         static void InitHooksFromSingleCup(u32 sectionVtable);
         static void InitHooksFromSingleCourse(u32 sectionVtable);
+        static void InitHooksFromSingleChara(u32 sectionVtable);
 
         static void dashSectionDefinePageClassInfoList(void* dashSectionManager, void* sectionclassinfolist);
         static void InitHooksFromDefinePageClassInfoList(u32 funcAddr);

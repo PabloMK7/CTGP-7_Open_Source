@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 756/757 (99.87%)
+Open source lines: 767/768 (99.87%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -402,6 +402,17 @@ namespace CTRPluginFramework
 		return false;
 	}
 
+	string16 Language::MsbtHandler::ControlString::GenSizeControlString(s16 percentage) {
+		string16 ret((sizeof(ControlString) / 2) + 1, '\0');
+		ControlString* control = (ControlString*)ret.data();
+		control->header.magic = 0xE;
+		control->header.group = Group::RENDERING;
+		control->header.type = (u16)RenderingType::FONT_SIZE;
+		control->header.argAmount = 2;
+		((s16*)control->args)[0] = (s16)percentage;
+		return ret;
+	}
+
 	string16 Language::MsbtHandler::ControlString::GenColorControlString(DashColor color, const Color& customColor) {
 		s16 realColor;
 		if (color == DashColor::CUSTOM) {
@@ -417,7 +428,7 @@ namespace CTRPluginFramework
 		ControlString* control = (ControlString*)ret.data();
 		control->header.magic = 0xE;
 		control->header.group = Group::RENDERING;
-		control->header.type = 0x3;
+		control->header.type = (u16)RenderingType::FONT_COLOR;
 		control->header.argAmount = 2;
 		((s16*)control->args)[0] = (s16)realColor;
 		return ret;

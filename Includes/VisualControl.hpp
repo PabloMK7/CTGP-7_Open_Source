@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VisualControl.hpp
-Open source lines: 364/364 (100.00%)
+Open source lines: 367/367 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -255,6 +255,8 @@ namespace CTRPluginFramework {
             AnimationDefineVtable* vtable;
             u32 data[];
 
+            static AnimationDefineVtable empty;
+
             enum class AnimationKind {
                 NOPLAY = -1,
                 ONCE = 0,
@@ -297,6 +299,7 @@ namespace CTRPluginFramework {
             CUP_SELECT_BG_CONTROL,
             CUP_CURSOR_CONTROL,
             CUP_BTN_CONTROL,
+            CHARA_NAME,
 
             ENDING_SCENE_START,
             ENDING_MOVIE,

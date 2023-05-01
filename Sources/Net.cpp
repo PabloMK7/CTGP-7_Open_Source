@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 532/564 (94.33%)
+Open source lines: 535/567 (94.36%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -23,6 +23,7 @@ namespace CTRPluginFramework {
 	u32 Net::vrPositions[2] = { 0 };
 	float Net::ctwwCPURubberBandMultiplier = 1.f;
 	float Net::ctwwCPURubberBandOffset = 0.f;
+	StarGrade Net::myGrade = StarGrade::NONE;
 	#if CITRA_MODE == 0
 	NetHandler::RequestHandler Net::netRequests;
 	#endif
@@ -155,6 +156,7 @@ namespace CTRPluginFramework {
 					vrPositions[0] = reqDoc.get("ctvrPos", 0);
 					vrPositions[1] = reqDoc.get("cdvrPos", 0);
 					g_regionID = reqDoc.get("regionID", 3);
+					myGrade = (StarGrade)reqDoc.get("myStarGrade", 0);
 				}
 				if (g_isFoolActive && (stat == CTWWLoginStatus::SUCCESS || stat == CTWWLoginStatus::MESSAGE))
 					stat = CTWWLoginStatus::FAILED;
@@ -392,6 +394,7 @@ namespace CTRPluginFramework {
 			netRequests.Start();
 			lastLoginStatus = CTWWLoginStatus::NOTLOGGED;
 			lastServerMessage.clear();
+			myGrade = StarGrade::NONE;
 		}
 
 		currState = mode;

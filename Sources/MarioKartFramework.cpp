@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3126/3225 (96.93%)
+Open source lines: 3134/3233 (96.94%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -174,7 +174,8 @@ namespace CTRPluginFramework {
 	float MarioKartFramework::rubberBandingOffset = 0.0f;
 	u32 MarioKartFramework::NetUtilStartWriteKartSendBufferAddr = 0;
 	u32 MarioKartFramework::NetUtilEndWriteKartSendBufferAddr = 0;
-	bool MarioKartFramework::onlinePlayersRunningCTGP[8];
+	StarGrade MarioKartFramework::onlinePlayersStarGrade[8];
+	void (*MarioKartFramework::BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade) = nullptr;
 	u8 MarioKartFramework::brakeDriftAllowFrames[8];
 	bool MarioKartFramework::brakeDriftAllowed = true;
 	bool MarioKartFramework::brakeDriftForced = false;
@@ -525,7 +526,7 @@ namespace CTRPluginFramework {
 	
 	bool MarioKartFramework::allowOpenCTRPFMenu()
 	{
-		if (!g_hasGameReachedTitle)
+		if (!g_hasGameReachedTitle || MenuPageHandler::MenuSingleCharaPage::isInSingleCharaPage)
 			return false;
 		if (isGameInRace() || (ISGAMEONLINE && lastLoadedMenu != 0x1A) || (ISGAMEONLINE && !g_isUserInControlWW) || MenuPageHandler::MenuEndingPage::IsLoaded()) {
 			if (g_InvalidSoundTimer.HasTimePassed(Seconds(0.5))) {
@@ -1008,7 +1009,7 @@ namespace CTRPluginFramework {
 			pitchCalculators[i].Start(false);
 			pitchCalculators[i].Stop();
 			pitchCalculators[i].SetSpeed(5.851f * 1.25f);
-			onlinePlayersRunningCTGP[i] = false;
+			onlinePlayersStarGrade[i] = StarGrade::INVALID;
 			ItemHandler::MegaMushHandler::growMapFacePending[i] = 0;
 		}
 
@@ -2013,6 +2014,7 @@ namespace CTRPluginFramework {
 			}
 			if (UserCTHandler::skipConfig.useLeftToFinish && Controller::IsKeyPressed(Key::DPadLeft)) {
 				forceFinishRace = true;
+				// g_altGameModeIsRaceOver = 0x69; For online mode
 			}
 		}
 	}
@@ -2924,14 +2926,17 @@ namespace CTRPluginFramework {
 			MissionHandler::updateResultBars(racePage);
 			return;
 		}
-		if (g_getCTModeVal == CTMode::ONLINE_NOCTWW) {
-			CRaceInfo* raceInfo = getRaceInfo(true);
-			for (int i = 0; i < raceInfo->playerAmount; i++) {
-				if (onlinePlayersRunningCTGP[i]) {
-					BaseResultBar_SetCTGPOnline(resultBarArray[i]);
+		CRaceInfo* raceInfo = getRaceInfo(true);
+		onlinePlayersStarGrade[masterPlayerID] = Net::myGrade;
+		for (int i = 0; i < raceInfo->playerAmount; i++) {
+			if (onlinePlayersStarGrade[i] != StarGrade::INVALID) {
+				if ((g_getCTModeVal == CTMode::ONLINE_NOCTWW || g_getCTModeVal == CTMode::ONLINE_COM) && i != masterPlayerID) BaseResultBar_SetCTGPOnline(resultBarArray[i]);
+				if (onlinePlayersStarGrade[i] >= StarGrade::CUSTOM_PLAYER && onlinePlayersStarGrade[i] <= StarGrade::CUSTOM_RAINBOW) {
+					u32 temp = (u32)onlinePlayersStarGrade[i];
+					BaseResultBar_SetGrade(resultBarArray[i], &temp);
 				}
 			}
-		}		
+		}
 	}
 
 	void MarioKartFramework::KartNetDataSend(u32* kartData, int playerID) {
@@ -2978,11 +2983,14 @@ namespace CTRPluginFramework {
 
 	void MarioKartFramework::OnSendCustomKartData(int playerID, CustomCTGP7KartData& data) {
 		data.megaMushTimer = megaMushTimers[playerID] >> 2;
+		if (playerID == masterPlayerID) {
+			data.info.ctgpStarGrade = (u8)Net::myGrade;
+		}
 	}
 
 	void  MarioKartFramework::OnRecvCustomKartData(int playerID, CustomCTGP7KartData& data) {
-		if (!onlinePlayersRunningCTGP[playerID]) {
-			onlinePlayersRunningCTGP[playerID] = true;
+		if (onlinePlayersStarGrade[playerID] == StarGrade::INVALID) {
+			onlinePlayersStarGrade[playerID] = (StarGrade)data.info.ctgpStarGrade;
 		}
 		ItemHandler::MegaMushHandler::CalcNetRecv(playerID, data.megaMushTimer << 2);
 	}

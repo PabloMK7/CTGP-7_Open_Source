@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Unicode.h
-Open source lines: 45/45 (100.00%)
+Open source lines: 48/48 (100.00%)
 *****************************************************/
 
 #ifndef UNICODE_H
@@ -43,3 +43,6 @@ Open source lines: 45/45 (100.00%)
 #define FONT_T      "\uE058" // System Font Touch button
 #endif
 #endif
+
+// Mario Kart font
+#define FONT_FILLED_CIRCLE "\u25CF"

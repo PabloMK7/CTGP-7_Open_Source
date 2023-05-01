@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 121/125 (96.80%)
+Open source lines: 122/126 (96.83%)
 *****************************************************/
 
 #pragma once
@@ -95,6 +95,7 @@ namespace CTRPluginFramework {
 		static u32 vrPositions[2];
 		static float ctwwCPURubberBandMultiplier;
 		static float ctwwCPURubberBandOffset;
+		static StarGrade myGrade;
 
 	private:
 	#if CITRA_MODE == 0

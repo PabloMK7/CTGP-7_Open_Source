@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.hpp
-Open source lines: 806/806 (100.00%)
+Open source lines: 834/834 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -712,11 +712,36 @@ namespace CTRPluginFramework {
 		u32 multiCPUCount;
 	};
 
+    enum class StarGrade : u8 {
+        NONE = 0,
+        // Unused
+        C = 1,
+        B = 2,
+        A = 3,
+        // Used
+        STAR_1 = 4,
+        STAR_2 = 5,
+        STAR_3 = 6,
+        // Custom
+        CUSTOM_PLAYER = 7,
+        CUSTOM_BRONZE = 8,
+        CUSTOM_SILVER = 9,
+        CUSTOM_GOLD = 10,
+        CUSTOM_DIAMOND = 11,
+        CUSTOM_RAINBOW = 12,
+        // Invalid
+        INVALID = 0xFF
+    };
+
     struct PACKED CustomCTGP7KartData 
     {
         u8 version;
         u8 megaMushTimer;
-        u8 padding[2];
+        struct {
+            u8 ctgpStarGrade : 4;
+            u8 reserved : 4;
+        } info;
+        u8 padding[1];
 
         static const u8 dataVersion = 1;
 
@@ -727,6 +752,9 @@ namespace CTRPluginFramework {
         void Init() {
             version = 0;
             megaMushTimer = 0;
+            info.ctgpStarGrade = 0;
+            info.reserved = 0;
+            padding[0] = 0;
         }
 
         void MakeValid() {
