@@ -1899,8 +1899,6 @@ namespace CTRPluginFramework {
         MenuEndingPage* obj = ((MenuEndingPage*)own->vtable->userData);
         if (obj->staffroll)
             obj->staffroll->onPageExit();
-        delete obj->staffroll;
-        obj->staffroll = nullptr;
     }
     
     void MenuPageHandler::MenuSingleCharaPage::OnInitControl(GameSequenceSection* own) {
@@ -2147,6 +2145,8 @@ namespace CTRPluginFramework {
         if (!menuEndingPage) return;
         MenuEndingPage* page = (MenuEndingPage*)own->vtable->userData;
         page->Deallocate();
+        delete page->staffroll;
+        page->staffroll = nullptr;
         delete menuEndingPage;
         menuEndingPage = nullptr;
     }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: plgldr.h
-Open source lines: 80/80 (100.00%)
+Open source lines: 82/82 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -54,7 +54,9 @@ typedef struct
     u32             isDefaultPlugin;
     s32*            plgldrEvent; ///< Used for synchronization
     s32*            plgldrReply; ///< Used for synchronization
-    u32             reserved[24];
+    u8              notifyHomeEvent;
+    u8              padding[3];
+    u32             reserved[23];
     u32             config[32];
 }   PluginHeader;
 
