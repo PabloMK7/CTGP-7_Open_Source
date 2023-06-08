@@ -544,38 +544,38 @@ namespace CTRPluginFramework {
             u32 raw;
             struct
             {
-                u32 isJumping : 1;
-                u32 isOlliePitching : 1; // Wing twist related
-                u32 isLandingFromJump : 1;
-                u32 isStandStill : 1;
-                u32 onStickyRoad : 1;
-                u32 isStartingOOB : 1;
-                u32 isStartingFallbackOOB : 1; // Out of checkpoints or AI recover
-                u32 isWingOpened : 1;
-                u32 isInGliderPad : 1;
-                u32 isGliding : 1;
-                u32 wingClosedOutOfPath : 1;
-                u32 wingTricked : 1;
-                u32 isInWater : 1;
-                u32 isInMoon : 1;
-                u32 isSlidingTurn : 1;
-                u32 isInSlope : 1; // Set if kart is in slope or something
-                u32 bigAccident : 1;
-                u32 unknown_20000 : 1; // Something accident related
-                u32 isBouncingMush : 1;
-                u32 isPullingBack : 1; // pull back kcl
-                u32 isPullingBackExtreme : 1;
-                u32 hasTricked : 1;
-                u32 isBullet : 1;
-                u32 isHangingLakitu : 1;
-                u32 hasTail : 1;
-                u32 isRespawningBattle : 1;
-                u32 userClosedWing : 1;
-                u32 startingVanish : 1; // Mark as respawning
-                u32 isFinishVanishing : 1; // Finish vanishing when respawning
-                u32 unknown_20000000 : 1; // Drift related
-                u32 unknown_40000000 : 1;
-                u32 unknown_80000000 : 1;
+            /*0x1*/                u32 isJumping : 1;                                                      
+            /*0x2*/                u32 isOlliePitching : 1; // Wing twist related
+            /*0x4*/                u32 isLandingFromJump : 1;
+            /*0x8*/                u32 isStandStill : 1;
+            /*0x10*/                u32 onStickyRoad : 1;
+            /*0x20*/                u32 isStartingOOB : 1;
+            /*0x40*/                u32 isStartingFallbackOOB : 1; // Out of checkpoints or AI recover
+            /*0x80*/                u32 isWingOpened : 1;
+            /*0x100*/                u32 isInGliderPad : 1;
+            /*0x200*/                u32 isGliding : 1;
+            /*0x400*/                u32 wingClosedOutOfPath : 1;
+            /*0x800*/                u32 wingTricked : 1;
+            /*0x1000*/                u32 isInWater : 1;
+            /*0x2000*/                u32 isInMoon : 1;
+            /*0x4000*/                u32 isSlidingTurn : 1;
+            /*0x8000*/                u32 isInSlope : 1; // Set if kart is in slope or something
+            /*0x10000*/                u32 bigAccident : 1;
+            /*0x20000*/                u32 unknown_20000 : 1; // Something accident related
+            /*0x40000*/                u32 isBouncingMush : 1;
+            /*0x80000*/                u32 isPullingBack : 1; // pull back kcl
+            /*0x100000*/                u32 isPullingBackExtreme : 1;
+            /*0x200000*/                u32 hasTricked : 1;
+            /*0x400000*/                u32 isBullet : 1;
+            /*0x800000*/                u32 isHangingLakitu : 1;
+            /*0x1000000*/                u32 hasTail : 1;
+            /*0x2000000*/                u32 isRespawningBattle : 1;
+            /*0x4000000*/                u32 userClosedWing : 1;
+            /*0x8000000*/                u32 startingVanish : 1; // Mark as respawning
+            /*0x10000000*/                u32 isFinishVanishing : 1; // Finish vanishing when respawning
+            /*0x20000000*/                u32 unknown_20000000 : 1; // Drift related
+            /*0x40000000*/                u32 unknown_40000000 : 1;
+            /*0x80000000*/                u32 cameraRollUnlocked : 1;
             };
         };
         static KartFlags& GetFromVehicle(u32 vehicle) {

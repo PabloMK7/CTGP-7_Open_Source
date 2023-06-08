@@ -4,12 +4,21 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Math.hpp
-Open source lines: 195/195 (100.00%)
+Open source lines: 208/208 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "types.h"
 #include <cmath>
+
+inline float sead_sqrtf(float a) {
+    float b;
+    __asm__("VSQRT.F32 %0, %1"
+             :"=t"(b)        
+             :"t"(a)
+             );
+    return b;
+}
 
 struct Vector3 {
     float x;
@@ -114,8 +123,12 @@ struct Vector3 {
         Lerp(other, 1.f - (amount - 1.f) * (amount - 1.f));
     }
 
+    inline void InvCerp(const Vector3& other, float amount) {
+        Lerp(other, amount * amount);
+    }
+
     inline float Magnitude() const {
-        return sqrtf(Dot(*this));
+        return sead_sqrtf(Dot(*this));
     }
 
     inline float MagNoSqrt() const {

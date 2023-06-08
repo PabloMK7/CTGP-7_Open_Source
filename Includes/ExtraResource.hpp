@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.hpp
-Open source lines: 176/193 (91.19%)
+Open source lines: 193/210 (91.90%)
 *****************************************************/
 
 #pragma once
@@ -75,7 +75,7 @@ namespace CTRPluginFramework {
 				{
 					return GetFile(name.data, info);
 				}
-				inline u8* GetFile(std::string& name, FileInfo* info)
+				inline u8* GetFile(const std::string& name, FileInfo* info)
 				{
 					return GetFile(name.c_str(), info);
 				}
@@ -100,6 +100,18 @@ namespace CTRPluginFramework {
 				}
 
 				const bool ReadFile(void* dest, SARC::FileInfo& destSize, const char* name, bool allowCropSize = false);
+
+				const bool ReadFileDirectly(void* dest, SARC::FileInfo& destSize, SARC::FileInfo& inputFileInfo, bool allowCropSize = false);
+
+				inline const bool GetFileInfo(SARC::FileInfo& outFileInfo, SafeStringBase& name) {
+					return GetFileInfo(outFileInfo, name.data);
+				}
+
+				inline const bool GetFileInfo(SARC::FileInfo& outFileInfo, const std::string& name) {
+					return GetFileInfo(outFileInfo, name.c_str());
+				}
+
+				const bool GetFileInfo(SARC::FileInfo& outFileInfo, const char* name);
 
 				u32 GetFileCount() const {
 					return _sarc->GetFileCount();
@@ -128,6 +140,8 @@ namespace CTRPluginFramework {
 					return SetFile(name.c_str(), info);
 				}
 				bool SetFile(const char* name, SARC::FileInfo* info);
+
+				bool SetFileDirectly(SARC::FileInfo* info);
 
 				const u8* GetData(s32 offset = -1);
 			};
@@ -171,6 +185,9 @@ namespace CTRPluginFramework {
 			static bool lastTrackFileValid;
 			static u32 kartPtclFileOffset;
 			static SARC::FileInfo kartPtclFileInfo;
+
+			static u32* latestMenuSzsArchive;
+			static bool isValidMenuSzsArchive();
 		private:
 	};
 }

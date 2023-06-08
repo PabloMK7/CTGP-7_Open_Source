@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3134/3233 (96.94%)
+Open source lines: 3181/3280 (96.98%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -1067,7 +1067,7 @@ namespace CTRPluginFramework {
 		//speedmod = 40282346638528859811704183484516925440.f;//*(float*)&speedval;	////340282346638528859811704183484516925440.f / 10.f;
 		
 		g_speedVal = speedmod;
-		g_speedValsqrt = (sqrt(speedmod) + speedmod) / 2.f;
+		g_speedValsqrt = (sqrtf(speedmod) + speedmod) / 2.f;
 
 		kouraGProbability = rol<u64>(kouraGProbability, Utils::Random(0, 63));
 		kouraRProbability = rol<u64>(kouraRProbability, Utils::Random(0, 63));
@@ -1478,7 +1478,7 @@ namespace CTRPluginFramework {
 				if (isDialogOpened()) return 0;
 				openedFirst = true;
 				Net::StartBetaRequest();
-				openDialog(DialogFlags::Async::YES | DialogFlags::Mode::LOADING, "Checking your beta build...");
+				openDialog(DialogFlags(DialogFlags::Mode::LOADING), "Checking your beta build...");
 			}
 			else {
 				if (Net::GetBetaState() == Net::BetaState::GETTING) return 0;
@@ -1488,7 +1488,7 @@ namespace CTRPluginFramework {
 					if (Net::GetBetaState() == Net::BetaState::NO || Net::GetBetaState() == Net::BetaState::FAILED) {
 						if (Net::GetBetaState() == Net::BetaState::NO)
 						{
-							openDialog(DialogFlags::Async::YES | DialogFlags::Mode::NOBUTTON, "Your beta build is currently\ndisabled, please check for an\nupdated build of the beta.\n\nPress HOME to exit.");
+							openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "Your beta build is currently\ndisabled, please check for an\nupdated build of the beta.\n\nPress HOME to exit.");
 							File betaConfig("/CTGP-7/config/betaConfig.bin", File::RW);
 							if (betaConfig.IsOpen())
 							{
@@ -1496,10 +1496,10 @@ namespace CTRPluginFramework {
 								betaConfig.Write(&disable, sizeof(disable));
 							}
 						} else {
-							openDialog(DialogFlags::Async::YES | DialogFlags::Mode::NOBUTTON, "Failed to connect to the\nCTGP-7 server to check the\nbeta build. Try again later.\n\nPress HOME to exit.");
+							openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "Failed to connect to the\nCTGP-7 server to check the\nbeta build. Try again later.\n\nPress HOME to exit.");
 						}
 					} else if (Net::GetBetaState() == Net::BetaState::NODISCORD) {
-						openDialog(DialogFlags::Async::YES | DialogFlags::Mode::NOBUTTON, "You are not allowed to use\nthis beta build.\nPlease check your discord beta\nstatus from the ingame menu.\n\nPress HOME to exit.");
+						openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "You are not allowed to use\nthis beta build.\nPlease check your discord beta\nstatus from the ingame menu.\n\nPress HOME to exit.");
 					}
 				}
 				showingBeta = false;
@@ -2551,12 +2551,17 @@ namespace CTRPluginFramework {
 	
 	void MarioKartFramework::OnTireEffectGetCollision(u32 out[2], u32 vehicleMove) {
 		u32 inkTimer = *(u32*)(vehicleMove + 0xFF8);
+		u32 mainType = *(u32*)(vehicleMove + 0xD14);
+		u32 subType = *(u32*)(vehicleMove + 0xD20);
 		if (inkTimer > 30 && g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
 			out[0] = 5; // Off-road
 			out[1] = 6; // Mud
+		} else if (mainType == 8 && subType == 2) { // Loop kcl
+			out[0] = 8;
+			out[1] = 0;
 		} else {
-			out[0] = *(u32*)(vehicleMove + 0xD14);
-			out[1] = *(u32*)(vehicleMove + 0xD20);
+			out[0] = mainType;
+			out[1] = subType;
 		}
 	}
 
@@ -2872,6 +2877,12 @@ namespace CTRPluginFramework {
 		CamParams& srcParams = *(CamParams*)(cameraparams + 0x8/4);
 		dstParams = srcParams;
 		if (playerMegaCustomFov && playerMegaCustomFov != 52.f) dstParams.fov = playerMegaCustomFov;
+		bool isInLoop = vehicleIsInLoopKCL(((u32**)kartCamera)[0xD8/4][0]);
+		if (isInLoop) {
+			dstParams.yOffsetLookAt = 24.f;
+			dstParams.yOffsetCamera = -15.f;
+			dstParams.fov *= 1.5f;
+		}
 	}
 
 	void MarioKartFramework::OnTrophySelectNextScene(u32* lastCup) {
@@ -2896,6 +2907,42 @@ namespace CTRPluginFramework {
 		u32 ret = ((u32(*)(u32))OnSimpleModelManagerHook.callCode)(own);
 		CharacterManager::OnThankYouLoad(false);
 		return ret;
+	}
+
+	bool MarioKartFramework::vehicleIsInLoopKCL(u32 vehicle) {
+		return *(u32*)(vehicle + 0xD14) == 8 && *(u32*)(vehicle + 0xD20) == 2;
+	}
+
+	bool MarioKartFramework::vehicleForceAntigravityCamera(u32 vehicle) {
+		return vehicleIsInLoopKCL(vehicle);
+	}
+
+	bool MarioKartFramework::vehicleDisableSteepWallPushback(u32 vehicle) {
+		return vehicleIsInLoopKCL(vehicle);
+	}
+
+	bool MarioKartFramework::vehicleDisableUpsideDownFloorUnstick(u32 vehicle, float* gravityAttenuator) {
+		// gravityAttenuator = 0 -> No change in gravity, gravityAttenuator = 1 -> Zero gravity 
+		bool isInLoop = vehicleIsInLoopKCL(vehicle);
+		bool res = false;
+		if (isInLoop) {
+			constexpr float loopStickThreshold = 0.75f;
+			float speedFactor = *(float*)(vehicle + 0x330 + 0xC00);
+			res = speedFactor > loopStickThreshold;
+		}
+		return res;
+	}
+
+	void MarioKartFramework::OnKartGravityApply(u32 vehicle, Vector3& gravityForce) {
+		bool isInLoop = vehicleIsInLoopKCL(vehicle);
+		if (isInLoop) {
+			float speedFactor = *(float*)(vehicle + 0x330 + 0xC00);
+			constexpr float invertedGravityFactor = 0.95f;
+			float gravityInterpolationFactor = std::min(invertedGravityFactor, speedFactor) / invertedGravityFactor;
+			float currentGravityMagnitude = gravityForce.Magnitude();
+			Vector3 kartDownVec = (*(Vector3*)(((u32*)vehicle)[0xC] + 0xC)) * -1.f;
+			gravityForce.InvCerp(kartDownVec * currentGravityMagnitude, gravityInterpolationFactor);
+		}
 	}
 
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {

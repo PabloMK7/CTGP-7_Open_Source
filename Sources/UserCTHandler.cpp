@@ -362,7 +362,7 @@ namespace CTRPluginFramework {
                 if (!itemID.empty() || TextFileParser::IsNumerical(itemID, true)) {
                     skipConfig.itemID = std::stoi(itemID, 0, 16);
                     if (skipConfig.itemID < 0) skipConfig.itemID = -1;
-                    else if (skipConfig.itemID > 15) skipConfig.itemID = -1;
+                    else if (skipConfig.itemID > 0x13) skipConfig.itemID = -1;
                 }
             }
 

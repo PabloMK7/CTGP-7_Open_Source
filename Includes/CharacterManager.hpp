@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterManager.hpp
-Open source lines: 155/155 (100.00%)
+Open source lines: 160/160 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -61,6 +61,7 @@ namespace CTRPluginFramework {
 			LAST // Always last one, used as size
 		};
 		static const char* shortNames[CharID::LAST];
+		static const char* selectBclimNames[CharID::LAST];
 		static const int msbtOrder[CharID::LAST];
 		static const CharID driverIDOrder[EDriverID::DRIVER_SIZE];
 		struct CharacterSave
@@ -105,6 +106,7 @@ namespace CTRPluginFramework {
 		static std::vector<std::string> authorNames;
 		static void Initialize();
 		static u16  InsertAuthor(const std::string& author);
+		static std::string GetAuthor(u16 index);
 		static std::vector<std::string> GetAllAuthors();
 		static void populateCharEntries();
 		static void saveSettings();
@@ -122,6 +124,9 @@ namespace CTRPluginFramework {
 		static void copyDirectory(std::string dst, std::string ori);
 		static void OnFaceRaiderMenuEvent(Keyboard&, KeyboardEvent &event);
 		static bool openFaceRaiderMenu(const CharacterEntry& entry);
+		static void SetCharacterOption(Keyboard& kbd, u32 option);
+		static s32 LoadCharacterImageTaskFunc(void* args);
+		static void OnCharacterManagerMenuEvent(Keyboard&, KeyboardEvent &event);
 		static void characterManagerSettings(MenuEntry* entry);
 		static void	enableCustomKartsSettings(MenuEntry* entry);
 

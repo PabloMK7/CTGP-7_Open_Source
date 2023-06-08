@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 730/730 (100.00%)
+Open source lines: 736/736 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -599,7 +599,7 @@ namespace CTRPluginFramework {
 			static void onKartCountFrameGround(u32* vehicleMoveObj);
 			static void startJumpActionCallback(u32* vehicleMoveObj);
 			static u32 getMyPlayerID();
-			static u32 getVehicle(u32 playerID); // 0xD14 = last collosion ID, 0xD18 = last collision ID bitmap, 0xD20 = last collision subtype
+			static u32 getVehicle(u32 playerID); // 0xD14 = last collosion ID, 0xD18 = last collision ID bitmap, 0xD20 = last collision subtype, 0x0xFE8 = collision is trickeable
 			//
 			static const u8 netVanillaPacketSignature[0x10];
 			static u32 nexNetworkInstance;
@@ -710,6 +710,12 @@ namespace CTRPluginFramework {
 			static bool OnThankyouPageInitControl();
 			static RT_HOOK OnSimpleModelManagerHook;
 			static u32 OnSimpleModelManager(u32 own);
+			//
+			static bool vehicleIsInLoopKCL(u32 vehicle);
+			static bool vehicleForceAntigravityCamera(u32 vehicle);
+			static bool vehicleDisableSteepWallPushback(u32 vehicle);
+			static bool vehicleDisableUpsideDownFloorUnstick(u32 vehicle, float* gravityAttenuator);
+			static void OnKartGravityApply(u32 vehicle, Vector3& gravity);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

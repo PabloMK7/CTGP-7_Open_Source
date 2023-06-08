@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 535/567 (94.36%)
+Open source lines: 538/570 (94.39%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -520,7 +520,10 @@ namespace CTRPluginFramework {
 				}
 			} else {
 				kbd.GetMessage() = NAME("disc_info") + "\n\n";
-				kbd.GetMessage() += NAME("disc_data") + Utils::Format("\n%s#%s\n\n", info.userName.c_str(), info.userDiscrim.c_str());
+				if (info.userDiscrim.empty())
+					kbd.GetMessage() += NAME("disc_data") + Utils::Format("\n@%s\n\n", info.userName.c_str());
+				else
+					kbd.GetMessage() += NAME("disc_data") + Utils::Format("\n%s#%s\n\n", info.userName.c_str(), info.userDiscrim.c_str());
 				kbd.GetMessage() += NOTE("disc_data") + Utils::Format("\n%s\n\n",info.userNick.c_str());
 				kbd.GetMessage() += info.canBeta ? NAME("disc_beta") : NOTE("disc_beta");
 				kbd.Populate({Language::MsbtHandler::GetString(2001)});

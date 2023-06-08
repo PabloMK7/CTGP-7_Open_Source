@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterManager.cpp
-Open source lines: 820/820 (100.00%)
+Open source lines: 952/953 (99.90%)
 *****************************************************/
 
 #include "CharacterManager.hpp"
@@ -17,6 +17,7 @@ Open source lines: 820/820 (100.00%)
 #include "str16utils.hpp"
 #include "MenuPage.hpp"
 #include "SaveHandler.hpp"
+#include "BCLIM.hpp"
 
 namespace CTRPluginFramework {
 	extern const char* g_LangFilenames[];
@@ -38,6 +39,25 @@ namespace CTRPluginFramework {
 			"wig",
 			"wr",
 			"ys"
+	};
+	const char* CharacterManager::selectBclimNames[CharacterManager::CharID::LAST] = {
+		"bowser",
+		"donkey",
+		"daisy",
+		"honeyQueen",
+		"koopaTroopa",
+		"luigi",
+		"lakitu",
+		"",
+		"mario",
+		"metal",
+		"peach",
+		"rosalina",
+		"sh_red",
+		"toad",
+		"wiggler",
+		"wario",
+		"yoshi"
 	};
 	const int CharacterManager::msbtOrder[CharacterManager::CharID::LAST] = {
 		4,
@@ -132,6 +152,12 @@ namespace CTRPluginFramework {
         return it - authorNames.begin();
     }
 
+	std::string CharacterManager::GetAuthor(u16 index) {
+		if (index < authorNames.size())
+			return authorNames[index];
+		return "";
+	}
+
 	std::vector<std::string> CharacterManager::GetAllAuthors() {
 		std::vector<int> freq(authorNames.size(), 0);
         for (auto it = charEntries.cbegin(); it != charEntries.cend(); it++) {
@@ -176,6 +202,7 @@ namespace CTRPluginFramework {
 			TextFileParser currParser;
 			bool wasParsed = currParser.Parse(charRootDir.GetFullName() + "/" + dirs[i] + "/config.ini");
 			if (!wasParsed) continue;
+			newEntry.authors.clear();
 			newEntry.sarc = nullptr;
 			newEntry.longName = currParser.getEntry(nameStr, false);
 			newEntry.shortName = currParser.getEntry(nameStr, true);
@@ -189,6 +216,7 @@ namespace CTRPluginFramework {
 					break;
 				}
 			}
+			if (!origChar) continue;
 			if (newEntry.longName.empty() || newEntry.shortName.empty()) {
 				newEntry.longName = currParser.getEntry("name_ENG", false);
 				newEntry.shortName = currParser.getEntry("name_ENG", true);
@@ -211,7 +239,6 @@ namespace CTRPluginFramework {
 					newEntry.achievementLevel = level;
 			}
 
-			if (!origChar) continue;
 			newEntry.folderName = dirs[i];
 			
 			auto authorList = currParser.getEntries("authors");
@@ -241,15 +268,15 @@ namespace CTRPluginFramework {
 			Directory::Remove("/CTGP-7/gamefs/Kart");
 			Directory::Create("/CTGP-7/gamefs/Driver");
 			if (currSave.customKartsEnabled) {
-				patchProgress1 = "Listing kart patches...";
+				patchProgress1 = "Listing kart patches... (1/1)";
 				copyDirectory("/CTGP-7/gamefs/Kart", "/CTGP-7/MyStuff/Karts/Kart");
 				copier->Run();
 				delete copier;
 				copier = new FileCopier(FileCopy1, FileCopy2);
 				patchProgress2 = "";
 			}
-			patchProgress1 = "Listing character patches...";
 			for (int i = 0; i < enabledEntries.size(); i++) {
+				patchProgress1 = Utils::Format("Listing character patches... (%d/%d)", i + 1, enabledEntries.size());
 				copyDirectory("/CTGP-7/gamefs/Driver", "/CTGP-7/MyStuff/Characters/" + enabledEntries[i].folderName + "/Driver");
 				copyDirectory("/CTGP-7/gamefs/Kart", "/CTGP-7/MyStuff/Characters/" + enabledEntries[i].folderName + "/Kart");
 			}
@@ -414,14 +441,6 @@ namespace CTRPluginFramework {
 	static u32 g_faceMenuAmountOptions = 0;
 	static u32 g_faceMenuCurrentOption = 0;
 	static CharacterManager::FaceRaiderImage* g_faceMenuFaceRaiderImage;
-	static int g_faceMenuTileOrder[] =
-	{
-		0,  1,   4,  5,
-		2,  3,   6,  7,
-
-		8,  9,   12, 13,
-		10, 11,  14, 15
-	};
 
 	void CharacterManager::OnFaceRaiderMenuEvent(Keyboard&, KeyboardEvent &event) {
 		if (event.type == KeyboardEvent::SelectionChanged) {
@@ -434,27 +453,13 @@ namespace CTRPluginFramework {
 				g_faceMenuFaceRaiderImage = new CharacterManager::FaceRaiderImage(g_faceMenuCurrentOption);
 			}
 		} else if (event.type == KeyboardEvent::FrameTop && g_faceMenuCurrentOption != 0 && g_faceMenuFaceRaiderImage && g_faceMenuFaceRaiderImage->isLoaded) {
-			int startX = (400 - 128) / 2;
-			int startY = (240 - 128) / 2;
-			int offs = 0;
-			for (int y = 0; y < 128; y+=8) {
-				for (int x = 0; x < 128; x+=8) {
-					for (int i = 0; i < 64; i++) {
-						int x2 = i % 8;
-						if (x + x2 >= 128) continue;
-						int y2 = i / 8;
-						if (y + y2 >= 128) continue;
-						int pos = g_faceMenuTileOrder[x2 % 4 + y2 % 4 * 4] + 16 * (x2 / 4) + 32 * (y2 / 4);
-						u16 pixel = g_faceMenuFaceRaiderImage->pixelData[offs + pos];
-						u8 b = (u8)((pixel & 0x1F) << 3);
-						u8 g = (u8)((pixel & 0x7E0) >> 3);
-						u8 r = (u8)((pixel & 0xF800) >> 8);
-						event.renderInterface->DrawPixel(startX + x + x2, startY + y + y2, Color(r, g, b));
-					}
-					offs += 64;
-				}
-			}
-			event.renderInterface->DrawRect(IntRect(startX, startY, 128, 128), Color::Red, false, 2);
+			BCLIM::Header fakeBclimHeader = {0};
+			fakeBclimHeader.imag.format = BCLIM::TextureFormat::RGB565;
+			fakeBclimHeader.imag.height = 128;
+			fakeBclimHeader.imag.width = 128;
+			IntRect imageRect((400 - 128) / 2, (240 - 128) / 2, 128, 128);
+			BCLIM(g_faceMenuFaceRaiderImage->pixelData, &fakeBclimHeader).Render(imageRect, *event.renderInterface);
+			event.renderInterface->DrawRect(imageRect, Color::Red, false, 2);
 		}
 	}
 
@@ -494,10 +499,114 @@ namespace CTRPluginFramework {
 		return result;
 	}
 
+
+	static std::vector<CharacterManager::CharacterEntry> g_thisCharEntries;
+	static CharacterManager::CharacterEntry* g_currentLoadEntry = nullptr;
+	static Mutex g_currentLoadEntryMutex;
+	static void* g_bclimBuffer = nullptr;
+	static u32 g_bclimFileSize = 0;
+	static bool g_imageReady = false;
+	static Task* g_readETCTask = nullptr;
+
+	s32 CharacterManager::LoadCharacterImageTaskFunc(void* args) {
+		CharacterManager::CharacterEntry* entry;
+		bool atleastone = false;
+		auto loadfallbackicon = [](CharacterManager::CharacterEntry* entry) {
+			if (!ExtraResource::isValidMenuSzsArchive())
+				return false;
+			ExtraResource::SARC menuSzs((u8*)(ExtraResource::latestMenuSzsArchive[0xE] - 0x14), false);
+			if (!menuSzs.processed)
+				return false;
+			ExtraResource::SARC::FileInfo fInfo;
+			u8* fileData = menuSzs.GetFile("select_" + std::string(selectBclimNames[(u32)entry->origChar]) + ".bclim", &fInfo);
+			if (!fileData || fInfo.fileSize > 0x2048)
+				return false;
+			memcpy(g_bclimBuffer, fileData, fInfo.fileSize);
+			g_bclimFileSize = fInfo.fileSize;
+			return true;
+		};
+		while (true) {
+			{
+				Lock lock(g_currentLoadEntryMutex);
+				if (g_currentLoadEntry == nullptr) {
+					g_imageReady = atleastone;
+					break;
+				} else {
+					entry = g_currentLoadEntry;
+					g_currentLoadEntry = nullptr;
+				}
+			}
+			if (entry->folderName == "") {
+				atleastone = loadfallbackicon(entry);
+				continue;
+			}
+			ExtraResource::StreamedSarc sarc("/CTGP-7/MyStuff/Characters/" + entry->folderName + "/UI.sarc");
+			if (!sarc.processed) {
+				atleastone = loadfallbackicon(entry);
+				continue;
+			}
+			ExtraResource::SARC::FileInfo fInfo;
+			if (!sarc.GetFileInfo(fInfo, "UI/menu.szs/select_" + std::string(selectBclimNames[(u32)entry->origChar]) + ".bclim") || fInfo.fileSize > 0x2048) {
+				atleastone = loadfallbackicon(entry);
+				continue;
+			}
+			if (!sarc.ReadFileDirectly(g_bclimBuffer, fInfo, fInfo)) {
+				atleastone = loadfallbackicon(entry);
+				continue;
+			}
+			g_bclimFileSize = fInfo.fileSize;
+			atleastone = true;
+		}
+		return 0;
+	}
+
+	void CharacterManager::SetCharacterOption(Keyboard& kbd, u32 option) {
+		{
+			Lock lock(g_currentLoadEntryMutex);
+			g_currentLoadEntry = &g_thisCharEntries[option];
+			g_imageReady = false;
+		}
+		g_readETCTask->Start();
+		std::string text = CenterAlign(NAME("char_replace") + g_thisCharEntries[0].longName);
+		text += HorizontalSeparator();
+		text += CenterAlign(g_thisCharEntries[option].longName) + "\n\n\n\n";
+		text += HorizontalSeparator();
+		if (g_thisCharEntries[option].authors.size() > 0) {
+			text += CenterAlign(NAME("authors")) + "\n";
+			std::string currline = "";
+			for (int i = 0; i < 6 && i < g_thisCharEntries[option].authors.size(); i++) {
+				currline += GetAuthor(g_thisCharEntries[option].authors[i]);
+				if (((i + 1) % 3) != 0 && (i+1 != g_thisCharEntries[option].authors.size()))
+					currline += ", ";
+				if (((i+1) % 3) == 0)
+					currline += "\n";
+			}
+			text += CenterAlign(currline);
+		}
+		kbd.GetMessage() = text;
+	}
+
+	void CharacterManager::OnCharacterManagerMenuEvent(Keyboard& kbd, KeyboardEvent &event) {
+		if (event.type == KeyboardEvent::SelectionChanged && event.selectedIndex >= 0) {
+			SetCharacterOption(kbd, event.selectedIndex);
+		} else if (event.type == KeyboardEvent::FrameTop) {
+			if (g_imageReady) {
+				int startX = ((400 - 64) / 2) - 3;
+				int startY = (240 - 64) / 2;
+				BCLIM(g_bclimBuffer, g_bclimFileSize).Render(IntRect(startX, startY, 64, 64), *event.renderInterface);
+			}
+		}
+	}
 	void CharacterManager::characterManagerSettings(MenuEntry* entry) {
-		Keyboard charopt(NAME("charman") + "\n\n" + NAME("char_select") + "\n" + NAME("reboot_req"));
+		Keyboard charopt(CenterAlign(NAME("charman") + "\n" + NAME("char_select")));
 		std::vector<std::string> options;
 		std::vector<int> countEach;
+		if (!g_bclimBuffer) {
+			g_bclimBuffer = operator new(0x2048);
+		}
+		if (!g_readETCTask) {
+			g_readETCTask = new Task(LoadCharacterImageTaskFunc, nullptr, Task::Affinity::AppCore);
+		}
 		options.resize(CharID::LAST);
 		countEach.resize(CharID::LAST);
 		int achievementLevel = SaveHandler::saveData.GetCompletedAchievementCount();
@@ -534,42 +643,61 @@ namespace CTRPluginFramework {
 				origEntry.achievementLevel = 0;
 				origEntry.creditsAllowed = true;
 				origEntry.faceRaiderOffset = 0;
-				std::vector<CharacterEntry> thisCharEntries;
-				thisCharEntries.push_back(origEntry);
+				g_thisCharEntries.clear();
+				g_thisCharEntries.push_back(origEntry);
 				int currCusEntry = 1;
 				for (int i = 0; i < charEntries.size(); i++) {
 					if (charEntries[i].origChar != selectedCustomChar || charEntries[i].achievementLevel > achievementLevel) continue;
 					if (strncmp(currSave.inUseNames[selectedCustomChar], charEntries[i].folderName.c_str(), 0x20) == 0) {
 						greenEntry = currCusEntry;
 					}
-					thisCharEntries.push_back(charEntries[i]);
+					g_thisCharEntries.push_back(charEntries[i]);
 					currCusEntry++;
 				}
 				std::vector<std::string> customOption;
 				currCusEntry = 0;
-				for (int i = 0; i < thisCharEntries.size(); i++) {
-					if (greenEntry == currCusEntry) customOption.push_back(std::string(Color::Lime << thisCharEntries[i].longName));
-					else if (thisCharEntries[i].achievementLevel == 5) customOption.push_back(std::string(Color(255, 0, 255) << thisCharEntries[i].longName));
-					else if (thisCharEntries[i].achievementLevel > 0) customOption.push_back(std::string(Color(255, 255, 0) << thisCharEntries[i].longName));
-					else customOption.push_back(thisCharEntries[i].longName);
+				for (int i = 0; i < g_thisCharEntries.size(); i++) {
+					if (greenEntry == currCusEntry) customOption.push_back(std::string(Color::Lime << g_thisCharEntries[i].longName));
+					else if (g_thisCharEntries[i].achievementLevel == 5) customOption.push_back(std::string(Color(255, 0, 255) << g_thisCharEntries[i].longName));
+					else if (g_thisCharEntries[i].achievementLevel > 0) customOption.push_back(std::string(Color(255, 255, 0) << g_thisCharEntries[i].longName));
+					else customOption.push_back(g_thisCharEntries[i].longName);
 					currCusEntry++;
 				}
-				Keyboard customCharOpt(NAME("char_replace") + options[result] + std::string(Color::Lime << "\n\n" + NAME("green_info")));
+				Keyboard customCharOpt("dummy");
 				customCharOpt.Populate(customOption);
 				customCharOpt.ChangeSelectedEntry(greenEntry);
+				customCharOpt.OnKeyboardEvent(OnCharacterManagerMenuEvent);
+				SetCharacterOption(customCharOpt, greenEntry);
 				int result2 = customCharOpt.Open();
 				if (result2 >= 0) {
 					bool forceSave = false;
-					if (thisCharEntries[result2].faceRaiderOffset != 0) forceSave = openFaceRaiderMenu(thisCharEntries[result2]);
+					if (g_thisCharEntries[result2].faceRaiderOffset != 0) forceSave = openFaceRaiderMenu(g_thisCharEntries[result2]);
 					if (result2 != greenEntry || forceSave) {
 						memset(currSave.inUseNames[selectedCustomChar], 0, 0x20);
-						strncpy(currSave.inUseNames[selectedCustomChar], thisCharEntries[result2].folderName.c_str(), 0x20);
-						options[msbtOrder[selectedCustomChar]] = thisCharEntries[result2].longName + " (" + std::to_string(countEach[selectedCustomChar]) + ")";
+						strncpy(currSave.inUseNames[selectedCustomChar], g_thisCharEntries[result2].folderName.c_str(), 0x20);
+						options[msbtOrder[selectedCustomChar]] = g_thisCharEntries[result2].longName + " (" + std::to_string(countEach[selectedCustomChar]) + ")";
 						currSave.needsPatching = true;
 						saveSettings();
 					}
 				}
 			}
+		}
+		g_thisCharEntries.clear();
+		if (g_bclimBuffer) {
+			free(g_bclimBuffer);
+			g_bclimBuffer = nullptr;
+		}
+		if (g_readETCTask) {
+			{
+				Lock lock(g_currentLoadEntryMutex);
+				g_currentLoadEntry = nullptr;
+			}
+			g_readETCTask->Wait();
+			delete g_readETCTask;
+			g_readETCTask = nullptr;
+		}
+		if (currSave.needsPatching) {
+			MessageBox(NAME("reboot_req"))();
 		}
 	}
 	void CharacterManager::enableCustomKartsSettings(MenuEntry* entry)
@@ -578,13 +706,17 @@ namespace CTRPluginFramework {
 		kbd.Populate({ NAME("state_inf"), NOTE("state_inf") });
 		kbd.ChangeEntrySound(1, SoundEngine::Event::CANCEL);
 		int ret = kbd.Open();
-		if (ret < 0) return;
-		bool newOpt = ret == 0;
-		if (newOpt != currSave.customKartsEnabled) {
-			currSave.customKartsEnabled = newOpt;
-			currSave.needsPatching = true;
-			saveSettings();
-			entry->Name() = NAME("cuskart") + " (" + (currSave.customKartsEnabled ? NAME("state_mode") : NOTE("state_mode")) + ")";
+		if (ret >= 0){
+			bool newOpt = ret == 0;
+			if (newOpt != currSave.customKartsEnabled) {
+				currSave.customKartsEnabled = newOpt;
+				currSave.needsPatching = true;
+				saveSettings();
+				entry->Name() = NAME("cuskart") + " (" + (currSave.customKartsEnabled ? NAME("state_mode") : NOTE("state_mode")) + ")";
+			}
+		}		
+		if (currSave.needsPatching) {
+			MessageBox(NAME("reboot_req"))();
 		}
 	}
 

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 408/579 (70.47%)
+Open source lines: 473/646 (73.22%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -27,6 +27,8 @@ namespace CTRPluginFramework {
 	bool ExtraResource::lastTrackFileValid = false;
 	u32 ExtraResource::kartPtclFileOffset = 0;
 	ExtraResource::SARC::FileInfo ExtraResource::kartPtclFileInfo;
+
+	u32* ExtraResource::latestMenuSzsArchive = 0;
 
 
 	void ExtraResource::setupExtraResource() {
@@ -79,6 +81,9 @@ namespace CTRPluginFramework {
 	}
 	u8* ExtraResource::loadExtraFile(u32* archive, SafeStringBase* file, SARC::FileInfo* fileInfo) {
 		char* archiveN = (char*)archive[-5];
+		if (archiveN[2] == '/' && archiveN[3] == 'm' && archiveN[7] == '.') {
+			latestMenuSzsArchive = archive;
+		}
 		if (archiveN[2] != '/' && archiveN[3] == 'r') {
 			u32 len = strlen(file->data);
 			if (MissionHandler::isMissionMode) return MissionHandler::GetReplacementFile(file, fileInfo, (u8*)(archive[0xE] - 0x14));
@@ -150,6 +155,27 @@ namespace CTRPluginFramework {
 				File graphicdata("/CTGP-7/resources/CTGP-7.sarc");
 		#endif
 		graphicsSarc->Reload(graphicdata);
+	}
+
+	bool ExtraResource::isValidMenuSzsArchive() {
+		if (!latestMenuSzsArchive)
+			return false;
+		u32 value32;
+		u8 value8;
+		if (!Process::Read32((u32)&latestMenuSzsArchive[-5], value32))
+			return false;
+		char* archiveN = (char*)value32;
+		if (
+			!Process::Read8((u32)&archiveN[2], value8) || value8 != '/' ||
+			!Process::Read8((u32)&archiveN[3], value8) || value8 != 'm' ||
+			!Process::Read8((u32)&archiveN[7], value8) || value8 != '.'
+		)
+			return false;
+		if (!Process::Read32((u32)&latestMenuSzsArchive[0xE], value32))
+			return false;
+		if (!Process::Read32(value32 - 0x14, value32) && value32 != 0x43524153)
+			return false;
+		return true;
 	}
 
 	ExtraResource::SARC::SARC(File& sarcFile, bool loadToMemory)
@@ -290,6 +316,13 @@ namespace CTRPluginFramework {
 		return true;
 	}
 
+	bool ExtraResource::StreamedSarc::SetFileDirectly(SARC::FileInfo* info) {
+		currFileOffset = _sarc->header.dataOffset + info->dataStart;
+		if (_file->Seek(currFileOffset, File::SeekPos::SET) != File::OPResult::SUCCESS)
+			return false;
+		return true;
+	}
+
 	const u8* ExtraResource::StreamedSarc::GetData(s32 offset) {
 		if (!currFileOffset) return nullptr;
 		if (offset >= 0)
@@ -322,6 +355,38 @@ namespace CTRPluginFramework {
 		}
 		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)dest & ~0xFFF), (info.fileSize & ~0xFFF) + 0x2000);
 		destFileInfo.fileSize = info.fileSize;
+		return true;
+	}
+
+	const bool ExtraResource::StreamedSarc::ReadFileDirectly(void* dest, SARC::FileInfo& destFileInfo, SARC::FileInfo& inputFileInfo, bool allowCropSize) {
+		if (!dest || !destFileInfo.fileSize || !_sarc->processed || !_sarc->IsEnabled())
+			return false;
+		SARC::FileInfo info = inputFileInfo;
+		bool fileFound = SetFileDirectly(&info);
+		if (!fileFound || (info.fileSize > destFileInfo.fileSize && !allowCropSize))
+			return false;
+		u32 destSize = std::min(info.fileSize, destFileInfo.fileSize);
+		u32 offset = 0;
+		while (destSize) {
+			const u8* data = GetData();
+			if (!data)
+				return false;
+			u32 toCopy = (destSize > _bufferSize) ? _bufferSize : destSize;
+			destSize -= toCopy;
+			memcpy((u8*)dest + offset, data, toCopy);
+			offset += toCopy;
+		}
+		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)dest & ~0xFFF), (info.fileSize & ~0xFFF) + 0x2000);
+		destFileInfo.fileSize = info.fileSize;
+		return true;
+	}
+
+	const bool ExtraResource::StreamedSarc::GetFileInfo(SARC::FileInfo& outFileInfo, const char* name) {
+		if (!_sarc->processed || !_sarc->IsEnabled())
+			return false;
+		outFileInfo.fileSize = -1;
+		_sarc->GetFile(name, &outFileInfo);
+		if (outFileInfo.fileSize == -1) return false;
 		return true;
 	}
 
