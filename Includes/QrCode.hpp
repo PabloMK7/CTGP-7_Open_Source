@@ -103,7 +103,7 @@ class QrSegment final {
 	 * byte mode. All input byte vectors are acceptable. Any text string
 	 * can be converted to UTF-8 bytes and encoded as a byte mode segment.
 	 */
-	public: static QrSegment makeBytes(const std::vector<std::uint8_t> &data);
+	public: static QrSegment makeBytes(const std::vector<uint8_t> &data);
 	
 	
 	/* 
@@ -275,7 +275,7 @@ class QrCode final {
 	 * bytes allowed is 2953. The smallest possible QR Code version is automatically chosen for the output.
 	 * The ECC level of the result may be higher than the ecl argument if it can be done without increasing the version.
 	 */
-	public: static QrCode encodeBinary(const std::vector<std::uint8_t> &data, Ecc ecl);
+	public: static QrCode encodeBinary(const std::vector<uint8_t> &data, Ecc ecl);
 	
 	
 	/*---- Static factory functions (mid level) ----*/
@@ -335,7 +335,7 @@ class QrCode final {
 	 * This is a low-level API that most users should not use directly.
 	 * A mid-level API is the encodeSegments() function.
 	 */
-	public: QrCode(int ver, Ecc ecl, const std::vector<std::uint8_t> &dataCodewords, int msk);
+	public: QrCode(int ver, Ecc ecl, const std::vector<uint8_t> &dataCodewords, int msk);
 	
 	
 	
@@ -412,12 +412,12 @@ class QrCode final {
 	
 	// Returns a new byte string representing the given data with the appropriate error correction
 	// codewords appended to it, based on this object's version and error correction level.
-	private: std::vector<std::uint8_t> addEccAndInterleave(const std::vector<std::uint8_t> &data) const;
+	private: std::vector<uint8_t> addEccAndInterleave(const std::vector<uint8_t> &data) const;
 	
 	
 	// Draws the given sequence of 8-bit codewords (data and error correction) onto the entire
 	// data area of this QR Code. Function modules need to be marked off before this is called.
-	private: void drawCodewords(const std::vector<std::uint8_t> &data);
+	private: void drawCodewords(const std::vector<uint8_t> &data);
 	
 	
 	// XORs the codeword modules in this QR Code with the given mask pattern.
@@ -456,16 +456,16 @@ class QrCode final {
 	
 	// Returns a Reed-Solomon ECC generator polynomial for the given degree. This could be
 	// implemented as a lookup table over all possible parameter values, instead of as an algorithm.
-	private: static std::vector<std::uint8_t> reedSolomonComputeDivisor(int degree);
+	private: static std::vector<uint8_t> reedSolomonComputeDivisor(int degree);
 	
 	
 	// Returns the Reed-Solomon error correction codeword for the given data and divisor polynomials.
-	private: static std::vector<std::uint8_t> reedSolomonComputeRemainder(const std::vector<std::uint8_t> &data, const std::vector<std::uint8_t> &divisor);
+	private: static std::vector<uint8_t> reedSolomonComputeRemainder(const std::vector<uint8_t> &data, const std::vector<uint8_t> &divisor);
 	
 	
 	// Returns the product of the two given field elements modulo GF(2^8/0x11D).
 	// All inputs are valid. This could be implemented as a 256*256 lookup table.
-	private: static std::uint8_t reedSolomonMultiply(std::uint8_t x, std::uint8_t y);
+	private: static uint8_t reedSolomonMultiply(uint8_t x, uint8_t y);
 	
 	
 	// Can only be called immediately after a white run is added, and
@@ -501,8 +501,8 @@ class QrCode final {
 	private: static const int PENALTY_N4;
 	
 	
-	private: static const std::int8_t ECC_CODEWORDS_PER_BLOCK[4][41];
-	private: static const std::int8_t NUM_ERROR_CORRECTION_BLOCKS[4][41];
+	private: static const int8_t ECC_CODEWORDS_PER_BLOCK[4][41];
+	private: static const int8_t NUM_ERROR_CORRECTION_BLOCKS[4][41];
 	
 };
 
@@ -522,7 +522,7 @@ class BitBuffer final : public std::vector<bool> {
 	
 	// Appends the given number of low-order bits of the given value
 	// to this buffer. Requires 0 <= len <= 31 and val < 2^len.
-	public: void appendBits(std::uint32_t val, int len);
+	public: void appendBits(uint32_t val, int len);
 	
 };
 

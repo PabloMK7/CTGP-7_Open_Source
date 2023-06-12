@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2168/2502 (86.65%)
+Open source lines: 2172/2506 (86.67%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -1014,7 +1014,7 @@ namespace CTRPluginFramework {
         obj->ctPreview.Load();
         if (!obj->ctPreviewChildTrack) obj->ctPreview.SetPreview(-1, 0, true);
         else obj->ctPreview.SetTarget(obj->ctPreviewChildAnim);
-        if (obj->selectedCupIcon == 10 && !obj->hasRandomButton) obj->selectedCupIcon = 0;
+        if ((obj->selectedCupIcon == 10 && !obj->hasRandomButton) || obj->selectedCupIcon < 0) obj->selectedCupIcon = 0;
         u32 lastSelectedCup = obj->selectedCupIcon;  // Check it's not 0xA random button
         own->SetLastSelectedButton(obj->selectedCupIcon);
         moflexUpdateCup(own);
@@ -1034,8 +1034,8 @@ namespace CTRPluginFramework {
                 }
             }
         } else {
-            u32 cupID = ((u32*)(own->GetButtonArray(0x2E0)[lastSelectedCup]))[0x214/4];
-            bool isCupLocked = cupID > 7 || MissionHandler::isMissionMode;
+            int cupID = ((u32*)(own->GetButtonArray(0x2E0)[lastSelectedCup]))[0x214/4];
+            bool isCupLocked = cupID < 0 || cupID > 7 || MissionHandler::isMissionMode;
             VisualControl::GameVisualControl* omakaseView = (VisualControl::GameVisualControl*)ownU32[0x2DC/4];
             u32 omakaseRootHandle = (u32)(omakaseView->vtable->getRootPane(omakaseView));
             omakaseView->GetNwlytControl()->vtable->setVisibleImpl(omakaseView->GetNwlytControl(), omakaseRootHandle, isCupLocked);
@@ -1102,7 +1102,7 @@ namespace CTRPluginFramework {
         u8* ownU8 = (u8*)own;
         CRaceInfo* raceInfo = MarioKartFramework::getRaceInfo(true);
         VisualControl::GameVisualControl** courseButtonDummies = (VisualControl::GameVisualControl**)(ownU32 + 0x2C8/4);
-        bool isCupLocked = cupID > 7 && cupID < 0xA;
+        bool isCupLocked = cupID < 0 || cupID > 7 && cupID < 0xA;
         for (int i = 0; i < 4; i++) {
             u32 nameID = CourseManager::getCourseGlobalIDName(cupID, i);
             u32 courseButtonHandle = (u32)(courseButtonDummies[i]->vtable->getRootPane(courseButtonDummies[i]));
@@ -1498,7 +1498,7 @@ namespace CTRPluginFramework {
         void(*MoflexUpdateFrame)(u32, u32*) = (decltype(MoflexUpdateFrame))GameFuncs::MoflexUpdateFrame;
         MenuSingleCupBasePage* obj = ((MenuSingleCupBasePage*)own->vtable->userData);
 
-        bool isCupLocked = buttonID > 7 || MissionHandler::isMissionMode;
+        bool isCupLocked = buttonID < 0 || buttonID > 7 || MissionHandler::isMissionMode;
         
         if (isCupLocked) {
             MoflexReset(false);
@@ -1533,7 +1533,9 @@ namespace CTRPluginFramework {
             u32* currUpdater = moflexUpdaters[buttonID];
             if (!currUpdater)
                 currUpdater = moflexUpdaters[0];
-            if (currUpdater) MoflexUpdateFrame(ownU32[0x294/4], currUpdater);
+            u8 temp;
+            if (Process::Read8((u32)currUpdater, temp)) // Hacky "fix" for the random button crash, check the address is valid
+                MoflexUpdateFrame(ownU32[0x294/4], currUpdater);
         }
     }
 
@@ -1653,7 +1655,9 @@ namespace CTRPluginFramework {
         }
         ((u32*)movieView)[0xAC/4] = somethingequal;
         ((MenuSingleCupGPPage*)own->vtable->userData)->ctPreview.Unload();
-        ((MenuSingleCupGPPage*)own->vtable->userData)->selectedCupIcon = own->GetLastSelectedButton();
+        int uiManipulatorLastButton =  own->GetLastSelectedButton();
+        if (uiManipulatorLastButton >= 0)
+            ((MenuSingleCupGPPage*)own->vtable->userData)->selectedCupIcon = uiManipulatorLastButton;
         if (!isCupBase) MoflexReset(true);
     }
 
@@ -1664,7 +1668,7 @@ namespace CTRPluginFramework {
         void(*MenuCourseNameSet)(VisualControl::GameVisualControl*, u32 cupID, u32& engineLevel, bool isMirror, bool unk0, bool unk1) = (decltype(MenuCourseNameSet))GameFuncs::MenuCourseNameSet;
         
         CRaceInfo* raceInfo = MarioKartFramework::getRaceInfo(true);
-        u32 cupID = MarioKartFramework::BasePageGetCup();
+        int cupID = MarioKartFramework::BasePageGetCup();
         MenuSingleCourseBasePage* obj = (MenuSingleCourseBasePage*)own->vtable->userData;
         u32* ownU32 = (u32*)own;
 
@@ -1683,7 +1687,7 @@ namespace CTRPluginFramework {
             uiMovieViewAnimOut(movieView2);
         }
         
-        bool isCupLocked = cupID > 7;
+        bool isCupLocked = cupID < 0 || cupID > 7;
 
         u32 omakase1RootHandle = (u32)(omakaseView1->vtable->getRootPane(omakaseView1));
         omakaseView1->GetNwlytControl()->vtable->setVisibleImpl(omakaseView1->GetNwlytControl(), omakase1RootHandle, isCupLocked);

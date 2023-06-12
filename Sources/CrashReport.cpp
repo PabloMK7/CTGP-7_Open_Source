@@ -15,7 +15,7 @@ Open source lines: 250/250 (100.00%)
 #include "csvc.h"
 #include "ExtraResource.hpp"
 
-extern "C" char* __textend;
+extern "C" char* __text_end__;
 
 namespace CTRPluginFramework {
 
@@ -216,7 +216,7 @@ namespace CTRPluginFramework {
     void CrashReport::populateRegisterInfo(const CpuRegisters* regs)
     {
         u32 pluginTextStart = 0x07000100;
-        u32 pluginTextEnd = (u32)&__textend;
+        u32 pluginTextEnd = (u32)&__text_end__;
         u32 gameTextStart = 0x100000;
         u32 gameTextEnd = Process::GetTextSize() + gameTextStart;
         s64 info;

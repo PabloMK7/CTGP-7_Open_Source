@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 1013/1150 (88.09%)
+Open source lines: 1014/1151 (88.10%)
 *****************************************************/
 
 #include <locale>
@@ -58,6 +58,7 @@ namespace CTRPluginFramework
 		u32 tracksel = INVALIDTRACK;
 		int initialButton = MenuPageHandler::MenuSingleCupBasePage::startingButtonID;
 		int selectedButton = MenuPageHandler::MenuSingleCupGPPage::selectedCupIcon;
+		if (selectedButton < 0) selectedButton = 0;
 		int opt;
 		kbd.Populate({ NAME("select"), NAME("exit") });
 		kbd.ChangeEntrySound(1, SoundEngine::Event::CANCEL);

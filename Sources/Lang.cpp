@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 767/768 (99.87%)
+Open source lines: 769/770 (99.87%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -21,6 +21,7 @@ Open source lines: 767/768 (99.87%)
 #include "entrystructs.hpp"
 #include "foolsday.hpp"
 #include "CustomTextEntries.hpp"
+#include "BCLIM.hpp"
 
 namespace CTRPluginFramework
 {
@@ -285,10 +286,10 @@ namespace CTRPluginFramework
 	}
 
 	static u8* peaceIconData = nullptr;
-	static void CupKeyboardCallback(Keyboard& k, KeyboardEvent& event) {
+	static u32 peaceIconDataSize = 0;
+	static void LanguageKeyboardCallback(Keyboard& k, KeyboardEvent& event) {
 		if (event.type == KeyboardEvent::EventType::FrameTop && peaceIconData) {
-			CustomIcon peaceIcon = CustomIcon((CustomIcon::Pixel*)peaceIconData, 20, 20, true);
-			event.renderInterface->DrawCustomIcon(peaceIcon, 345, 194);
+			BCLIM(peaceIconData, peaceIconDataSize).Render(IntRect(339, 189, 26, 26), *event.renderInterface);
 		}
 	}
 	
@@ -296,14 +297,15 @@ namespace CTRPluginFramework
 	{
 		if (!peaceIconData) {
 			ExtraResource::SARC::FileInfo finfo;
-			peaceIconData = ExtraResource::mainSarc->GetFile("Plugin/peace.bin", &finfo);
+			peaceIconData = ExtraResource::mainSarc->GetFile("Plugin/peace.bclim", &finfo);
+			peaceIconDataSize = finfo.fileSize;
 		}
 		std::vector<std::string> langs;
 		for (int i = 0; i < availableLang.size(); i++) {
 			langs.push_back(availableLang[i].Name);
 		}
 		Keyboard kbd("Please select language.\n(Reboot required to apply changes.)");
-		kbd.OnKeyboardEvent(CupKeyboardCallback);
+		kbd.OnKeyboardEvent(LanguageKeyboardCallback);
 		kbd.Populate(langs);
 		int opt = kbd.Open();
 		if (opt >= 0) {

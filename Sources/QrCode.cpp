@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: QrCode.cpp
-Open source lines: 822/822 (100.00%)
+Open source lines: 820/820 (100.00%)
 *****************************************************/
 
 /* 
@@ -33,8 +33,6 @@ Open source lines: 822/822 (100.00%)
 #include "QrCode.hpp"
 #include "array"
 
-using std::int8_t;
-using std::uint8_t;
 using std::size_t;
 using std::vector;
 
@@ -812,7 +810,7 @@ BitBuffer::BitBuffer()
 	: std::vector<bool>() {}
 
 
-void BitBuffer::appendBits(std::uint32_t val, int len) {
+void BitBuffer::appendBits(uint32_t val, int len) {
 	if (len < 0 || len > 31 || val >> len != 0)
 		abort(); // std::domain_error("Value out of range");
 	for (int i = len - 1; i >= 0; i--)  // Append bit by bit

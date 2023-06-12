@@ -72,9 +72,9 @@ namespace CTRPluginFramework {
                     for (int x = 0; x < header->imag.width; x+=8) {
                         for (int i = 0; i < 64; i++) {
                             int x2 = i % 8;
-                            if (x + x2 >= crop.size.x) continue;
+                            if (x + x2 >= crop.size.x || x + x2 >= header->imag.width) continue;
                             int y2 = i / 8;
-                            if (y + y2 >= crop.size.y) continue;
+                            if (y + y2 >= crop.size.y || y + y2 >= header->imag.height) continue;
                             auto drawPos = mapping(position, x + x2, y + y2, header->imag.width, header->imag.height);
                             if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
                                 prevPos = drawPos;
@@ -99,9 +99,9 @@ namespace CTRPluginFramework {
                     for (int x = 0; x < header->imag.width; x+=8) {
                         for (int i = 0; i < 64; i++) {
 							int x2 = i % 8;
-                            if (x + x2 >= crop.size.x) continue;
+                            if (x + x2 >= crop.size.x || x + x2 >= header->imag.width) continue;
                             int y2 = i / 8;
-                            if (y + y2 >= crop.size.y) continue;
+                            if (y + y2 >= crop.size.y || y + y2 >= header->imag.height) continue;
                             auto drawPos = mapping(position, x + x2, y + y2, header->imag.width, header->imag.height);
                             if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
                                 prevPos = drawPos;

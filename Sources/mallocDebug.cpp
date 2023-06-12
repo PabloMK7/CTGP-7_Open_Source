@@ -11,7 +11,7 @@ Open source lines: 203/204 (99.51%)
 
 #ifdef DEBUG_MALLOC
 
-extern "C" char* __textend;
+extern "C" char* __text_end__;
 
 namespace CTRPluginFramework {
 
@@ -187,7 +187,7 @@ namespace CTRPluginFramework {
         u32 stackAddrCnt = 2;
         u32 stackOffset = 0;
         u32 pluginTextStart = 0x07000100;
-        u32 pluginTextEnd = (u32)&__textend;
+        u32 pluginTextEnd = (u32)&__text_end__;
 
         while (stackOffset < 0x2000 / 4 && stackAddrCnt < 0x26) {
             u32 value = sp[stackOffset++];
