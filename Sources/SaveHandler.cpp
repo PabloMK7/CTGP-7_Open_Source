@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 456/511 (89.24%)
+Open source lines: 467/522 (89.46%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -364,6 +364,8 @@ namespace CTRPluginFramework {
 			out->starRank = out->trophyType = 0;
 		}
 	}
+
+	static bool g_setGrandPrixDataPreventRecursion = false;
 	void SaveHandler::CupRankSave::setGrandPrixData(u32 saveData, GrandPrixData* in, u32* GPID, u32* engineLevel, bool isMirror) {
 		if (*GPID == USERCUPID || VersusHandler::IsVersusMode) return;
 		u32 engineLvl = *engineLevel;
@@ -397,9 +399,18 @@ namespace CTRPluginFramework {
 			fromGPToPacked(&packed, &current);
 			cupData[*GPID * 4 + engineLvl] = packed;
 		}
-		if (engineLvl != 0 && !isMirror) {
-			engineLvl--;
-			setGrandPrixData(saveData, in, GPID, &engineLvl, isMirror);
+		if (!g_setGrandPrixDataPreventRecursion && !isMirror && engineLvl != 0) {
+			g_setGrandPrixDataPreventRecursion = true;
+			while (true) {
+				engineLvl--;
+				GrandPrixData tmpData;
+				getGrandPrixData(saveData, &tmpData, GPID, &engineLvl, isMirror);
+				if (!tmpData.isCompleted || (tmpData.trophyType < in->trophyType || (tmpData.trophyType == in->trophyType && tmpData.starRank < in->starRank)))
+					setGrandPrixData(saveData, in, GPID, &engineLvl, isMirror);
+				if (engineLvl == 0)
+					break;
+			}
+			g_setGrandPrixDataPreventRecursion = false;
 		}
 	}
 
