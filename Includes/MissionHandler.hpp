@@ -298,7 +298,7 @@ namespace CTRPluginFramework {
 				inline MarioKartTimer GetTime() {return MarioKartTimer(score);}
 				inline void SetTime(const MarioKartTimer& time) {score = time.GetFrames();}
 				inline void SetChecksumValid(bool isValid) {isChecksumValid = isValid;}
-				inline bool IsChecksumValid() {return isChecksumValid;}
+				inline bool IsChecksumValid() {return !hasData || isChecksumValid;}
 			};
 
 			static void Load();

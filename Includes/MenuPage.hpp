@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 714/714 (100.00%)
+Open source lines: 716/716 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -309,6 +309,7 @@ namespace CTRPluginFramework {
                 static RT_HOOK buttomHandlerOKHook;
 
                 VisualControl::GameVisualControl* buttonList[10];
+                bool buttonEnabledState[10] = {0};
                 VisualControl::GameVisualControl* cupBgControl;
                 VisualControl::GameVisualControl* backButtonControl = nullptr;
 
@@ -330,6 +331,7 @@ namespace CTRPluginFramework {
                 void SetCupButtonVisible(int buttonID, bool isVisible);
                 void SetCupButtonBG(int buttonID, u32 paneID);
                 void SetButtonEnabledState(int buttonID, bool state);
+                void UpdateButtonEnabledState();
                 void UpdateCupButtonState(int mode); // 0 -> Normal, 1 -> Right Scroll, 2 -> Left Scroll
                 static int HandleCursor(CursorMove* move, CursorItem* item, bool isMulti);
                 static int startingButtonID;

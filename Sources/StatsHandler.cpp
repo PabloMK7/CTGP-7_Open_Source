@@ -17,7 +17,7 @@ Open source lines: 586/586 (100.00%)
 
 namespace CTRPluginFramework {
 
-	const char* StatsHandler::statStr[] = {
+	const char* StatsHandler::statStr[] = { // Append #number to increase the version number
 		"launches",
 		"",
 		"races",
@@ -32,12 +32,12 @@ namespace CTRPluginFramework {
 		"online_balloon_battles",
 		"",
 		"",
-		"failed_mission",
-		"completed_mission",
-		"perfect_mission",
-		"custom_mission",
-		"grademean_mission",
-		"gradecount_mission",
+		"failed_mission#2",
+		"completed_missionv#2",
+		"perfect_mission#2",
+		"custom_mission#2",
+		"grademean_mission#2",
+		"gradecount_mission#2",
 		"",
 		"race_points",
 		"played_tracks"

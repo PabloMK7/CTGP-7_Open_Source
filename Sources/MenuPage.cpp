@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2172/2506 (86.67%)
+Open source lines: 2187/2521 (86.75%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -810,11 +810,22 @@ namespace CTRPluginFramework {
     }
 
     void MenuPageHandler::MenuSingleCupBasePage::SetButtonEnabledState(int button, bool state) {
-		u32* buttons = (u32*)(((MenuPageHandler::GameSequenceSection*)gameSection)->GetButtonArray(0x2E0).data);
-		u32 enabledMode = ((u8*)gameSection)[0x2BC] ? 0 : -2;
-		((u32*)buttons[button])[0x230 / 4] = state ? enabledMode : -1;
-		((u8*)buttons[button])[0x224] = state ? 90 : 0;
-		((u8*)buttons[button])[0x225] = !state ? 91 : 0;
+		if (button >= 0 && button < 10) {
+            buttonEnabledState[button] = state;
+            if (conveyorState == ConveyorState::STOPPED)
+                UpdateButtonEnabledState();
+        }
+    }
+
+    void MenuPageHandler::MenuSingleCupBasePage::UpdateButtonEnabledState() {
+        for (int button = 0; button < 10; button++) {
+            bool state = buttonEnabledState[button] && conveyorState == ConveyorState::STOPPED;
+            u32* buttons = (u32*)(((MenuPageHandler::GameSequenceSection*)gameSection)->GetButtonArray(0x2E0).data);
+            u32 enabledMode = ((u8*)gameSection)[0x2BC] ? 0 : -2;
+            ((u32*)buttons[button])[0x230 / 4] = state ? enabledMode : -1;
+            ((u8*)buttons[button])[0x224] = state ? 90 : 0;
+            ((u8*)buttons[button])[0x225] = !state ? 91 : 0;
+        }
     }
 
     void MenuPageHandler::MenuSingleCupBasePage::UpdateCupButtonState(int mode) {
@@ -1177,6 +1188,10 @@ namespace CTRPluginFramework {
 
         while (k) {
             int prevRet = ret;
+
+            if (ret == 0xA) // Disable left and right input if current button is the random button
+                k = (CursorMove::KeyType)(k & ~(CursorMove::KeyType::KEY_LEFT | CursorMove::KeyType::KEY_RIGHT));
+            
             if (k & CursorMove::KeyType::KEY_UP) {
                 ret = moveCursorTable[ret][0];
                 k = (CursorMove::KeyType)(k & ~CursorMove::KeyType::KEY_UP);
@@ -1224,6 +1239,7 @@ namespace CTRPluginFramework {
         SetCupButtonVisible(9, true);
         Snd::PlayMenu(Snd::SCROLL_LIST_STOP);
         conveyorState = ConveyorState::GOING;
+        UpdateButtonEnabledState();
         return true;
     }
 
@@ -1268,6 +1284,7 @@ namespace CTRPluginFramework {
         SetCupButtonVisible(8, false);
         SetCupButtonVisible(9, false);
         conveyorState = ConveyorState::STOPPED;
+        UpdateButtonEnabledState();
         if (directionRight) {
             startingButtonID--;
             if (startingButtonID < 0) {
@@ -1533,9 +1550,7 @@ namespace CTRPluginFramework {
             u32* currUpdater = moflexUpdaters[buttonID];
             if (!currUpdater)
                 currUpdater = moflexUpdaters[0];
-            u8 temp;
-            if (Process::Read8((u32)currUpdater, temp)) // Hacky "fix" for the random button crash, check the address is valid
-                MoflexUpdateFrame(ownU32[0x294/4], currUpdater);
+            MoflexUpdateFrame(ownU32[0x294/4], currUpdater);
         }
     }
 
