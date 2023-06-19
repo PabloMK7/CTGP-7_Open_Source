@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3181/3280 (96.98%)
+Open source lines: 3194/3293 (96.99%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -191,6 +191,7 @@ namespace CTRPluginFramework {
 	float MarioKartFramework::playerMegaCustomFov = 0.f;
 	bool MarioKartFramework::thankYouDisableNintendoLogo = false;
 	RT_HOOK MarioKartFramework::OnSimpleModelManagerHook = { 0 };
+	float MarioKartFramework::turningHopPenaltyFactor = 0.f;
 
 	extern "C" u32 myPlayerIDValue;
 
@@ -2945,6 +2946,12 @@ namespace CTRPluginFramework {
 		}
 	}
 
+	float MarioKartFramework::ApplyGndTurningSpeedPenaly(u32 vehicle, float speed, float penaltyFactor) {
+		float hopPenalty = (turningHopPenaltyFactor == 0.f) ? penaltyFactor : turningHopPenaltyFactor;
+		KartFlags& flags = KartFlags::GetFromVehicle(vehicle);
+		return (flags.isJumping) ? (speed * hopPenalty) : (speed * penaltyFactor);
+	}
+
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {
 		initialAmount += rubberBandingOffset;
 		if (initialAmount <= 1.f)
@@ -3113,6 +3120,8 @@ namespace CTRPluginFramework {
 			MarioKartFramework::brakeDriftAllowed = true;
 			MarioKartFramework::brakeDriftForced = false;
 			MarioKartFramework::nexNetworkInstance = 0;
+			MarioKartFramework::turningHopPenaltyFactor = 0.f;
+			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
 			isCTWW = 0;
 			isAltGameMode = 0;
 			break;
@@ -3130,6 +3139,8 @@ namespace CTRPluginFramework {
 			MarioKartFramework::isWarnItemBlockedComm = false;
 			MarioKartFramework::allowCPURacersComm = false;
 			CourseManager::isRandomTracksForcedComm = false;
+			MarioKartFramework::turningHopPenaltyFactor = 0.f;
+			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
 			isCTWW = 0;
 			isAltGameMode = 0;
 			break;
@@ -3140,6 +3151,8 @@ namespace CTRPluginFramework {
 			MarioKartFramework::improvedTricksForced = false;
 			MarioKartFramework::brakeDriftAllowed = false;
 			MarioKartFramework::brakeDriftForced = false;
+			MarioKartFramework::turningHopPenaltyFactor = 0.f;
+			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
 			break;
 		case ONLINE_CTWW:
 			CourseManager::setCustomTracksAllowed(true);

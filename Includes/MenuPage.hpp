@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 716/716 (100.00%)
+Open source lines: 718/718 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -434,6 +434,8 @@ namespace CTRPluginFramework {
                 static RT_HOOK onPageEnterHook;
                 static RT_HOOK coursePageInitOmakaseTHook;
                 static RT_HOOK coursePageInitOmakaseBHook;
+
+                static std::vector<u32> blockedCourses;
 
                 static void OnPageEnter(GameSequenceSection* own);
                 static void OnPageExit(GameSequenceSection* own);

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.cpp
-Open source lines: 291/291 (100.00%)
+Open source lines: 305/305 (100.00%)
 *****************************************************/
 
 #include "TextFileParser.hpp"
@@ -287,5 +287,19 @@ namespace CTRPluginFramework {
 			return NumberType::DECIMAL;
 		}
 		return NumberType::INVALID;
+	}
+
+	std::vector<std::string> TextFileParser::Split(std::string str, const std::string& delimiter) {
+		std::vector<std::string> ret;
+		size_t pos = 0;
+		std::string token;
+		while ((pos = str.find(delimiter)) != std::string::npos) {
+			token = str.substr(0, pos);
+			ret.push_back(token);
+			str.erase(0, pos + delimiter.length());
+		}
+		if (!str.empty())
+			ret.push_back(str);
+		return ret;
 	}
 }

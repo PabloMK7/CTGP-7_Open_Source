@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.hpp
-Open source lines: 127/131 (96.95%)
+Open source lines: 125/129 (96.90%)
 *****************************************************/
 
 #pragma once
@@ -76,7 +76,6 @@ namespace CTRPluginFramework
 			static u8 customTracksAllowedFlag;
 			static u8 originalTracksAllowedFlag;
 			static bool getBGMFromNormalLap;
-			static u32 lastPlayedCourses[4];
 			static int multiCupButtonsIDs[8];
 			static u32* finalGlobalCupTranslateTable;
 			static u32 finalGlobalCupTranslateTableSize;
@@ -116,7 +115,6 @@ namespace CTRPluginFramework
 			static void multiCupTrackToCourseID(u8* data);
 			static void changeMoflex(u32 cupBaseMenu, int cupID);
 			static bool handleMenuCallback(const Screen& screen);
-			static void updatelastPlayedCourseArray(u32 course);
 			static void getRandomCourseOnline(u32* result, bool isRace);
 			static u32  getRandomCourseDemo(bool isRace);
 			static const u32* getCupTranslatetable(u32* size, bool forceGetAll = false);

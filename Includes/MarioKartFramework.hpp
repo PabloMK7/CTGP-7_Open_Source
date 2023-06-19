@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 736/736 (100.00%)
+Open source lines: 738/738 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -716,6 +716,8 @@ namespace CTRPluginFramework {
 			static bool vehicleDisableSteepWallPushback(u32 vehicle);
 			static bool vehicleDisableUpsideDownFloorUnstick(u32 vehicle, float* gravityAttenuator);
 			static void OnKartGravityApply(u32 vehicle, Vector3& gravity);
+			static float ApplyGndTurningSpeedPenaly(u32 vehicle, float speed, float penaltyFactor);
+			static float turningHopPenaltyFactor;
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

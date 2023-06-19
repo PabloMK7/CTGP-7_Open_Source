@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 538/570 (94.39%)
+Open source lines: 555/587 (94.55%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -15,6 +15,7 @@ Open source lines: 538/570 (94.39%)
 #include "ExtraResource.hpp"
 #include "lz.hpp"
 #include "acta.h"
+#include "MenuPage.hpp"
 
 extern "C" u32 g_regionID;
 
@@ -24,6 +25,7 @@ namespace CTRPluginFramework {
 	float Net::ctwwCPURubberBandMultiplier = 1.f;
 	float Net::ctwwCPURubberBandOffset = 0.f;
 	StarGrade Net::myGrade = StarGrade::NONE;
+	std::string Net::trackHistory;
 	#if CITRA_MODE == 0
 	NetHandler::RequestHandler Net::netRequests;
 	#endif
@@ -224,6 +226,7 @@ namespace CTRPluginFramework {
 				SaveHandler::saveData.cdVR = reqDoc.get("cdvr", 1000);
 				vrPositions[0] = reqDoc.get("ctvrPos", 0);
 				vrPositions[1] = reqDoc.get("cdvrPos", 0);
+				trackHistory = reqDoc.get("trackHistory", "");
 			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING)) {
@@ -248,6 +251,7 @@ namespace CTRPluginFramework {
 			lastRoomVRMean = reqDoc.get("vrMean", (int)1000);
 			ctwwCPURubberBandMultiplier = reqDoc.get("rubberBMult", 1.);
 			ctwwCPURubberBandOffset = reqDoc.get("rubberBOffset", 0.);
+			MarioKartFramework::turningHopPenaltyFactor = reqDoc.get("delayDriftBlocked", false) ? 1.f : 0.f;
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_RACING)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_RACING, &reqDoc);
@@ -255,7 +259,7 @@ namespace CTRPluginFramework {
 				MarioKartFramework::dialogBlackOut();
 		} else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_RACEFINISH)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_RACEFINISH, &reqDoc);
-			// Nothing, if fails again let PREPARE do the black out.
+			trackHistory = reqDoc.get("trackHistory", "");
 		} else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_WATCHING)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_WATCHING, &reqDoc);
 			if (static_cast<CTWWLoginStatus>(res) != CTWWLoginStatus::SUCCESS)
@@ -341,6 +345,7 @@ namespace CTRPluginFramework {
 				reqDoc.set<bool>("imHost", MarioKartFramework::imRoomHost);
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING, reqDoc);
 				netRequests.Start();
+				applyBlockedTrackList();
 			}
 			else if (g_getCTModeVal == CTMode::ONLINE_COM || g_getCTModeVal == CTMode::ONLINE_NOCTWW)
 			{
@@ -349,6 +354,7 @@ namespace CTRPluginFramework {
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::HEARTBEAT, reqDoc);
 				netRequests.Start();
 			}
+			trackHistory = "";
 		}
 		else if (mode == OnlineStateMachine::RACING) { // Room start racing
 			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
@@ -395,6 +401,7 @@ namespace CTRPluginFramework {
 			lastLoginStatus = CTWWLoginStatus::NOTLOGGED;
 			lastServerMessage.clear();
 			myGrade = StarGrade::NONE;
+			trackHistory = "";
 		}
 
 		currState = mode;
@@ -533,6 +540,16 @@ namespace CTRPluginFramework {
 			}
 		}
 		#endif
+	}
+
+	void Net::applyBlockedTrackList() {
+		MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
+		std::vector<std::string> tracks = TextFileParser::Split(trackHistory);
+		for (auto it = tracks.cbegin(); it != tracks.cend(); it++) {
+			int courseID = CourseManager::getCourseIDFromName(*it);
+			if (courseID >= 0)
+				MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.push_back(courseID);
+		}
 	}
 }
 

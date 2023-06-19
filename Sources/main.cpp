@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 344/357 (96.36%)
+Open source lines: 345/358 (96.37%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -339,6 +339,7 @@ namespace CTRPluginFramework
 				svcKernelSetState(10, (1 << 3));
 			svcKernelSetState(0x10080, 0);
 			#endif
+			Process::exceptionCallback = nullptr;
 		}
 	}
 }

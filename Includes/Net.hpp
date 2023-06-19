@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 122/126 (96.83%)
+Open source lines: 125/129 (96.90%)
 *****************************************************/
 
 #pragma once
@@ -96,6 +96,7 @@ namespace CTRPluginFramework {
 		static float ctwwCPURubberBandMultiplier;
 		static float ctwwCPURubberBandOffset;
 		static StarGrade myGrade;
+		static std::string trackHistory;
 
 	private:
 	#if CITRA_MODE == 0
@@ -108,6 +109,8 @@ namespace CTRPluginFramework {
 		static u32 lastErrorMessage;
 		static u32 latestCourseID;
 		static u32 pretendoState;
+
+		static void applyBlockedTrackList();
 
 #if CITRA_MODE == 0
 #ifdef BETA_BUILD

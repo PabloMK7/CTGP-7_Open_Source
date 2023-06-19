@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 1014/1151 (88.10%)
+Open source lines: 998/1135 (87.93%)
 *****************************************************/
 
 #include <locale>
@@ -38,7 +38,6 @@ namespace CTRPluginFramework
 {
 	u32 CourseManager::lastLoadedCourseID = 0;
 	bool CourseManager::getBGMFromNormalLap = true;
-	u32 CourseManager::lastPlayedCourses[4] = { INVALIDTRACK, INVALIDTRACK, INVALIDTRACK, INVALIDTRACK };
 	u8 CourseManager::customTracksAllowedFlag = (Utils::Random() | 1) & ~0x2;
 	u8 CourseManager::originalTracksAllowedFlag = (Utils::Random() | 1) & ~0x2;
 	void (*CourseManager::BaseMenuButtonControl_setTex)(u32 buttonObject, u32 texPtrn, u32 texID) = NULL;
@@ -140,15 +139,6 @@ namespace CTRPluginFramework
 		return 0;
 	}
 
-
-	void CourseManager::updatelastPlayedCourseArray(u32 course)
-	{
-		if (course == lastPlayedCourses[0]) return;
-		lastPlayedCourses[3] = lastPlayedCourses[2];
-		lastPlayedCourses[2] = lastPlayedCourses[1];
-		lastPlayedCourses[1] = lastPlayedCourses[0];
-		lastPlayedCourses[0] = course;
-	}
 	
 	void CourseManager::getRandomCourseOnline(u32* result, bool isRace)
 	{
@@ -171,12 +161,7 @@ namespace CTRPluginFramework
 					chosen = Utils::Random(ORIGINALTRACKLOWER, ORIGINALTRACKUPPER);
 				}
 			}
-			for (int i = 0; i < 4; i++) {
-				if (chosen == lastPlayedCourses[i]) {
-					repeat = true;
-					break;
-				}
-			}
+			repeat = std::find(MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.begin(), MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.end(), chosen) != MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.end();  
 		} while (repeat);
 		*result = chosen;
 	}
@@ -275,7 +260,6 @@ namespace CTRPluginFramework
 			CrashReport::stateID = CrashReport::StateID::STATE_RACE;
 		MarioKartFramework::forceFinishRace = false;
 		if (courseID != USERTRACKID) {
-			updatelastPlayedCourseArray(courseID);
 			return globalNameData.entries[courseID].originalSlot;
 		} else {
 			return UserCTHandler::GetCurrentCourseOrigSlot();

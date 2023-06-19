@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.hpp
-Open source lines: 56/56 (100.00%)
+Open source lines: 57/57 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -47,6 +47,7 @@ namespace CTRPluginFramework {
 			HEXADECIMAL
 		};
 		static NumberType IsValidNumber(const std::string& str);
+		static std::vector<std::string> Split(std::string str, const std::string& delimiter = "::");
 
 	private:
 		TextMap dataMap;

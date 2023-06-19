@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2187/2521 (86.75%)
+Open source lines: 2217/2551 (86.91%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -65,6 +65,8 @@ namespace CTRPluginFramework {
     RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::onPageEnterHook;
     RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseTHook;
     RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseBHook;
+
+    std::vector<u32> MenuPageHandler::MenuSingleCourseBasePage::blockedCourses;
 
     RT_HOOK MenuPageHandler::trophyPageSelectNextSceneHook;
     RT_HOOK MenuPageHandler::thankyouPageInitControlHook;
@@ -1116,11 +1118,20 @@ namespace CTRPluginFramework {
         bool isCupLocked = cupID < 0 || cupID > 7 && cupID < 0xA;
         for (int i = 0; i < 4; i++) {
             u32 nameID = CourseManager::getCourseGlobalIDName(cupID, i);
+            u32 courseID; CourseManager::getGPCourseID(&courseID, cupID, i);
+            bool courseLocked = std::find(MenuSingleCourseBasePage::blockedCourses.begin(), MenuSingleCourseBasePage::blockedCourses.end(), courseID) != MenuSingleCourseBasePage::blockedCourses.end();
+            
             u32 courseButtonHandle = (u32)(courseButtonDummies[i]->vtable->getRootPane(courseButtonDummies[i]));
             courseButtonDummies[i]->GetNwlytControl()->vtable->setVisibleImpl(courseButtonDummies[i]->GetNwlytControl(), courseButtonHandle, !isCupLocked);
 
             VisualControl::Message message;
+            string16 nameReplacement;
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)courseButtonDummies[i]->GetMessageDataList(), nameID);
+            if (courseLocked) {
+                nameReplacement = message.data;
+                nameReplacement = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 0, 0)) + nameReplacement;
+                message.data = nameReplacement.c_str();
+            }
             courseButtonDummies[i]->GetNwlytControl()->vtable->replaceMessageImpl(courseButtonDummies[i]->GetNwlytControl(), ((u32*)courseButtonDummies[i])[0x7C/4], message, nullptr, nullptr);
         }
         bool unk0, unk1;
@@ -1717,15 +1728,34 @@ namespace CTRPluginFramework {
 
         for (int i = 0; i < 4; i++) {
             u32 nameID = CourseManager::getCourseGlobalIDName(cupID, i);
+            u32 courseID; CourseManager::getGPCourseID(&courseID, cupID, i);
+            bool courseLocked = std::find(blockedCourses.begin(), blockedCourses.end(), courseID) != blockedCourses.end();
+
             VisualControl::GameVisualControl** buttonArray1 = (VisualControl::GameVisualControl**)(ownU32 + 0x2CC/4);
             VisualControl::GameVisualControl** buttonArray2 = (VisualControl::GameVisualControl**)(ownU32 + 0x2DC/4);
 
             VisualControl::Message message;
+            string16 nameReplacement;
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)buttonArray1[i]->GetMessageDataList(), nameID);
+            if (courseLocked) {
+                nameReplacement = message.data;
+                nameReplacement = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 0, 0)) + nameReplacement;
+                message.data = nameReplacement.c_str();
+            }
             buttonArray1[i]->GetNwlytControl()->vtable->replaceMessageImpl(buttonArray1[i]->GetNwlytControl(), ((u32*)buttonArray1[i])[0x7C/4], message, nullptr, nullptr);
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)buttonArray2[i]->GetMessageDataList(), nameID);
+            if (courseLocked) {
+                nameReplacement = message.data;
+                nameReplacement = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 0, 0)) + nameReplacement;
+                message.data = nameReplacement.c_str();
+            }
             buttonArray2[i]->GetNwlytControl()->vtable->replaceMessageImpl(buttonArray2[i]->GetNwlytControl(), ((u32*)buttonArray2[i])[0x94/4], message, nullptr, nullptr);
 
+            if (courseLocked) {
+                ((u32*)buttonArray2[i])[0x230 / 4] = -1;
+                ((u8*)buttonArray2[i])[0x224] = 0;
+                ((u8*)buttonArray2[i])[0x225] = 91;
+            }
         }
 
         if (((u8*)own)[0x2BC/1]) {
