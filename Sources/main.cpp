@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 345/358 (96.37%)
+Open source lines: 354/367 (96.46%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -68,6 +68,7 @@ namespace CTRPluginFramework
 	MenuEntry* renderImproveEntry;
 	MenuEntry* autoAccelEntry;
 	MenuEntry* brakeDriftEntry;
+	MenuEntry* automaticDelayDriftEntry;
 
 	OnlineMenuEntry* ccSelOnlineEntry;
 	OnlineMenuEntry* comCodeGenOnlineEntry;
@@ -100,8 +101,15 @@ namespace CTRPluginFramework
 		settings.CustomKeyboard.ScrollBarThumb = Color(0x87, 0x1F, 0x1F);
 	}
 
-    void    PatchProcess(FwkSettings &settings)
+	#ifdef INSTRUMENT_FUNCTIONS
+	void init_instrumentation();
+	#endif
+
+    void  PatchProcess(FwkSettings &settings)
     {
+		#ifdef INSTRUMENT_FUNCTIONS
+		init_instrumentation();
+		#endif
 		Process::SetProcessEventCallback(HandleProcessEvent);
 		Directory::ChangeWorkingDirectory("/CTGP-7/resources/");
 		if (!checkCompTID(Process::GetTitleID())) panic();
@@ -224,7 +232,8 @@ namespace CTRPluginFramework
 			improvedRouletteEntry = new MenuEntry(NAME("itmprb"), nullptr, MarioKartFramework::improvedRouletteSettings, NOTE("itmprb")),
 			improvedTricksEntry = new MenuEntry(NAME("imtrick"), nullptr, improvedTricks, NOTE("imtrick")),
 			autoAccelEntry = new MenuEntry(NAME("autoaccel"), nullptr, autoAccelSetting, NOTE("autoaccel")),
-			brakeDriftEntry = new MenuEntry(NAME("imbrakedrift"), nullptr, brakeDrift, NOTE("imbrakedrift"))
+			brakeDriftEntry = new MenuEntry(NAME("imbrakedrift"), nullptr, brakeDrift, NOTE("imbrakedrift")),
+			automaticDelayDriftEntry = new MenuEntry(NAME("autodelaydrift"), nullptr, automaticdelaydrift_entryfunc, NOTE("autodelaydrift"))
 		});
 
 		MenuFolder* settings = new MenuFolder(NAME("settings_folder"), NOTE("settings_folder"), {

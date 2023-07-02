@@ -4,13 +4,15 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraUIElements.hpp
-Open source lines: 205/205 (100.00%)
+Open source lines: 243/243 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "VisualControl.hpp"
 #include "MarioKartTimer.hpp"
+#include "rt.hpp"
+#include "ItemHandler.hpp"
 
 namespace CTRPluginFramework {
     
@@ -200,6 +202,42 @@ namespace CTRPluginFramework {
         static constexpr MarioKartTimer animTimer{0, 0, 400};
         static void OnRaceStart() {
             timer = MarioKartTimer(0, 3, 500) + animTimer;
+        }
+    };
+
+    class ExtendedItemBoxController {
+    public:
+
+        static RT_HOOK ItemBoxControlOnCalcHook;
+        static RT_HOOK ItemBoxControlOnCreateHook;
+        static u32 progBarHandle;
+        static u32 progWinHandle;
+        static u32 progBGHandle;
+        static float prevProgressbarValue;
+        static float prevVisibilityValue;
+        static float targetProgressValue;
+        static float currentProgressValue;
+        static bool prevIsBoxVisible;
+        static bool prevIsBoxDecided;
+        static int visibilityAnimFrames;
+        static int konohaTimer;
+        static float killerProgress;
+
+        static void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
+        static void OnCreate(VisualControl::GameVisualControl* visualControl, void* createArg);
+        static void OnCalc(VisualControl::GameVisualControl* visualControl);
+    
+    private:
+        static void SetProgressBar(VisualControl::GameVisualControl* visualControl, float progress);
+        static void SetVisibility(VisualControl::GameVisualControl* visualControl, float progress);
+
+        static void ChangeVisibilityState(bool visible);
+        static void ChangeProgress(float progress);
+        static void CalcVisibility(VisualControl::GameVisualControl* visualControl);
+        static void CalcProgress(VisualControl::GameVisualControl* visualControl);
+
+        static EItemSlot GetCurrentItem(VisualControl::GameVisualControl* visualControl) {
+            return ((EItemSlot****)visualControl)[0x9C/4][0][0x34/4][0x30/4];
         }
     };
 }

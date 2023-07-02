@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraUIElements.cpp
-Open source lines: 645/645 (100.00%)
+Open source lines: 800/800 (100.00%)
 *****************************************************/
 
 #include "ExtraUIElements.hpp"
@@ -642,4 +642,159 @@ namespace CTRPluginFramework {
 		});
 		musicCreditsControl->LoadRace();
 	}
+
+    RT_HOOK ExtendedItemBoxController::ItemBoxControlOnCalcHook = { 0 };
+    RT_HOOK ExtendedItemBoxController::ItemBoxControlOnCreateHook = { 0 };
+    u32 ExtendedItemBoxController::progBarHandle = 0;
+    u32 ExtendedItemBoxController::progWinHandle = 0;
+    u32 ExtendedItemBoxController::progBGHandle = 0;
+    float ExtendedItemBoxController::prevProgressbarValue = 1.01f;
+    float ExtendedItemBoxController::prevVisibilityValue = 0.f;
+    float ExtendedItemBoxController::targetProgressValue = 1.f;
+    float ExtendedItemBoxController::currentProgressValue = 1.f;
+    bool ExtendedItemBoxController::prevIsBoxVisible = false;
+    bool ExtendedItemBoxController::prevIsBoxDecided = true;
+    int ExtendedItemBoxController::visibilityAnimFrames = 0;
+    int ExtendedItemBoxController::konohaTimer = -1;
+    float ExtendedItemBoxController::killerProgress = -1.f;
+
+    void ExtendedItemBoxController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
+        animationDefine->InitAnimationFamilyList(6);
+
+        animationDefine->InitAnimationFamily(0, "G_loop", 1);
+        animationDefine->InitAnimation(0, "loop", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+
+        animationDefine->InitAnimationFamily(1, "G_inOut", 4);
+        animationDefine->InitAnimationStopByRate(0, "inOut", 0.f);
+        animationDefine->InitAnimation(1, "inOut", VisualControl::AnimationDefine::AnimationKind::HOLD);
+        animationDefine->InitAnimationStopByRate(2, "inOut", 1.f);
+        animationDefine->InitAnimationReverse(3, "inOut", VisualControl::AnimationDefine::AnimationKind::ONCE);
+
+        animationDefine->InitAnimationFamily(2, "G_sc", 3);
+        animationDefine->InitAnimationStopByRate(0, "sc", 0.f);
+        animationDefine->InitAnimation(1, "sc", VisualControl::AnimationDefine::AnimationKind::ONCE);
+        animationDefine->InitAnimation(2, "item_flash", VisualControl::AnimationDefine::AnimationKind::ONCE);
+
+        animationDefine->InitAnimationFamily(3, "G_team_color", 1);
+        animationDefine->InitAnimation(0, "team_color", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+
+        animationDefine->InitAnimationFamily(4, "G_prog", 1);
+        animationDefine->InitAnimation(0, "prog", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+
+        animationDefine->InitAnimationFamily(5, "G_barInOut", 1);
+        animationDefine->InitAnimation(0, "barInOut", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+    }
+
+    void ExtendedItemBoxController::OnCreate(VisualControl::GameVisualControl* visualControl, void* createArg) {
+        ((void(*)(VisualControl::GameVisualControl*, void*))ItemBoxControlOnCreateHook.callCode)(visualControl, createArg);
+
+        VisualControl::NwlytControlSight* layout = visualControl->GetNwlytControl();
+        progWinHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_prog-00"), 0);
+        progBarHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_bar-00"), 0);
+        progBGHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_progBG-00"), 0);
+
+        prevProgressbarValue = 1.01f;
+        prevVisibilityValue = 0.f;
+        targetProgressValue = 1.f;
+        currentProgressValue = 1.f;
+        prevIsBoxDecided = true;
+        prevIsBoxVisible = false;
+        visibilityAnimFrames = 0;
+        konohaTimer = -1;
+        killerProgress = -1.f;
+    }
+
+    void ExtendedItemBoxController::OnCalc(VisualControl::GameVisualControl* visualControl) {
+        ((void(*)(VisualControl::GameVisualControl*))ItemBoxControlOnCalcHook.callCode)(visualControl);
+        bool isBoxVisible = ((u8*)visualControl)[0x91];
+        bool isBoxDecided = ((u8*)visualControl)[0x92];
+
+        if (isBoxVisible) {
+            EItemSlot currItem = GetCurrentItem(visualControl);
+            if (!prevIsBoxVisible) {
+                ChangeVisibilityState(false);
+                prevProgressbarValue = 1.01f;
+                SetProgressBar(visualControl, 1.f);
+                targetProgressValue = 1.f;
+                currentProgressValue = 1.f;
+                konohaTimer = -1;
+                killerProgress = -1.f;
+            } else if (!prevIsBoxDecided && isBoxDecided) {
+                if (currItem == EItemSlot::ITEM_KONOHA || currItem == EItemSlot::ITEM_FLOWER || currItem == EItemSlot::ITEM_KINOKOP || currItem == EItemSlot::ITEM_KILLER)
+                    ChangeVisibilityState(true);
+            }
+            if (currItem == EItemSlot::ITEM_KONOHA) {
+                float progress = (konohaTimer < 0) ? 1.f : ((600.f - konohaTimer) / 600.f);
+                ChangeProgress(progress);
+            } else if (currItem == EItemSlot::ITEM_FLOWER) {
+                u32 kartItem = ((u32**)visualControl)[0x9C/4][0];
+                int flowerUses = ((int*)kartItem)[0x4C/4];
+                int flowerTimer = ((int*)kartItem)[0x50/4];
+                float progressUses = (10.f - flowerUses) / 10.f;
+                float progressTimer = (flowerTimer < 0) ? 1.f : ((600.f - flowerTimer) / 600.f);
+                ChangeProgress(progressUses * progressTimer);
+            } else if (currItem == EItemSlot::ITEM_KINOKOP) {
+                u32 kartItem = ((u32**)visualControl)[0x9C/4][0];
+                int goldenTimer = ((int*)kartItem)[0x54/4];
+                float progress = (goldenTimer < 0) ? 1.f : ((450.f - goldenTimer) / 450.f);
+                ChangeProgress(progress);
+            } else if (currItem == EItemSlot::ITEM_KILLER) {
+                ChangeProgress((killerProgress < 0.f) ? 1.f : killerProgress);
+            }
+        }
+        
+        CalcVisibility(visualControl);
+        CalcProgress(visualControl);
+        prevIsBoxVisible = isBoxVisible;
+        prevIsBoxDecided = isBoxDecided;
+    }
+
+    void ExtendedItemBoxController::SetProgressBar(VisualControl::GameVisualControl* visualControl, float progress) {
+        if (progress > prevProgressbarValue)
+            return;
+        visualControl->GetAnimationFamily(4)->SetAnimation(0, progress * 60.f);
+        if (progBarHandle) visualControl->CalcAnim(progBarHandle);
+        prevProgressbarValue = progress;
+    }
+
+    void ExtendedItemBoxController::SetVisibility(VisualControl::GameVisualControl* visualControl, float progress) {
+        if (progress == prevVisibilityValue)
+            return;
+        visualControl->GetAnimationFamily(5)->SetAnimation(0, progress * 60.f);
+        if (progBarHandle) visualControl->CalcAnim(progBarHandle);
+        if (progWinHandle) visualControl->CalcAnim(progWinHandle);
+        if (progBGHandle) visualControl->CalcAnim(progBGHandle);
+        prevVisibilityValue = progress;
+    }
+
+    void ExtendedItemBoxController::ChangeVisibilityState(bool visible) {
+        if (visible) {
+            visibilityAnimFrames = 1;
+        } else {
+            visibilityAnimFrames = 0;
+        }
+    }
+
+    void ExtendedItemBoxController::ChangeProgress(float progress) {
+        if (progress < targetProgressValue)
+            targetProgressValue = progress;
+    }
+
+    void ExtendedItemBoxController::CalcVisibility(VisualControl::GameVisualControl* visualControl) {
+        if (visibilityAnimFrames) {
+            SetVisibility(visualControl, visibilityAnimFrames / 10.f);
+            if (visibilityAnimFrames < 10) visibilityAnimFrames++;
+        } else {
+            SetVisibility(visualControl, 0.f);
+        }
+    }
+
+    void ExtendedItemBoxController::CalcProgress(VisualControl::GameVisualControl* visualControl) {
+        if (currentProgressValue > targetProgressValue) {
+            currentProgressValue -= ((1 / 60.f) * 3/4.f);
+            if (currentProgressValue < targetProgressValue)
+                currentProgressValue = targetProgressValue;
+        }
+        SetProgressBar(visualControl, currentProgressValue);
+    }
 }

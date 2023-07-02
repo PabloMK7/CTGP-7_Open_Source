@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 738/738 (100.00%)
+Open source lines: 746/746 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -18,7 +18,7 @@ Open source lines: 738/738 (100.00%)
 #include "MK7NetworkBuffer.hpp"
 #include "rt.hpp"
 
-#define COMMUSETVER 6
+#define COMMUSETVER 7
 
 extern "C" u32 g_lapVal;
 extern "C" float g_speedValsqrt;
@@ -146,7 +146,8 @@ namespace CTRPluginFramework {
 		u32 cpuRacers : 1;
 		u32 improvedTricksAllowed : 1;
 		u32 customItemsAllowed : 1;
-		u32 unused : 24;
+		u32 automaticDelayDriftAllowed : 1;
+		u32 unused : 23;
 		u8  checksum;
 	} PACKED;
 
@@ -319,7 +320,7 @@ namespace CTRPluginFramework {
 			};
 
 			static u32 baseAllPointer;
-			static u32 baseAllPointerXor;
+			static constexpr u32 baseAllPointerXor = 0x75F1B26B;
 			static u32 getSequenceEngine();
 			static u32 getRootSequence();
 			static u32 getSystemEngine();
@@ -482,7 +483,7 @@ namespace CTRPluginFramework {
 			//
 			static void updateReplayFileName();
 			//
-			static void warnLedItem(u32 item);
+			static void warnLedItem(u32 vehicle, u32 item);
 			static void handleItemCD(u32 vehicle, u32 item);
 			//
 			static void playCDPointUpSE(u32 points);
@@ -644,6 +645,7 @@ namespace CTRPluginFramework {
 			static ObjectGeneratorBase* GenerateItemBox(CustomFieldObjectCreateArgs& createArgs);
 			static void ObjModelBaseChangeAnimation(u32 objModelBase, int anim, float value);
 			//
+			static bool lastPolePositionLeft;
 			static bool bulletBillAllowed;
 			static bool speedupMusicOnLap;
 			static u8 lastCheckedLap;
@@ -711,13 +713,19 @@ namespace CTRPluginFramework {
 			static RT_HOOK OnSimpleModelManagerHook;
 			static u32 OnSimpleModelManager(u32 own);
 			//
-			static bool vehicleIsInLoopKCL(u32 vehicle);
+			static inline bool vehicleIsInLoopKCL(u32 vehicle) {
+				return *(u32*)(vehicle + 0xD14) == 8 && *(u32*)(vehicle + 0xD20) == 2;
+			}
 			static bool vehicleForceAntigravityCamera(u32 vehicle);
 			static bool vehicleDisableSteepWallPushback(u32 vehicle);
 			static bool vehicleDisableUpsideDownFloorUnstick(u32 vehicle, float* gravityAttenuator);
 			static void OnKartGravityApply(u32 vehicle, Vector3& gravity);
 			static float ApplyGndTurningSpeedPenaly(u32 vehicle, float speed, float penaltyFactor);
-			static float turningHopPenaltyFactor;
+			static bool automaticDelayDriftAllowed;
+			//
+			static RT_HOOK enemyAIControlRaceUpdateHook;
+			static u8 onMasterStartKillerPosition;
+			static void OnEnemyAIControlRaceUpdate(u32 enemyAI);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

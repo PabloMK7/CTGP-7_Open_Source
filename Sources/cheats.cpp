@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: cheats.cpp
-Open source lines: 589/597 (98.66%)
+Open source lines: 623/631 (98.73%)
 *****************************************************/
 
 #include "types.h"
@@ -34,6 +34,8 @@ Open source lines: 589/597 (98.66%)
 u32 g_currMenuVal = 0;
 u8 g_isOnlineMode = (CTRPluginFramework::Utils::Random() | 2) & ~0x1;
 
+
+
 namespace CTRPluginFramework
 {
 	CCSettings ccsettings[2] = {CCSettings(), CCSettings()};
@@ -41,8 +43,19 @@ namespace CTRPluginFramework
 	bool g_ComForcePtrRestore = false;
 	extern RT_HOOK socinithook;
 	extern RT_HOOK socexithook;
+
+	#ifdef INSTRUMENT_FUNCTIONS
+	void save_instrumentation();
+	void start_instrumentation();
+	#endif
 	
 	void	menucallback() {
+		#ifdef INSTRUMENT_FUNCTIONS
+		if (Controller::IsKeyPressed(Key::DPadLeft))
+			save_instrumentation();
+		if (Controller::IsKeyPressed(Key::DPadRight))
+			start_instrumentation();
+		#endif
 		if (MarioKartFramework::isGameInRace()) {
 			;
 		} else {
@@ -273,7 +286,7 @@ namespace CTRPluginFramework
 		int opt = kbd.Open();
 		if (opt < 0) return;
 		int optsOpt = 2;
-		bool cten = true, orien = true, forcerandom = false, camallow = true, ledallow = true, cpuRacers = false, imprTricks = true, customItem = true;
+		bool cten = true, orien = true, forcerandom = false, camallow = true, ledallow = true, cpuRacers = false, imprTricks = true, customItem = true, automaticdelaydrift = true;
 		do {
 			optsKbd.GetMessage() = NAME("settings") + "\n\n" << (cten ? Color::LimeGreen : Color::Red) << NAME("track_ct") + " (" + (cten ? NAME("state_mode") : NOTE("state_mode")) + ")\n";
 			optsKbd.GetMessage() += (cten ? (orien ? Color::LimeGreen : Color::Red) : Color::Gray) << NAME("track_ori") + " (" + (orien ? NAME("state_mode") : NOTE("state_mode")) + ")\n";
@@ -291,7 +304,7 @@ namespace CTRPluginFramework
 				orien = !orien || !cten;
 			}
 		} while (optsOpt != 2);
-		optsOpt = 6;
+		optsOpt = 7;
 		do {
 			optsKbd.GetMessage() = NAME("settings") + "\n\n";
 			optsKbd.GetMessage() += NAME("rand_tr") + ": " << (forcerandom ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
@@ -300,13 +313,15 @@ namespace CTRPluginFramework
 			optsKbd.GetMessage() += NAME("CpuAm") + ": " << (cpuRacers ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 			optsKbd.GetMessage() += NAME("imtrick") + ": " << (imprTricks ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 			optsKbd.GetMessage() +=	NAME("cusitem") + ": " << (customItem ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.Populate({ (forcerandom ? Color::LimeGreen << enSlid : Color::Red << disSlid), (camallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (ledallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (cpuRacers ? Color::LimeGreen << enSlid : Color::Red << disSlid), (imprTricks ? Color::LimeGreen << enSlid : Color::Red << disSlid), (customItem ? Color::LimeGreen << enSlid : Color::Red << disSlid) , NAME("next") });
+			optsKbd.GetMessage() += NAME("autodelaydrift") + ": " << (automaticdelaydrift ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
+			optsKbd.Populate({ (forcerandom ? Color::LimeGreen << enSlid : Color::Red << disSlid), (camallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (ledallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (cpuRacers ? Color::LimeGreen << enSlid : Color::Red << disSlid), (imprTricks ? Color::LimeGreen << enSlid : Color::Red << disSlid), (customItem ? Color::LimeGreen << enSlid : Color::Red << disSlid), (automaticdelaydrift ? Color::LimeGreen << enSlid : Color::Red << disSlid), NAME("next") });
 			optsKbd.ChangeEntrySound(0, forcerandom ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeEntrySound(1, camallow ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeEntrySound(2, ledallow ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeEntrySound(3, cpuRacers ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeEntrySound(4, imprTricks ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeEntrySound(5, customItem ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
+			optsKbd.ChangeEntrySound(6, automaticdelaydrift ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			optsKbd.ChangeSelectedEntry(optsOpt);
 			optsOpt = optsKbd.Open();
 			if (optsOpt < 0) return;
@@ -328,7 +343,10 @@ namespace CTRPluginFramework
 			if (optsOpt == 5) {
 				customItem = !customItem;
 			}
-		} while (optsOpt != 6);
+			if (optsOpt == 6) {
+				automaticdelaydrift = !automaticdelaydrift;
+			}
+		} while (optsOpt != 7);
 		onlineset.rounds = opt;
 		onlineset.areOrigTracksAllowed = orien;
 		onlineset.areCustomTracksAllowed = cten;
@@ -338,6 +356,7 @@ namespace CTRPluginFramework
 		onlineset.cpuRacers = cpuRacers;
 		onlineset.improvedTricksAllowed = imprTricks;
 		onlineset.customItemsAllowed = customItem;
+		onlineset.automaticDelayDriftAllowed = automaticdelaydrift;
 		onlineset.unused = Utils::Random();
 		onlineset.checksum = MarioKartFramework::getOnlinechecksum(&onlineset);
 		char comCode[14];
@@ -354,6 +373,7 @@ namespace CTRPluginFramework
 		msgstr += NAME("CpuAm") + ": " << (cpuRacers ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 		msgstr += NAME("imtrick") + ": " << (imprTricks ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 		msgstr += NAME("cusitem") + ": " << (customItem ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
+		msgstr += NAME("autodelaydrift") + ": " << (automaticdelaydrift ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 		(MessageBox(NAME("commugen"), msgstr, DialogType::DialogOk ,ClearScreen::Both))();
 	}
 
@@ -484,6 +504,20 @@ namespace CTRPluginFramework
 		int ret = key.Open();
 		if (ret < 0) return;
 		brakedrift_apply(ret == 0);
+	}
+
+	void automaticdelaydrift_apply(bool enabled) {
+		automaticDelayDriftEntry->Name() = NAME("autodelaydrift") << " (" << (enabled ? NAME("state_mode") : NOTE("state_mode")) << ")";
+		SaveHandler::saveData.flags1.automaticDelayDrift = enabled;
+	}
+
+	void automaticdelaydrift_entryfunc(MenuEntry* entry) {
+		Keyboard key(NAME("autodelaydrift"));
+		key.Populate({ NAME("state_inf"), NOTE("state_inf") });
+		key.ChangeEntrySound(1, SoundEngine::Event::CANCEL);
+		int ret = key.Open();
+		if (ret < 0) return;
+		automaticdelaydrift_apply(ret == 0);
 	}
 
 	static void serverChangeDisplayName(const std::string& miiName) {

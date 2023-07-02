@@ -26,7 +26,7 @@ namespace CTRPluginFramework {
     const char* CrashReport::textCrash = nullptr;
     Sound* CrashReport::oofSound = nullptr;
 
-    u32    CrashReport::SaveStackPointer() {
+    u32 __attribute__((no_instrument_function)) CrashReport::SaveStackPointer() {
 #ifndef _MSC_VER
         __asm__ __volatile__(
             "MOV R0, SP \n"

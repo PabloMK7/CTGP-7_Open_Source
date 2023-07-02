@@ -320,8 +320,8 @@ namespace CTRPluginFramework {
         skipConfig.bodyID = EBodyID::BODY_DSH;
         skipConfig.tireID = ETireID::TIRE_BIGRED;
         skipConfig.wingID = EWingID::WING_BASA;
-        skipConfig.itemID = EItemSlot::ITEM_TEST4;
-        skipConfig.useLeftToFinish = true;
+        skipConfig.itemID = EItemSlot::ITEM_KILLER;
+        skipConfig.useLeftToFinish = false;
         skipConfig.courseID = 0x4;
 #else
         skipConfig.enabled = false;

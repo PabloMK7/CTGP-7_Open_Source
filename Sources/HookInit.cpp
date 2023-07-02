@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HookInit.cpp
-Open source lines: 35/3207 (1.09%)
+Open source lines: 36/3244 (1.11%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -23,6 +23,7 @@ Open source lines: 35/3207 (1.09%)
 #include "MenuPage.hpp"
 #include "ItemHandler.hpp"
 #include "DataStructures.hpp"
+#include "ExtraUIElements.hpp"
 
 namespace CTRPluginFramework {
 

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandlerInfos.hpp
-Open source lines: 116/116 (100.00%)
+Open source lines: 119/119 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -52,6 +52,7 @@ namespace CTRPluginFramework {
 		"u",	// CREDITS_WATCHED
 		"vv",	// PENDING_ACHIEVEMENTS
 		"w", 	// ACHIEVEMENTS
+		"x",    // AUTOMATIC_DELAY_DRIFT
 	};
 
 	class CTGP7SaveInfo
@@ -105,6 +106,8 @@ namespace CTRPluginFramework {
 			CREDITS_WATCHED,
 			PENDING_ACHIEVEMENTS,
 			ACHIEVEMENTS,
+
+			AUTOMATIC_DELAY_DRIFT,
 		};
 
 		static constexpr const char* getSaveCode(CTGP7SaveCode saveCode) {

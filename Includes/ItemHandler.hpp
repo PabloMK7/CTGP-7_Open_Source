@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.hpp
-Open source lines: 370/370 (100.00%)
+Open source lines: 380/380 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -14,10 +14,11 @@ Open source lines: 370/370 (100.00%)
 #include "ExtraResource.hpp"
 #include "Sound.hpp"
 #include "VisualControl.hpp"
+#include "rt.hpp"
 
 namespace CTRPluginFramework {
 
-    enum EItemSlot {
+    enum EItemSlot : u32 {
 		ITEM_BANANA = 0,
 		ITEM_KOURAG,
 		ITEM_KOURAR,
@@ -221,6 +222,15 @@ namespace CTRPluginFramework {
         static const char* GetTextureNameForItem(u32 itslottexid);
 
         static u32 GetDriverTimerForItem(u32 itemDirector, u32 infoProxy);
+
+        static RT_HOOK itemObjTailStateUseHook;
+        static bool allowFasterItemDisappear;
+        static void ItemObjTailStateUse(u32 itemObjTail);
+
+	    static u32 kartHoldItemFrames[8];
+        static RT_HOOK kartItemCalcAfterStructureHook;
+        static void OnKartItemCalcAfterStructure(u32 kartItem);
+        static void OnVehicleInit(u32 vehicle);
 
         class GameAddr {
         public:

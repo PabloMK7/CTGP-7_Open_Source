@@ -795,29 +795,29 @@ namespace CTRPluginFramework {
 
         SndLfoSin() : output(0.f), speed(0.f), progress(0.f), enabled(false) {}
         
-        void SetSpeed(float speed) 
+        inline void SetSpeed(float speed) 
         {
             this->speed = speed * (360.f/60.f);
         }
 
-        void Start(bool resume)
+        inline void Start(bool resume)
         {
             enabled = true;
             if (!resume)
                 progress = 0.f;
         }
 
-        void Stop()
+        inline void Stop()
         {
             enabled = false;
         }
 
-        void Calc()
+        inline void Calc()
         {
             CalcImpl(this);
         }
 
-        float Get()
+        inline float Get()
         {
             return output;
         }

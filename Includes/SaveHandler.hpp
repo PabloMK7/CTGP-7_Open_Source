@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 298/304 (98.03%)
+Open source lines: 302/308 (98.05%)
 *****************************************************/
 
 #pragma once
@@ -87,6 +87,7 @@ namespace CTRPluginFramework {
 				u32 autoaccelerationUsesA : 1;
 				u32 brakedrift : 1;
 				u32 creditsWatched : 1;
+				u32 automaticDelayDrift : 1;
 			} flags1;
 			struct 
 			{
@@ -152,6 +153,7 @@ namespace CTRPluginFramework {
 				flags1.autoaccelerationUsesA = false;
 				flags1.brakedrift = true;
 				flags1.creditsWatched = false;
+				flags1.automaticDelayDrift = true;
 				numberOfRounds = 4;
 				serverDisplayNameMode = (u8)Net::PlayerNameMode::SHOW;
 				serverDisplayCustomName[0] = '\0';
@@ -191,6 +193,7 @@ namespace CTRPluginFramework {
 				flags1.autoaccelerationUsesA = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTO_ACCELERATION_USESA), false);
 				flags1.brakedrift = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BRAKE_DRIFT), true);
 				flags1.creditsWatched = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CREDITS_WATCHED), false);
+				flags1.automaticDelayDrift = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTOMATIC_DELAY_DRIFT), true);
 				pendingAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)0);
 				achievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)0);
 			}
@@ -225,6 +228,7 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTO_ACCELERATION_USESA), (bool)flags1.autoaccelerationUsesA);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BRAKE_DRIFT), (bool)flags1.brakedrift);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CREDITS_WATCHED), (bool)flags1.creditsWatched);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTOMATIC_DELAY_DRIFT), (bool)flags1.automaticDelayDrift);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)pendingAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)achievements);
 			}

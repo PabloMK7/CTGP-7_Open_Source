@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2217/2551 (86.91%)
+Open source lines: 2215/2549 (86.90%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -1751,11 +1751,9 @@ namespace CTRPluginFramework {
             }
             buttonArray2[i]->GetNwlytControl()->vtable->replaceMessageImpl(buttonArray2[i]->GetNwlytControl(), ((u32*)buttonArray2[i])[0x94/4], message, nullptr, nullptr);
 
-            if (courseLocked) {
-                ((u32*)buttonArray2[i])[0x230 / 4] = -1;
-                ((u8*)buttonArray2[i])[0x224] = 0;
-                ((u8*)buttonArray2[i])[0x225] = 91;
-            }
+            ((u32*)buttonArray2[i])[0x230 / 4] = courseLocked ? -1 : 0;
+            ((u8*)buttonArray2[i])[0x224] = courseLocked ? 0 : 90;
+            ((u8*)buttonArray2[i])[0x225] = courseLocked ? 91 : 0;
         }
 
         if (((u8*)own)[0x2BC/1]) {

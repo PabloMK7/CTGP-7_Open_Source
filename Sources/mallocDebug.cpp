@@ -171,7 +171,7 @@ namespace CTRPluginFramework {
         }
     }
 
-    static u32 NAKED   SaveStackPointer() {
+    static u32 NAKED __attribute__((no_instrument_function)) SaveStackPointer() {
 #ifndef _MSC_VER
         __asm__ __volatile__(
             "MOV R0, SP \n"

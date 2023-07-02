@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 467/522 (89.46%)
+Open source lines: 468/523 (89.48%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -43,6 +43,7 @@ namespace CTRPluginFramework {
 		renderImprovements_apply(saveData.flags1.renderOptimization);
 		autoAccel_apply(saveData.flags1.autoacceleration);
 		brakedrift_apply(saveData.flags1.brakedrift);
+		automaticdelaydrift_apply(saveData.flags1.automaticDelayDrift);
 		MarioKartFramework::changeNumberRounds(saveData.numberOfRounds);
 
 		bool* isEnabled; u32* hotkey;

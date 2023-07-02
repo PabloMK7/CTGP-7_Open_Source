@@ -57,7 +57,7 @@ namespace CTRPluginFramework {
 		static int GetStat(Stat stat, int courseID = -1);
 		static void IncreaseStat(Stat stat, int courseID = -1, int amount = 1);
 		static double GetMissionMean();
-		static void UpdateMissionMean(double newValue);
+		static void UpdateMissionMean(double newValue, bool increaseCount = true);
 
 		static void OnCourseFinish();
 		static void OnMissionFinish(int missionGrade, bool checksumValid, int world);
@@ -89,7 +89,7 @@ namespace CTRPluginFramework {
 		static void IncreaseDocStat(minibson::document &doc, Stat stat, int courseID = -1, int amount = 1);
 		static void ForceDocStat(minibson::document &doc, Stat stat, int courseID, int amount);
 		static std::pair<double, int> GetDocMissionMean(const minibson::document& doc);
-		static void UpdateDocMissionMean(minibson::document &doc, double newMean);
+		static void UpdateDocMissionMean(minibson::document &doc, double newMean, bool increaseCount = true);
 		static std::vector<std::pair<int, int>> GetMostPlayedCourses();
 		static std::vector<std::pair<int, int>> GetMostPlayedArenas();
 	};

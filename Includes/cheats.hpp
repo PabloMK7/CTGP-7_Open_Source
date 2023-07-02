@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: cheats.hpp
-Open source lines: 103/112 (91.96%)
+Open source lines: 106/115 (92.17%)
 *****************************************************/
 
 #pragma once
@@ -98,6 +98,9 @@ namespace CTRPluginFramework
 
 	void brakedrift_apply(bool enabled);
 	void brakeDrift(MenuEntry* entry);
+
+	void automaticdelaydrift_apply(bool enabled);
+	void automaticdelaydrift_entryfunc(MenuEntry* entry);
 
 	void serverEntryHandler(MenuEntry* entry);
 }

@@ -39,10 +39,10 @@ namespace CTRPluginFramework {
         ((void(*)(AnimationDefine*, int, const SafeStringBase&, AnimationKind))VisualControl::GameFuncs::initAnimation)(this, subAnimationID, SafeStringBase(animationName), kind);
     }
     void VisualControl::AnimationDefine::InitAnimationStopByRate(int subAnimationID, const char* animationName, float rate) {
-        ((void(*)(AnimationDefine*, int, const SafeStringBase&, float))VisualControl::GameFuncs::initAnimation)(this, subAnimationID, SafeStringBase(animationName), rate);
+        ((void(*)(AnimationDefine*, int, const SafeStringBase&, float))VisualControl::GameFuncs::initAnimationStopByRate)(this, subAnimationID, SafeStringBase(animationName), rate);
     }
     void VisualControl::AnimationDefine::InitAnimationReverse(int subAnimationID, const char* animationName, AnimationKind kind) {
-        ((void(*)(AnimationDefine*, int, const SafeStringBase&, AnimationKind))VisualControl::GameFuncs::initAnimation)(this, subAnimationID, SafeStringBase(animationName), kind);
+        ((void(*)(AnimationDefine*, int, const SafeStringBase&, AnimationKind))VisualControl::GameFuncs::initAnimationReverse)(this, subAnimationID, SafeStringBase(animationName), kind);
     }
 
     void* VisualControl::GameFuncs::PointControlVtable = nullptr; // (void*)0x61A0F0;

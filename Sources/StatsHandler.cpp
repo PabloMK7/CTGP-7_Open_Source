@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 586/586 (100.00%)
+Open source lines: 612/612 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -81,6 +81,32 @@ namespace CTRPluginFramework {
 			statsDoc.set("Pending", minibson::document());
 		}
 		IncreaseStat(Stat::LAUNCHES);
+
+		// Fix mission mode stats being reset
+		{
+			minibson::document& uploadedStats = const_cast<minibson::document&>(GetUploadedStats());
+
+			int failed_mission = uploadedStats.get<int>("failed_mission", 0);
+			int completed_mission = uploadedStats.get<int>("completed_mission", 0);
+			int perfect_mission = uploadedStats.get<int>("perfect_mission", 0);
+			double grademean_mission = uploadedStats.get<double>("grademean_mission", 0.0);
+			int gradecount_mission = uploadedStats.get<int>("gradecount_mission", 0);
+
+			uploadedStats
+				.remove("failed_mission")
+				.remove("completed_mission")
+				.remove("perfect_mission")		
+				.remove("grademean_mission")
+				.remove("gradecount_mission");
+
+			IncreaseDocStat(uploadedStats, Stat::FAILED_MISSIONS, -1, failed_mission);
+			IncreaseDocStat(uploadedStats, Stat::COMPLETED_MISSIONS, -1, completed_mission);
+			IncreaseDocStat(uploadedStats, Stat::PERFECT_MISSIONS, -1, perfect_mission);
+			UpdateDocMissionMean(uploadedStats, grademean_mission, false);
+			IncreaseDocStat(uploadedStats, Stat::GRADECOUNT_MISSIONS, -1, gradecount_mission);
+		}
+		
+		//
     }
 
 	void StatsHandler::CommitToFile()
@@ -300,10 +326,10 @@ namespace CTRPluginFramework {
 		return std::make_pair(mean, storedAmount);
 	}
 
-	void StatsHandler::UpdateDocMissionMean(minibson::document &doc, double newMean) {
+	void StatsHandler::UpdateDocMissionMean(minibson::document &doc, double newMean, bool increaseCount) {
 		double prevMean = doc.get<double>(statStr[(int)Stat::GRADEMEAN_MISSIONS], 0.0);
 		doc.set<double>(statStr[(int)Stat::GRADEMEAN_MISSIONS], prevMean + newMean);
-		IncreaseDocStat(doc, Stat::GRADECOUNT_MISSIONS);
+		if (increaseCount) IncreaseDocStat(doc, Stat::GRADECOUNT_MISSIONS);
 	}
 
 	std::vector<std::pair<int, int>> StatsHandler::GetMostPlayedCourses()
@@ -575,12 +601,12 @@ namespace CTRPluginFramework {
 		return (std::get<0>(pending) + std::get<0>(uploaded)) / total;
 	}
 
-	void StatsHandler::UpdateMissionMean(double newValue) {
+	void StatsHandler::UpdateMissionMean(double newValue, bool increaseCount) {
 #ifdef IGNORE_STATS
 		return;
 #endif // IGNORE_STAT
 
 		Lock lock(statsDocMutex);
-		UpdateDocMissionMean(const_cast<minibson::document&>(GetPendingStats()), newValue);
+		UpdateDocMissionMean(const_cast<minibson::document&>(GetPendingStats()), newValue, increaseCount);
 	}
 }

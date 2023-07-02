@@ -257,7 +257,7 @@ namespace CTRPluginFramework {
 
             static AnimationDefineVtable empty;
 
-            enum class AnimationKind {
+            enum class AnimationKind : s32 {
                 NOPLAY = -1,
                 ONCE = 0,
                 LOOP = 1,

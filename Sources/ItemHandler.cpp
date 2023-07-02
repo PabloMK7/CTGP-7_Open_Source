@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.cpp
-Open source lines: 1278/1280 (99.84%)
+Open source lines: 1328/1330 (99.85%)
 *****************************************************/
 
 #include "ItemHandler.hpp"
@@ -14,6 +14,7 @@ Open source lines: 1278/1280 (99.84%)
 #include "DataStructures.hpp"
 #include "cheats.hpp"
 #include "CwavReplace.hpp"
+#include "ExtraUIElements.hpp"
 
 namespace CTRPluginFramework {
 
@@ -23,6 +24,12 @@ namespace CTRPluginFramework {
 
     u32 ItemHandler::fakeBoxDirector = 0;
     u32 ItemHandler::megaMushDirector = 0;
+
+    RT_HOOK ItemHandler::itemObjTailStateUseHook = { 0 };
+    bool ItemHandler::allowFasterItemDisappear = true;
+
+    u32 ItemHandler::kartHoldItemFrames[8];
+    RT_HOOK ItemHandler::kartItemCalcAfterStructureHook = { 0 };
 
     ItemHandler::ItemDirectorVtable* ItemHandler::FakeBoxHandler::directorVtable = nullptr;
     ItemHandler::FakeBoxHandler::FakeBoxData* ItemHandler::FakeBoxHandler::fakeBoxData[FakeBoxAmount];
@@ -355,7 +362,7 @@ namespace CTRPluginFramework {
         void (*sequenceUseAnim)() = (void(*)())GameAddr::sequenceUseAnimAddr;
 
         // Custom
-        MarioKartFramework::warnLedItem(item);
+        MarioKartFramework::warnLedItem(vehicle, item);
         MarioKartFramework::handleItemCD(vehicle, item);
         //
 
@@ -633,6 +640,49 @@ namespace CTRPluginFramework {
             return MarioKartFramework::megaMushTimers[vehicle[0x84/4]];
         }
         return 0;
+    }
+
+    void ItemHandler::ItemObjTailStateUse(u32 itemObjTail) {
+        int driverID = ((u32*)itemObjTail)[0x164/4];
+        KartButtonData buttonData = KartButtonData::GetFromVehicle(((u32**)itemObjTail)[0x158/4][0]);
+        
+        ((void(*)(u32))itemObjTailStateUseHook.callCode)(itemObjTail);
+        
+        if (driverID == MarioKartFramework::masterPlayerID)
+            ExtendedItemBoxController::konohaTimer = ((u32*)itemObjTail)[0x70/4];
+        
+        int spinTimer = ((u32*)itemObjTail)[0x210/4];
+        if (buttonData.item && spinTimer > 20 && allowFasterItemDisappear)
+            ((u32*)itemObjTail)[0x70/4]+=3;
+    }
+
+    void ItemHandler::OnKartItemCalcAfterStructure(u32 kartItem) {
+        ((void(*)(u32))kartItemCalcAfterStructureHook.callCode)(kartItem);
+        EItemSlot currItem = ((EItemSlot*)kartItem)[0x38/4];
+        u32 infoProxy = ((u32*)kartItem)[0x2C/4];
+        u32 vehicle = ((u32*)infoProxy)[0];
+        int playerID = ((u32*)vehicle)[0x84/4];
+        if (KartButtonData::GetFromVehicle(vehicle).item)
+            kartHoldItemFrames[playerID]++;
+        else
+            kartHoldItemFrames[playerID] = 0;
+        if (kartHoldItemFrames[playerID] > 20 && allowFasterItemDisappear) {
+            if (currItem == EItemSlot::ITEM_KINOKOP) {
+                int& goldenTimer = ((int*)kartItem)[0x54/4];
+                if (goldenTimer > 0)
+                    goldenTimer+=3;
+            } else if (currItem == EItemSlot::ITEM_FLOWER) {
+                int& flowerTimer = ((int*)kartItem)[0x50/4];
+                if (flowerTimer > 0)
+                    flowerTimer+=3;
+            }
+        }
+	}
+
+    void ItemHandler::OnVehicleInit(u32 vehicle) {
+        int playerID = ((u32*)vehicle)[0x84/4];
+		ItemHandler::MegaMushHandler::End(playerID, true);
+        kartHoldItemFrames[playerID] = 0;
     }
 
     void ItemHandler::FakeBoxHandler::Initialize() {

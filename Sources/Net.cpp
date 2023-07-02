@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 555/587 (94.55%)
+Open source lines: 554/586 (94.54%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -251,7 +251,6 @@ namespace CTRPluginFramework {
 			lastRoomVRMean = reqDoc.get("vrMean", (int)1000);
 			ctwwCPURubberBandMultiplier = reqDoc.get("rubberBMult", 1.);
 			ctwwCPURubberBandOffset = reqDoc.get("rubberBOffset", 0.);
-			MarioKartFramework::turningHopPenaltyFactor = reqDoc.get("delayDriftBlocked", false) ? 1.f : 0.f;
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_RACING)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_RACING, &reqDoc);
