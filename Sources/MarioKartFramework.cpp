@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3252/3354 (96.96%)
+Open source lines: 3254/3356 (96.96%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -623,6 +623,7 @@ namespace CTRPluginFramework {
 			bool allowCustomItems = true;
 			if (onlineset.ver >= 6) allowCustomItems = setv2.customItemsAllowed;
 			allowCustomItemsComm = allowCustomItems;
+			ItemHandler::allowFasterItemDisappear = allowCustomItems;
 			bool automaticDelayDrift = true;
 			if (onlineset.ver >= 7) automaticDelayDrift = setv2.automaticDelayDriftAllowed;
 			automaticDelayDriftAllowed = automaticDelayDrift;
@@ -1947,8 +1948,9 @@ namespace CTRPluginFramework {
 
 	u16 MarioKartFramework::handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag)
 	{
-		if (MissionHandler::neeedsCustomItemHandling()) return MissionHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
-		if (VersusHandler::neeedsCustomItemHandling()) return VersusHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
+		bool isDecided = strcmp((char*)csvPtr + 0x50, "ItemSlotTable_Decided") == 0;
+		if (!isDecided && MissionHandler::neeedsCustomItemHandling()) return MissionHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
+		if (!isDecided && VersusHandler::neeedsCustomItemHandling()) return VersusHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
 		u16 totalProb = 0;
 		if (!bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
 		for (int i = 0; i < EItemSlot::ITEM_SIZE; i++) {
@@ -3205,7 +3207,7 @@ namespace CTRPluginFramework {
 			MarioKartFramework::improvedTricksForced = false;
 			MarioKartFramework::brakeDriftAllowed = false;
 			MarioKartFramework::brakeDriftForced = false;
-			ItemHandler::allowFasterItemDisappear = true;
+			ItemHandler::allowFasterItemDisappear = false;
 			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
 			break;
 		case ONLINE_CTWW:
