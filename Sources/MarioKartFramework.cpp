@@ -1949,7 +1949,7 @@ namespace CTRPluginFramework {
 	u16 MarioKartFramework::handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag)
 	{
 		bool isDecided = strcmp((char*)csvPtr + 0x50, "ItemSlotTable_Decided") == 0;
-		if (!isDecided && MissionHandler::neeedsCustomItemHandling()) return MissionHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
+		if (MissionHandler::neeedsCustomItemHandling()) return MissionHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
 		if (!isDecided && VersusHandler::neeedsCustomItemHandling()) return VersusHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
 		u16 totalProb = 0;
 		if (!bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
