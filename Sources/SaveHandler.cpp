@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 468/523 (89.48%)
+Open source lines: 469/524 (89.50%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -233,7 +233,7 @@ namespace CTRPluginFramework {
 	void SaveHandler::LoadSettings() {
 		SaveFile::LoadStatus status;
 		minibson::encdocument doc = SaveFile::Load(SaveFile::SaveType::OPTIONS, status);
-		if (status == SaveFile::LoadStatus::SUCCESS) {
+		if (status == SaveFile::LoadStatus::SUCCESS && doc.get<u64>("cID", NetHandler::GetConsoleUniqueHash()) == NetHandler::GetConsoleUniqueHash()) {
 			saveData = CTGP7Save(doc);
 		} else if (status == SaveFile::LoadStatus::MAGIC_MISMATCH) {
 			LoadSettingsLegacy();
@@ -252,6 +252,7 @@ namespace CTRPluginFramework {
 		saveData.flags1.screenshotEnabled = *isEnabled;
 
 		minibson::encdocument saveDoc;
+		saveDoc.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
 		saveData.serialize(saveDoc);
 		
 		SaveFile::Save(SaveFile::SaveType::OPTIONS, saveDoc);

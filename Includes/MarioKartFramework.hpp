@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 746/746 (100.00%)
+Open source lines: 747/747 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -693,6 +693,7 @@ namespace CTRPluginFramework {
 			static void startSizeChangeAnimation(int playerID, float targetSize, bool isGrowing);
 			static ResizeInfo resizeInfos[8];
 			static int megaMushTimers[8];
+			static int packunStunCooldownTimers[8];
 			static bool calculatePressReact(u32* vehicleMove1, u32* vehicleMove2, int someValueSP);
 			static u32* sndActorKartCalcEnemyStar(u32* sndActorKart);
 			static SndLfoSin pitchCalculators[8];

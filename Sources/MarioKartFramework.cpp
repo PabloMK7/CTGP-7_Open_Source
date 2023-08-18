@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3254/3356 (96.96%)
+Open source lines: 3277/3379 (96.98%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -185,6 +185,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::VehicleReact_ReactPressMapObjAddr = 0;
 	ResizeInfo MarioKartFramework::resizeInfos[8];
 	int MarioKartFramework::megaMushTimers[8] = { 0 };
+	int MarioKartFramework::packunStunCooldownTimers[8] = { 0 };
 	SndLfoSin MarioKartFramework::pitchCalculators[8];
 	bool MarioKartFramework::ignoreKartAccident = false;
 	u32 MarioKartFramework::SndActorBase_SetCullingSafeDistVolRatioAddr = 0;
@@ -1030,6 +1031,7 @@ namespace CTRPluginFramework {
 		for (int i = 0; i < 8; i++)
 		{
 			megaMushTimers[i] = 0;
+			packunStunCooldownTimers[i] = 0;
 			pitchCalculators[i].Start(false);
 			pitchCalculators[i].Stop();
 			pitchCalculators[i].SetSpeed(5.851f * 1.25f);
@@ -2175,6 +2177,25 @@ namespace CTRPluginFramework {
 			}
 		}
 
+		// Special handling for some objects...
+		// (keep in mind for mission mode)
+		if (objID == 0xDC) { // Piranha plant
+			u8* state1 = ((u8*)object) + 0x18E;
+			u8* state2 = ((u8*)object) + 0x1A5;
+			u8 prevState1 = *state1;
+			u8 prevState2 = *state2;
+			u32 ret = ((u32(*)(u32, u32, u32, u32))objCallFuncPtr)(object, EGTHReact, eObjectReactType, vehicleReactObject);
+			if (prevState2 != *state2 && *state2 == 3) { // Plant decided to attack
+				if (packunStunCooldownTimers[playerID]) { // Cancel attack
+					*state1 = prevState1;
+					*state2 = prevState2;
+				} else {
+					packunStunCooldownTimers[playerID] = MarioKartTimer::ToFrames(0, 5, 0);
+				}	
+			}
+			return ret;
+		}
+
 		//NOXTRACE("dfffdsd", "oid: 0x%x, obt: %d, egth: 0x%x", objID, eObjectReactType, EGTHReact);
 
 		if (MissionHandler::isMissionMode) return MissionHandler::onKartItemHitGeoObject(object, EGTHReact, eObjectReactType, vehicleReactObject, objCallFuncPtr, false);
@@ -2752,7 +2773,9 @@ namespace CTRPluginFramework {
 		resizeInfos[playerID].lastKartScale = thunder->actualSize;
 		if (megaMushTimers[playerID] == 1) {
 			ItemHandler::MegaMushHandler::End(playerID, false);
-		} else if (megaMushTimers[playerID]) megaMushTimers[playerID]--;
+		} else if (megaMushTimers[playerID]) --megaMushTimers[playerID];
+
+		if (packunStunCooldownTimers[playerID]) --packunStunCooldownTimers[playerID];
 
 		if (ItemHandler::MegaMushHandler::growMapFacePending[playerID] > 0) {
 			if (ItemHandler::MegaMushHandler::growMapFacePending[playerID] == 1 && megaMushTimers[playerID])

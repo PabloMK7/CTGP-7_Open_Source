@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.cpp
-Open source lines: 1328/1330 (99.85%)
+Open source lines: 1329/1331 (99.85%)
 *****************************************************/
 
 #include "ItemHandler.hpp"
@@ -683,6 +683,7 @@ namespace CTRPluginFramework {
         int playerID = ((u32*)vehicle)[0x84/4];
 		ItemHandler::MegaMushHandler::End(playerID, true);
         kartHoldItemFrames[playerID] = 0;
+        MarioKartFramework::packunStunCooldownTimers[playerID] = 0;
     }
 
     void ItemHandler::FakeBoxHandler::Initialize() {
