@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.hpp
-Open source lines: 340/340 (100.00%)
+Open source lines: 341/341 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -294,6 +294,7 @@ namespace CTRPluginFramework
 			static void SetString(u32 id, const string16& text, bool insertFront = false) {SetText(id, text.data(), insertFront, text.size());}
 			static void SetString(u32 id, const char* text, bool insertFront = false);
 			static void SetString(u32 id, const std::string& text, bool insertFront = false) {SetString(id, text.c_str(), insertFront);}
+			static void RemoveAllString(u32 id);
 			static void SetTextEnabled(u32 id, bool enabled);
 		};
 

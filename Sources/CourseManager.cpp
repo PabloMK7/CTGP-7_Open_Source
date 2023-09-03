@@ -216,10 +216,10 @@ namespace CTRPluginFramework
 	}
 
 	u32 CourseManager::getCourseName(u32* courseID) {
+		lastLoadedCourseID = *courseID;
 		if (*courseID == USERTRACKID) {
 			return UserCTHandler::GetCourseInternalName();
 		}
-		lastLoadedCourseID = *courseID;
 		return (u32)&globalNameData.entries[*courseID];
 	}
 

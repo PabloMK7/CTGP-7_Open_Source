@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3277/3379 (96.98%)
+Open source lines: 3309/3413 (96.95%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -597,7 +597,7 @@ namespace CTRPluginFramework {
 		CCSettings   *settings = static_cast<CCSettings *>(ccselectorentry->GetArg());
 		int speed;
 		int trackamount;
-		if (onlineset.ver >= 4 || onlineset.ver <= 7) {
+		if (onlineset.ver >= 4 && onlineset.ver <= 7) {
 			OnlineSettingsv2& setv2 = *(OnlineSettingsv2*)&onlineset;
 			speed = setv2.speed;
 			trackamount = setv2.rounds;
@@ -685,7 +685,7 @@ namespace CTRPluginFramework {
 		u32 trackamount;
 		std::string trackstate = "";
 		u32 realRoundAmount;
-		if (onlineset->ver >= 4  || onlineset->ver <= 7) {
+		if (onlineset->ver >= 4 && onlineset->ver <= 7) {
 			OnlineSettingsv2* setver2 = (OnlineSettingsv2*)onlineset;
 
 			if (setver2->areCustomTracksAllowed && setver2->areOrigTracksAllowed) trackstate.append("CT,OT ");
@@ -1304,7 +1304,7 @@ namespace CTRPluginFramework {
 	}
 
 	bool MarioKartFramework::applyVisualElementsCTWWOSD(const Screen& screen) {
-		adjustVisualElementsCTWW(SaveHandler::saveData.flags1.isCTWWActivated);
+		adjustVisualElementsCTWW(SaveHandler::saveData.flags1.isCTWWActivated && SaveHandler::saveData.flags1.useCTGP7Server);
 		OSD::Stop(applyVisualElementsCTWWOSD);
 		return false;
 	}
@@ -1370,7 +1370,7 @@ namespace CTRPluginFramework {
 					return 0;
 				}
 				g_isUserInControlWW = true;
-				if (Controller::IsKeyPressed(Key::Y) && !g_hasDialogBeenOpened) {
+				if (Controller::IsKeyPressed(Key::Y) && !g_hasDialogBeenOpened && SaveHandler::saveData.flags1.useCTGP7Server) {
 					g_hasDialogBeenOpened = true;
 					openDialog(DialogFlags::Mode::YESNO, SaveHandler::saveData.flags1.isCTWWActivated ? NOTE("CTWWtog") : NAME("CTWWtog"));
 				}
@@ -1398,7 +1398,7 @@ namespace CTRPluginFramework {
 			g_hasDialogBeenOpened = false;
 		}
 		if (btn == 0) {
-			if (SaveHandler::saveData.flags1.isCTWWActivated) g_setCTModeVal = CTMode::ONLINE_CTWW;
+			if (SaveHandler::saveData.flags1.isCTWWActivated && SaveHandler::saveData.flags1.useCTGP7Server) g_setCTModeVal = CTMode::ONLINE_CTWW;
 			else g_setCTModeVal = CTMode::ONLINE_NOCTWW;
 			g_updateCTMode();
 		}
@@ -1414,31 +1414,33 @@ namespace CTRPluginFramework {
 		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, 0, 0);
 	}
 
-	void MarioKartFramework::onOnlineSubModeButtonOK()
+	void MarioKartFramework::onOnlineSubModeButtonOK(int buttonID)
 	{
-		
+		Net::lastPressedOnlineModeButtonID = buttonID;
 	}
 	
 	static Mutex g_internetConnectionMutex;
 	void MarioKartFramework::OnInternetConnection() { // Called as soon as the game tries to connect online
 		Lock lock(g_internetConnectionMutex);         // including online multiplayer and mario kart channel
-		if (needsOnlineCleanup) return; 
-		needsOnlineCleanup = true;
-		ccSelOnlineEntry->setOnlineMode(true);
-		comCodeGenOnlineEntry->setOnlineMode(true);
-		numbRoundsOnlineEntry->setOnlineMode(true);
-		serverOnlineEntry->setOnlineMode(true);
-		improvedTricksOnlineEntry->setOnlineMode(true);
-		ccsettings[1].enabled = false;
-		ccselectorentry->SetArg(&ccsettings[1]);
-		ccselector_apply(ccselectorentry);
-		MarioKartFramework::changeNumberRounds(4);
-		g_setCTModeVal = CTMode::ONLINE_NOCTWW;
-		g_updateCTMode();
-		while (!ISGAMEONLINE) g_isOnlineMode = rol<u8>(g_isOnlineMode, 1);
+		if (!needsOnlineCleanup) {
+			ccSelOnlineEntry->setOnlineMode(true);
+			comCodeGenOnlineEntry->setOnlineMode(true);
+			numbRoundsOnlineEntry->setOnlineMode(true);
+			serverOnlineEntry->setOnlineMode(true);
+			improvedTricksOnlineEntry->setOnlineMode(true);
+			ccsettings[1].enabled = false;
+			ccselectorentry->SetArg(&ccsettings[1]);
+			ccselector_apply(ccselectorentry);
+			MarioKartFramework::changeNumberRounds(4);
+			g_setCTModeVal = CTMode::ONLINE_NOCTWW;
+			g_updateCTMode();
+			while (!ISGAMEONLINE) g_isOnlineMode = rol<u8>(g_isOnlineMode, 1);
+			needsOnlineCleanup = true;
+		}
 	}
 
 	void MarioKartFramework::DoOnlineCleanup() {
+		Lock lock(g_internetConnectionMutex);
 		if (needsOnlineCleanup) { // This variable is set to true if the online 
 			ccSelOnlineEntry->setOnlineMode(false);
 			comCodeGenOnlineEntry->setOnlineMode(false);
@@ -1462,6 +1464,10 @@ namespace CTRPluginFramework {
 	}
 
 	void MarioKartFramework::handleTitleEnterCallback() { // Called every time the game enters the title screen
+		isRaceState = false;
+		isRacePaused = false;
+		Net::customAuthData.populated = false;
+		Net::customAuthData.result = 0;
 		VersusHandler::IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		MarioKartFramework::setSkipGPCoursePreview(false);
@@ -1479,6 +1485,28 @@ namespace CTRPluginFramework {
 		g_hasGameReachedTitle = true;
 	}
 
+	static void OnTitleOnlineButtonPressed() {
+		*(PluginMenu::GetRunningInstance()) -= OnTitleOnlineButtonPressed;
+		Keyboard keyboard("dummy");
+		std::string ctgp7Network = NOTE("server_name");
+		std::string nintendoNetwork = NAME("server_name");
+		keyboard.Populate({ctgp7Network, nintendoNetwork});
+		keyboard.ChangeSelectedEntry(SaveHandler::saveData.flags1.useCTGP7Server ? 0 : 1);
+		keyboard.GetMessage() = Utils::Format(NAME("server_choice").c_str(), (ToggleDrawMode(Render::UNDERLINE) + ctgp7Network + ToggleDrawMode(Render::UNDERLINE)).c_str(), (ToggleDrawMode(Render::UNDERLINE) + nintendoNetwork + ToggleDrawMode(Render::UNDERLINE)).c_str());
+		Process::Pause();
+		int res = keyboard.Open();
+		switch (res) {
+			case 0:
+				useCTGP7server_apply(true);
+				break;
+			case 1:
+				useCTGP7server_apply(false);
+				break;
+		}
+		Process::Play();
+		Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::IDLE, true);
+	}
+
 	void MarioKartFramework::handleTitleCompleteCallback(u32 option)
 	{
 		// 0 -> Singleplayer, 1 -> Multiplayer, 2 -> Online, 3 -> Channel, 7 -> Demo race
@@ -1489,8 +1517,8 @@ namespace CTRPluginFramework {
 		DoOnlineCleanup();
 		if (option == 2)
 		{
+			*(PluginMenu::GetRunningInstance()) += OnTitleOnlineButtonPressed;
 			OnInternetConnection();
-			Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::IDLE, true);
 		}
 	}
 
@@ -2030,7 +2058,11 @@ namespace CTRPluginFramework {
 			u8 currLap = info->currentLap;
 			if (currLap != lastCheckedLap) {
 				lastCheckedLap = currLap;
-				u8 totLaps = CourseManager::getCourseLapAmount(CourseManager::lastLoadedCourseID);
+				u8 totLaps = 0;
+				if (UserCTHandler::IsUsingCustomCup())
+					totLaps = UserCTHandler::GetCurrentCourseLapAmount();
+				else
+					CourseManager::getCourseLapAmount(CourseManager::lastLoadedCourseID);
 				if (currLap == totLaps)
 					raceMusicSpeedMultiplier = 1.f;
 				else

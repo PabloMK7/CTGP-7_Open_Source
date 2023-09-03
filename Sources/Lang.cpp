@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 769/770 (99.87%)
+Open source lines: 787/788 (99.87%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -355,6 +355,10 @@ namespace CTRPluginFramework
 			std::string cc_name = std::to_string((int)settings->value) + "cc";
 			for (int i = 1812; i >= 1810; i--) MsbtHandler::SetString(i, cc_name);
 		}
+		MsbtHandler::SetString(6001, NAME("server_ctgp7_conn"));
+		MsbtHandler::SetString(6002, NAME("server_ctgp7_dconn"));
+		MsbtHandler::SetString(6334, NAME("server_ctgp7_nocomm"));
+		useCTGP7server_apply(SaveHandler::saveData.flags1.useCTGP7Server);
 	}
 
     static void ReplaceStringInPlace(std::string& subject, const std::string search, const std::string replace) {
@@ -682,6 +686,20 @@ namespace CTRPluginFramework
 				if (oldNext) m->next = oldNext;
 			}
 		} else customText[id] = m;
+	}
+
+	void Language::MsbtHandler::RemoveAllString(u32 id) {
+		// NOTE: Untested
+		auto it = customText.find(id);
+		if (it != customText.end()) {
+			MessageString* str = it->second;
+			while (str) {
+				MessageString* next = str->next;
+				delete str;
+				str = next;
+			}
+			customText.erase(id);
+		}
 	}
 	
 	void Language::MsbtHandler::SetTextEnabled(u32 id, bool enabled) {

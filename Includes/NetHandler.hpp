@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 141/142 (99.30%)
+Open source lines: 146/147 (99.32%)
 *****************************************************/
 
 #pragma once
@@ -87,7 +87,8 @@ namespace CTRPluginFramework {
 				HEARTBEAT,
 				ONLINE_RACEFINISH,
 				DISCORD_INFO,
-				UPLOAD_MII
+				UPLOAD_MII,
+				ONLINETOKEN,
 			};
 			RequestHandler();
 
@@ -118,14 +119,17 @@ namespace CTRPluginFramework {
 		};
 
 		static const std::string mainServerURL;
+		static const std::string mainServerHost;
 
 		static u64 GetConsoleUniqueHash();
+		static std::string GetConsoleUniquePassword();
 		static void InitColsoleUniqueHash();
 		static void SetHttpcStolenMemory(u32* addr);
 		static u32* GetHttpcStolenMemory();
 
 	private:
 		static u64 ConsoleUniqueHash;
+		static std::string ConsoleUniquePassword;
 		static u32* HttpcStolenMemory;
 	};
 	#else
@@ -133,6 +137,7 @@ namespace CTRPluginFramework {
 	{
 	public:
 		static u64 GetConsoleUniqueHash() {return 0x5AFF5AFF5AFF5AFF;};
+		static std::string GetConsoleUniquePassword() {return "tontoelquelolea0";};
 		static void InitColsoleUniqueHash() {};
 		static void SetHttpcStolenMemory(u32* addr) {};
 		static u32* GetHttpcStolenMemory() {return nullptr;};

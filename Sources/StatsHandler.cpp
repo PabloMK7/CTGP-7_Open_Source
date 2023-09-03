@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 612/612 (100.00%)
+Open source lines: 613/613 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -14,6 +14,7 @@ Open source lines: 612/612 (100.00%)
 #include "ExtraResource.hpp"
 #include "cheats.hpp"
 #include "malloc.h"
+#include "UserCTHandler.hpp"
 
 namespace CTRPluginFramework {
 
@@ -362,7 +363,7 @@ namespace CTRPluginFramework {
 	void StatsHandler::OnCourseFinish()
 	{
 		u32 lastTrack = CourseManager::lastLoadedCourseID;
-		if (!ExtraResource::lastTrackFileValid && !(lastTrack == 0x7 || lastTrack == 0x8 || lastTrack == 0x9 || lastTrack == 0x1D))
+		if (lastTrack == USERTRACKID || (!ExtraResource::lastTrackFileValid && !(lastTrack == 0x7 || lastTrack == 0x8 || lastTrack == 0x9 || lastTrack == 0x1D)))
 			return;
 		MarioKartFramework::CRaceMode& raceMode = MarioKartFramework::currentRaceMode;
 		if (raceMode.type == 0 || raceMode.type == 1) { // Offline and multiplayer

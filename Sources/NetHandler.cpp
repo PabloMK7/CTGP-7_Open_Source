@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 421/462 (91.13%)
+Open source lines: 428/476 (89.92%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -24,6 +24,7 @@ namespace CTRPluginFramework {
 	const minibson::document NetHandler::Session::defaultDoc;
 
 	u64 NetHandler::ConsoleUniqueHash = 0;
+	std::string NetHandler::ConsoleUniquePassword = "";
 
 	const char* NetHandler::RequestHandler::reqStr[] = {
 		"req_betaver",
@@ -39,7 +40,8 @@ namespace CTRPluginFramework {
 		"put_hrtbt",
 		"put_onlracefinish",
 		"req_discordinfo",
-		"put_miiicon"
+		"put_miiicon",
+		"req_onlinetoken"
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)
@@ -292,6 +294,11 @@ namespace CTRPluginFramework {
 	u64 NetHandler::GetConsoleUniqueHash()
 	{
 		return ConsoleUniqueHash;
+	}
+
+	std::string NetHandler::GetConsoleUniquePassword()
+	{
+		return ConsoleUniquePassword;
 	}
 
 	void NetHandler::InitColsoleUniqueHash()

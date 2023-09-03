@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 747/747 (100.00%)
+Open source lines: 748/748 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -150,6 +150,7 @@ namespace CTRPluginFramework {
 		u32 unused : 23;
 		u8  checksum;
 	} PACKED;
+	static_assert(sizeof(OnlineSettings) == sizeof(OnlineSettingsv2));
 
 	struct ResizeInfo {
 
@@ -468,7 +469,7 @@ namespace CTRPluginFramework {
 			static u32 onOnlineModePreStep(u32 mode);
 			static void onOnlineModeButOK(u32 btn);
 			static void onOnlineSubModePreStep();
-			static void onOnlineSubModeButtonOK();
+			static void onOnlineSubModeButtonOK(int buttonID);
 			static void (*nwlytReplaceText)(u32 a0, u32 a1, u32 msgPtr, u32 a3, u32 a4);
 			//
 			static int handleBootSequenceCallback();

@@ -4,13 +4,15 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 125/129 (96.90%)
+Open source lines: 153/157 (97.45%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "cheats.hpp"
 #include "NetHandler.hpp"
+#include "array"
+#include "rt.hpp"
 
 namespace CTRPluginFramework {
 	class Net
@@ -60,13 +62,13 @@ namespace CTRPluginFramework {
 
 		enum class OnlineStateMachine
 		{
-			OFFLINE,
-			IDLE,
-			SEARCHING,
-			WATCHING,
-			PREPARING,
-			RACING,
-			RACE_FINISHED
+			OFFLINE = 0,
+			IDLE = 1,
+			SEARCHING = 2,
+			WATCHING = 3,
+			PREPARING = 4,
+			RACING = 5,
+			RACE_FINISHED = 6,
 		};
 
 		static void UpdateOnlineStateMahine(OnlineStateMachine mode, bool titleScreenLogin = false);
@@ -74,6 +76,31 @@ namespace CTRPluginFramework {
 		static void Initialize();
 
 		static bool IsRunningPretendo();
+
+		struct GameAuthenticationData {
+			s32 result{};
+			s32 http_status_code{};
+			std::array<char, 32> server_address{};
+			u16 server_port{};
+			u16 padding1{};
+			u32 unused{};
+			std::array<char, 256> auth_token{};
+			u64 server_time{};
+		};
+		struct CustomGameAuthentication {
+			bool populated{false};
+			Handle eventHandle{};
+			s32 result{};
+			std::string auth_token{};
+			u64 server_time{};
+		};
+		static CustomGameAuthentication customAuthData;
+		static RT_HOOK GetMyPasswordHook;
+		static Result OnGetMyPassword(char* passwordOut, u32 maxPasswordSize);
+		static RT_HOOK RequestGameAuthenticationDataHook;
+		static Result OnRequestGameAuthenticationData(Handle event, u32 serverID, u16* arg2, u8 arg3, u8 arg4);
+		static RT_HOOK GetGameAuthenticationDataHook;
+		static Result OnGetGameAuthenticationData(GameAuthenticationData* data);
 
 		class DiscordInfo
 		{
@@ -91,6 +118,7 @@ namespace CTRPluginFramework {
 		static DiscordInfo GetDiscordInfo(bool requestLink);
 		static void DiscordLinkMenu();
 
+		static int lastPressedOnlineModeButtonID;
 		static u32 lastRoomVRMean;
 		static u32 vrPositions[2];
 		static float ctwwCPURubberBandMultiplier;
