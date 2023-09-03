@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3309/3413 (96.95%)
+Open source lines: 3312/3416 (96.96%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -1492,7 +1492,10 @@ namespace CTRPluginFramework {
 		std::string nintendoNetwork = NAME("server_name");
 		keyboard.Populate({ctgp7Network, nintendoNetwork});
 		keyboard.ChangeSelectedEntry(SaveHandler::saveData.flags1.useCTGP7Server ? 0 : 1);
-		keyboard.GetMessage() = Utils::Format(NAME("server_choice").c_str(), (ToggleDrawMode(Render::UNDERLINE) + ctgp7Network + ToggleDrawMode(Render::UNDERLINE)).c_str(), (ToggleDrawMode(Render::UNDERLINE) + nintendoNetwork + ToggleDrawMode(Render::UNDERLINE)).c_str());
+		std::string text(500, '\0');
+		std::snprintf(text.data(), text.size(), NAME("server_choice").c_str(), (ToggleDrawMode(Render::UNDERLINE) + ctgp7Network + ToggleDrawMode(Render::UNDERLINE)).c_str(), (ToggleDrawMode(Render::UNDERLINE) + nintendoNetwork + ToggleDrawMode(Render::UNDERLINE)).c_str());
+		text.erase(std::find(text.begin(), text.end(), '\0'), text.end());
+		keyboard.GetMessage() = text;
 		Process::Pause();
 		int res = keyboard.Open();
 		switch (res) {

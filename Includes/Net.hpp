@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 153/157 (97.45%)
+Open source lines: 155/159 (97.48%)
 *****************************************************/
 
 #pragma once
@@ -91,6 +91,8 @@ namespace CTRPluginFramework {
 			bool populated{false};
 			Handle eventHandle{};
 			s32 result{};
+			std::string server_address{};
+			u16 server_port{};
 			std::string auth_token{};
 			u64 server_time{};
 		};

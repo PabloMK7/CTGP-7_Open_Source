@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 646/678 (95.28%)
+Open source lines: 648/680 (95.29%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -486,6 +486,8 @@ namespace CTRPluginFramework {
 		minibson::document resDoc;
 		int res = onlineTokenHandler.GetResult(NetHandler::RequestHandler::RequestType::ONLINETOKEN, &resDoc);
 		if (res >= 0) {
+			Net::customAuthData.server_address = resDoc.get("address", "");
+			Net::customAuthData.server_port = (u16)resDoc.get_numerical("port", 0);
 			Net::customAuthData.auth_token = resDoc.get("online_token", "");
 			Net::customAuthData.server_time = resDoc.get_numerical("server_time", 0);
 			Net::customAuthData.populated = true;
@@ -522,8 +524,8 @@ namespace CTRPluginFramework {
 			if (R_SUCCEEDED(customAuthData.result) && customAuthData.populated) {
 				data->result = 1;
 				data->http_status_code = 200;
-				strncpy(data->server_address.data(), NetHandler::mainServerHost.c_str(), data->server_address.size());
-				data->server_port = 33777;
+				strncpy(data->server_address.data(), customAuthData.server_address.c_str(), data->server_address.size());
+				data->server_port = customAuthData.server_port;
 				strncpy(data->auth_token.data(), customAuthData.auth_token.c_str(), data->auth_token.size());
 				data->server_time = customAuthData.server_time;
 			}
