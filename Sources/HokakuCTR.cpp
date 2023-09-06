@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HokakuCTR.cpp
-Open source lines: 171/172 (99.42%)
+Open source lines: 216/217 (99.54%)
 *****************************************************/
 
 #include "HokakuCTR.hpp"
@@ -19,6 +19,8 @@ Open source lines: 171/172 (99.42%)
 #include <vector>
 #include <string.h>
 
+//#define LOG_RAW_PACKETS
+
 namespace CTRPluginFramework
 {
     enum NexBufferVersion {
@@ -30,6 +32,8 @@ namespace CTRPluginFramework
 
     RT_HOOK sendPacketHook = { 0 };
     RT_HOOK recvPacketHook = { 0 };
+    RT_HOOK sendToHook = { 0 };
+    RT_HOOK recvFromHook = { 0 };
     u32 sendFuncAddr = 0;
     u32 recvFuncAddr = 0;
     NexBufferVersion bufferVersion = NexBufferVersion::NOTINIT;
@@ -134,6 +138,37 @@ namespace CTRPluginFramework
         return true;
     }
 
+    static bool g_sentOSDNotif = false;
+    Result sendToRawCallback(void* obj, u8* buffer, u32 size, void* arg2, void* arg3) {
+        if (!g_sentOSDNotif) {
+            OSD::Notify("Logging raw packets");
+            g_sentOSDNotif = true;
+        }
+        mainLogger->LogRMCPacket(buffer, size, false);
+        return ((Result(*)(void*, u8*, u32, void*, void*))sendToHook.callCode)(obj, buffer, size, arg2, arg3);
+    }
+
+    bool installSendToRaw(u32 addr) {
+        u32 funcStart = (u32)findNearestSTMFDptr((u32*)addr);
+        if (!funcStart) return false;
+        rtInitHook(&sendToHook, funcStart, (u32)sendToRawCallback);
+        return true;
+    }
+
+    Result recvFromRawCallback(void* obj, u8* buffer, u32 size, void* arg2, u32* arg3) {
+        Result res = ((Result(*)(void*, u8*, u32, void*, void*))recvFromHook.callCode)(obj, buffer, size, arg2, arg3);
+        if (res == 0 && *arg3 != 0)
+            mainLogger->LogRMCPacket(buffer, *arg3, true);
+        return res;
+    }
+
+    bool installRecvFromRaw(u32 addr) {
+        u32 funcStart = (u32)findNearestSTMFDptr((u32*)addr);
+        if (!funcStart) return false;
+        rtInitHook(&recvFromHook, funcStart, (u32)recvFromRawCallback);
+        return true;
+    }
+
     // This function executes before the game runs.
     void    InitHokaku()
     {
@@ -159,13 +194,23 @@ namespace CTRPluginFramework
         const u8 recvRMCPat4[] = {0x08, 0x40, 0x90, 0x15, 0x58, 0x00, 0x84, 0xE2, 0xFF, 0x10, 0xC5, 0xE3, 0x00, 0x40, 0xA0, 0xE1};
         pm.Add(recvRMCPat4, sizeof(recvRMCPat4), installRecvRMC);
 
-        pm.Perform();
+        const u8 sendToRawPat[] = {0x00, 0x10, 0x90, 0xE5, 0x00, 0x20, 0xA0, 0xE3, 0x00, 0xC0, 0xA0, 0xE3, 0x01, 0x10, 0x81, 0xE2};
+        pm.Add(sendToRawPat, sizeof(sendToRawPat), installSendToRaw);
+        const u8 recvFromRawPat[] = {0x11, 0x10, 0xCD, 0xE5, 0x14, 0x00, 0x8D, 0xE5, 0x10, 0xC0, 0xCD, 0xE5, 0x0C, 0x00, 0x99, 0xE5};
+        pm.Add(recvFromRawPat, sizeof(recvFromRawPat), installRecvFromRaw);
 
+        pm.Perform();
+        #ifdef LOG_RAW_PACKETS
+            rtEnableHook(&sendToHook);
+            rtEnableHook(&recvFromHook);
+            mainLogger = new RMCLogger();
+        #else
         if (sendFuncAddr && recvFuncAddr) {
             rtEnableHook(&sendPacketHook);
             rtEnableHook(&recvPacketHook);
             mainLogger = new RMCLogger();
         }
+        #endif
     }
 }
 #endif

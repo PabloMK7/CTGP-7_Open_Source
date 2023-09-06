@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 998/1135 (87.93%)
+Open source lines: 997/1134 (87.92%)
 *****************************************************/
 
 #include <locale>
@@ -31,7 +31,6 @@ Open source lines: 998/1135 (87.93%)
 #include "CustomTextEntries.hpp"
 #include "MenuPage.hpp"
 
-extern u32 isCTWW;
 extern u32 isAltGameMode;
 
 namespace CTRPluginFramework

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 648/680 (95.29%)
+Open source lines: 671/703 (95.45%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -40,6 +40,7 @@ namespace CTRPluginFramework {
 	RT_HOOK Net::GetGameAuthenticationDataHook = { 0 };
 	RT_HOOK Net::RequestGameAuthenticationDataHook = { 0 };
 	RT_HOOK Net::GetMyPasswordHook = { 0 };
+	bool Net::temporaryRedirectCTGP7 = false;
 	Net::CustomGameAuthentication Net::customAuthData;
 
 	Net::CTWWLoginStatus Net::GetLoginStatus()
@@ -341,7 +342,7 @@ namespace CTRPluginFramework {
 			netRequests.Start();
 		}
 		else if (mode == OnlineStateMachine::SEARCHING) { // Joining room
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && SaveHandler::saveData.flags1.useCTGP7Server)) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
@@ -354,7 +355,7 @@ namespace CTRPluginFramework {
 			}
 		}
 		else if (mode == OnlineStateMachine::PREPARING) { // Preparing room
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && SaveHandler::saveData.flags1.useCTGP7Server)) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
@@ -374,7 +375,7 @@ namespace CTRPluginFramework {
 			trackHistory = "";
 		}
 		else if (mode == OnlineStateMachine::RACING) { // Room start racing
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && SaveHandler::saveData.flags1.useCTGP7Server)) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
@@ -386,7 +387,7 @@ namespace CTRPluginFramework {
 			}
 		}
 		else if (mode == OnlineStateMachine::RACE_FINISHED) { // Room start racing
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && SaveHandler::saveData.flags1.useCTGP7Server)) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
@@ -397,7 +398,7 @@ namespace CTRPluginFramework {
 			}
 		}
 		else if (mode == OnlineStateMachine::WATCHING) { // Room start racing
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && SaveHandler::saveData.flags1.useCTGP7Server)) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
@@ -462,8 +463,12 @@ namespace CTRPluginFramework {
 		#endif	
 	}
 
+	bool Net::IsOnCTGP7Network() {
+		return SaveHandler::saveData.flags1.useCTGP7Server && !temporaryRedirectCTGP7;
+	}
+
 	Result Net::OnGetMyPassword(char* passwordOut, u32 maxPasswordSize) {
-		if (SaveHandler::saveData.flags1.useCTGP7Server) {
+		if (Net::IsOnCTGP7Network()) {
 			strncpy(passwordOut, NetHandler::GetConsoleUniquePassword().c_str(), maxPasswordSize);
 			return 0;
 		} else {
@@ -486,14 +491,28 @@ namespace CTRPluginFramework {
 		minibson::document resDoc;
 		int res = onlineTokenHandler.GetResult(NetHandler::RequestHandler::RequestType::ONLINETOKEN, &resDoc);
 		if (res >= 0) {
-			Net::customAuthData.server_address = resDoc.get("address", "");
-			Net::customAuthData.server_port = (u16)resDoc.get_numerical("port", 0);
-			Net::customAuthData.auth_token = resDoc.get("online_token", "");
-			Net::customAuthData.server_time = resDoc.get_numerical("server_time", 0);
-			Net::customAuthData.populated = true;
-			Net::customAuthData.result = 0;
+			Net::temporaryRedirectCTGP7 = !resDoc.get("available", false);
+			if (Net::temporaryRedirectCTGP7) {
+				OSD::Notify("CTGP-7 Network is under maintenance.");
+				OSD::Notify("Falling back to Nintendo Network...");
+				useCTGP7server_apply(false);
+				return ((Result(*)(Handle, u32, const u16*, u8, u8))Net::RequestGameAuthenticationDataHook.callCode)(
+					Net::customAuthData.eventHandle, Net::customAuthData.serverID, 
+					Net::customAuthData.screenName.c_str(),
+					Net::customAuthData.sdkMajor,
+					Net::customAuthData.sdkMinor	
+				);
+			} else {
+				Net::customAuthData.server_address = resDoc.get("address", "");
+				Net::customAuthData.server_port = (u16)resDoc.get_numerical("port", 0);
+				Net::customAuthData.auth_token = resDoc.get("online_token", "");
+				Net::customAuthData.server_time = resDoc.get_numerical("server_time", 0);
+				Net::customAuthData.populated = true;
+				Net::customAuthData.result = 0;
+			}
 		} else {
 			MarioKartFramework::dialogBlackOut(Utils::Format("%s\nErr: 0x%08X", NAME("fail_conn").c_str(), Net::GetLastErrorCode()));
+			Net::temporaryRedirectCTGP7 = false;
 			Net::customAuthData.populated = true;
 			Net::customAuthData.result = res;
 		}
@@ -507,6 +526,10 @@ namespace CTRPluginFramework {
 		#if CITRA_MODE == 0
 		if (SaveHandler::saveData.flags1.useCTGP7Server) {
 			customAuthData.eventHandle = event;
+			customAuthData.serverID = serverID;
+			customAuthData.screenName = string16(arg2);
+			customAuthData.sdkMajor = arg3;
+			customAuthData.sdkMinor = arg4;
 			requestOnlineTokenTask.Start();
 			return 0;
 		} else {
@@ -519,7 +542,7 @@ namespace CTRPluginFramework {
 
 	Result Net::OnGetGameAuthenticationData(GameAuthenticationData* data) {
 		#if CITRA_MODE == 0
-		if (SaveHandler::saveData.flags1.useCTGP7Server) {
+		if (IsOnCTGP7Network()) {
 			memset(data, 0, sizeof(GameAuthenticationData));
 			if (R_SUCCEEDED(customAuthData.result) && customAuthData.populated) {
 				data->result = 1;

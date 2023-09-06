@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 155/159 (97.48%)
+Open source lines: 165/169 (97.63%)
 *****************************************************/
 
 #pragma once
@@ -76,6 +76,7 @@ namespace CTRPluginFramework {
 		static void Initialize();
 
 		static bool IsRunningPretendo();
+		static bool IsOnCTGP7Network();
 
 		struct GameAuthenticationData {
 			s32 result{};
@@ -89,13 +90,22 @@ namespace CTRPluginFramework {
 		};
 		struct CustomGameAuthentication {
 			bool populated{false};
+			
+			// Input
 			Handle eventHandle{};
+			u32 serverID;
+			string16 screenName;
+			u8 sdkMajor;
+			u8 sdkMinor;
+
+			// Output
 			s32 result{};
 			std::string server_address{};
 			u16 server_port{};
 			std::string auth_token{};
 			u64 server_time{};
 		};
+		static bool temporaryRedirectCTGP7;
 		static CustomGameAuthentication customAuthData;
 		static RT_HOOK GetMyPasswordHook;
 		static Result OnGetMyPassword(char* passwordOut, u32 maxPasswordSize);

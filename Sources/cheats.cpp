@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: cheats.cpp
-Open source lines: 630/638 (98.75%)
+Open source lines: 629/637 (98.74%)
 *****************************************************/
 
 #include "types.h"
@@ -622,7 +622,6 @@ namespace CTRPluginFramework
 	}
 
 	void useCTGP7server_apply(bool useCTGP7) {
-		SaveHandler::saveData.flags1.useCTGP7Server = useCTGP7;
 		Language::MsbtHandler::SetTextEnabled(6001, useCTGP7);
 		Language::MsbtHandler::SetTextEnabled(6002, useCTGP7);
 		Language::MsbtHandler::SetTextEnabled(6334, useCTGP7);

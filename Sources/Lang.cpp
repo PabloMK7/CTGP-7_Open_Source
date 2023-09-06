@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 787/788 (99.87%)
+Open source lines: 786/787 (99.87%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -358,7 +358,6 @@ namespace CTRPluginFramework
 		MsbtHandler::SetString(6001, NAME("server_ctgp7_conn"));
 		MsbtHandler::SetString(6002, NAME("server_ctgp7_dconn"));
 		MsbtHandler::SetString(6334, NAME("server_ctgp7_nocomm"));
-		useCTGP7server_apply(SaveHandler::saveData.flags1.useCTGP7Server);
 	}
 
     static void ReplaceStringInPlace(std::string& subject, const std::string search, const std::string replace) {

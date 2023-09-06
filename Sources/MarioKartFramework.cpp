@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3312/3416 (96.96%)
+Open source lines: 3315/3419 (96.96%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -1468,6 +1468,7 @@ namespace CTRPluginFramework {
 		isRacePaused = false;
 		Net::customAuthData.populated = false;
 		Net::customAuthData.result = 0;
+		Net::temporaryRedirectCTGP7 = false;
 		VersusHandler::IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		MarioKartFramework::setSkipGPCoursePreview(false);
@@ -1500,9 +1501,11 @@ namespace CTRPluginFramework {
 		int res = keyboard.Open();
 		switch (res) {
 			case 0:
+				SaveHandler::saveData.flags1.useCTGP7Server = true;
 				useCTGP7server_apply(true);
 				break;
 			case 1:
+				SaveHandler::saveData.flags1.useCTGP7Server = false;
 				useCTGP7server_apply(false);
 				break;
 		}
