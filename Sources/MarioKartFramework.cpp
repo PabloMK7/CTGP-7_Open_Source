@@ -2068,7 +2068,7 @@ namespace CTRPluginFramework {
 				if (UserCTHandler::IsUsingCustomCup())
 					totLaps = UserCTHandler::GetCurrentCourseLapAmount();
 				else
-					CourseManager::getCourseLapAmount(CourseManager::lastLoadedCourseID);
+					totLaps = CourseManager::getCourseLapAmount(CourseManager::lastLoadedCourseID);
 				if (currLap == totLaps)
 					raceMusicSpeedMultiplier = 1.f;
 				else
