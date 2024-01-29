@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 786/787 (99.87%)
+Open source lines: 789/790 (99.87%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -523,6 +523,9 @@ namespace CTRPluginFramework
 			allList->msg.list[1] = data;
 			allList->infos[1].txt2StartPtr = data->tag->GetTXT2();
 			allList->infos[1].txt2EndPtr = (u8*)allList->infos[1].txt2StartPtr + data->tag->GetTXT2Size();
+			#if CITRA_MODE == 1
+			MsbtHandler::SetString(2092, NOTE("server_name"));
+			#endif
 		} else if (strcmp(data->name, "Race") == 0) {
 			if(race && allList->infos[2].txt2StartPtr != data->tag->GetTXT2())
 				RecalculateCrossMsbtPtr(2, data->tag->GetTXT2());

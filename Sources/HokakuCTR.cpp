@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HokakuCTR.cpp
-Open source lines: 216/217 (99.54%)
+Open source lines: 226/227 (99.56%)
 *****************************************************/
 
 #include "HokakuCTR.hpp"
@@ -137,9 +137,15 @@ namespace CTRPluginFramework
         recvFuncAddr = funcStart;
         return true;
     }
+    
+    bool g_HokakuSendBlock = false;
+    bool g_HokakuRecvBlock = false;
 
     static bool g_sentOSDNotif = false;
     Result sendToRawCallback(void* obj, u8* buffer, u32 size, void* arg2, void* arg3) {
+        if (g_HokakuSendBlock) {
+            return 0;
+        }
         if (!g_sentOSDNotif) {
             OSD::Notify("Logging raw packets");
             g_sentOSDNotif = true;
@@ -156,6 +162,10 @@ namespace CTRPluginFramework
     }
 
     Result recvFromRawCallback(void* obj, u8* buffer, u32 size, void* arg2, u32* arg3) {
+        if (g_HokakuRecvBlock) {
+            *arg3 = 0;
+            return 0; 
+        }
         Result res = ((Result(*)(void*, u8*, u32, void*, void*))recvFromHook.callCode)(obj, buffer, size, arg2, arg3);
         if (res == 0 && *arg3 != 0)
             mainLogger->LogRMCPacket(buffer, *arg3, true);

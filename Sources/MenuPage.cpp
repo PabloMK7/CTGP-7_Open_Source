@@ -1857,7 +1857,7 @@ namespace CTRPluginFramework {
     }
 
     void MenuPageHandler::MenuTitlePage::OnInitControl(GameSequenceSection* own, VisualControl::GameVisualControl* buttons[3]) {
-        #if CITRA_MODE == 1
+        #if False
         VisualControl::NwlytControlSight* buttonNwlyt = buttons[2]->GetNwlytControl(); 
         buttonNwlyt->vtable->setVisibleImpl(buttonNwlyt, (u32)buttonNwlyt->vtable->getRootPane(buttonNwlyt), false);
 
@@ -1875,7 +1875,7 @@ namespace CTRPluginFramework {
         #endif
     }
 
-    #if CITRA_MODE == 1
+    #if False
     static const s8 g_moveCursorTableTitle[4][4] = { // Down, Right, Up, Left
         {1, -1, 3, -1},
         {3, -1, 0, -1},
@@ -1884,7 +1884,7 @@ namespace CTRPluginFramework {
     };
     #endif
     int MenuPageHandler::MenuTitlePage::HandleCursor(CursorMove* move, CursorItem* item) {
-        #if CITRA_MODE == 1
+        #if False
         CursorMove::KeyType k = move->GetDir(item);
 
         if (k & CursorMove::KeyType::KEY_NONE)

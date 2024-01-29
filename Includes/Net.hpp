@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 165/169 (97.63%)
+Open source lines: 167/171 (97.66%)
 *****************************************************/
 
 #pragma once
@@ -107,12 +107,18 @@ namespace CTRPluginFramework {
 		};
 		static bool temporaryRedirectCTGP7;
 		static CustomGameAuthentication customAuthData;
+		static RT_HOOK GetMyPrincipalIDHook;
+		static int OnGetMyPrincipalID();
 		static RT_HOOK GetMyPasswordHook;
 		static Result OnGetMyPassword(char* passwordOut, u32 maxPasswordSize);
 		static RT_HOOK RequestGameAuthenticationDataHook;
 		static Result OnRequestGameAuthenticationData(Handle event, u32 serverID, u16* arg2, u8 arg3, u8 arg4);
 		static RT_HOOK GetGameAuthenticationDataHook;
 		static Result OnGetGameAuthenticationData(GameAuthenticationData* data);
+		static RT_HOOK wrapMiiDataHook;
+		static void OnWrapMiiData(u8* output, u8* input);
+		static RT_HOOK unWrapMiiDataHook;
+		static void OnUnWrapMiiData(u8* output, u8* input);
 
 		class DiscordInfo
 		{
@@ -139,9 +145,7 @@ namespace CTRPluginFramework {
 		static std::string trackHistory;
 
 	private:
-	#if CITRA_MODE == 0
 		static NetHandler::RequestHandler netRequests;
-	#endif
 		static CTWWLoginStatus lastLoginStatus;
 		static OnlineStateMachine currState;
 		static std::string lastServerMessage;
@@ -152,7 +156,6 @@ namespace CTRPluginFramework {
 
 		static void applyBlockedTrackList();
 
-#if CITRA_MODE == 0
 #ifdef BETA_BUILD
 		static BetaState betaState;
 		static NetHandler::RequestHandler betaRequests;
@@ -160,6 +163,5 @@ namespace CTRPluginFramework {
 #endif // 
 
 		static bool OnRequestFinishCallback(NetHandler::RequestHandler* req);
-#endif
 	};
 }

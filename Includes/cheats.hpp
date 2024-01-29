@@ -4,12 +4,11 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: cheats.hpp
-Open source lines: 108/117 (92.31%)
+Open source lines: 100/109 (91.74%)
 *****************************************************/
 
 #pragma once
 
-#define RELEASE_BUILD
 //#define GOTO_TOADCIRCUIT
 //#define IGNORE_STATS
 //#define BETA_BUILD
@@ -24,13 +23,6 @@ Open source lines: 108/117 (92.31%)
 //#define BETA_GHOST_FILE
 //#define USE_HOKAKU
 //#define DISABLE_ONLINE_ACCESS
-
-// The following features cannot be used in citra
-#if CITRA_MODE == 1
-#undef BETA_BUILD
-#undef DISCORD_BETA
-#undef USE_HOKAKU
-#endif
 
 #include "CTRPluginFramework.hpp"
 #include "Lang.hpp"

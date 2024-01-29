@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 671/703 (95.45%)
+Open source lines: 713/745 (95.70%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -27,9 +27,7 @@ namespace CTRPluginFramework {
 	float Net::ctwwCPURubberBandOffset = 0.f;
 	StarGrade Net::myGrade = StarGrade::NONE;
 	std::string Net::trackHistory;
-	#if CITRA_MODE == 0
 	NetHandler::RequestHandler Net::netRequests;
-	#endif
 	Net::CTWWLoginStatus Net::lastLoginStatus = Net::CTWWLoginStatus::NOTLOGGED;
 	Net::OnlineStateMachine Net::currState = Net::OnlineStateMachine::OFFLINE;
 	std::string Net::lastServerMessage;
@@ -39,7 +37,10 @@ namespace CTRPluginFramework {
 	u32 Net::pretendoState = 2;
 	RT_HOOK Net::GetGameAuthenticationDataHook = { 0 };
 	RT_HOOK Net::RequestGameAuthenticationDataHook = { 0 };
+	RT_HOOK Net::GetMyPrincipalIDHook = { 0 };
 	RT_HOOK Net::GetMyPasswordHook = { 0 };
+	RT_HOOK Net::wrapMiiDataHook = { 0 };
+	RT_HOOK Net::unWrapMiiDataHook = { 0 };
 	bool Net::temporaryRedirectCTGP7 = false;
 	Net::CustomGameAuthentication Net::customAuthData;
 
@@ -126,7 +127,6 @@ namespace CTRPluginFramework {
 		return false;
 	}
 #endif
-	#if CITRA_MODE == 0
 	bool Net::OnRequestFinishCallback(NetHandler::RequestHandler* req) {
 		int res = -1;
 		minibson::document reqDoc;
@@ -303,11 +303,9 @@ namespace CTRPluginFramework {
 		req->Cleanup();
 		return false;
 	}
-	#endif
 
 	void Net::UpdateOnlineStateMahine(OnlineStateMachine mode, bool titleScreenLogin)
 	{	
-		#if CITRA_MODE == 0
 		if (mode == currState)
 			return;
 
@@ -423,22 +421,17 @@ namespace CTRPluginFramework {
 		}
 
 		currState = mode;
-		#endif	
 	}
 	void Net::WaitOnlineStateMachine()
 	{
-		#if CITRA_MODE == 0
 		while (!netRequests.HasFinished()) {
 			netRequests.WaitTimeout(Seconds(0.1f));
 		}
-		#endif
 	}
 	void Net::Initialize()
 	{
-		#if CITRA_MODE == 0
 		NetHandler::Session::Initialize();
 		netRequests.SetFinishedCallback(OnRequestFinishCallback);
-		#endif
 	}
 
 	bool Net::IsRunningPretendo() {
@@ -467,6 +460,31 @@ namespace CTRPluginFramework {
 		return SaveHandler::saveData.flags1.useCTGP7Server && !temporaryRedirectCTGP7;
 	}
 
+	int Net::OnGetMyPrincipalID() {
+		#if CITRA_MODE == 0
+		return ((int(*)())GetMyPrincipalIDHook.callCode)();
+		#else
+		if (SaveHandler::saveData.principalID) {
+			return SaveHandler::saveData.principalID;
+		} else {
+			NetHandler::RequestHandler principalIDHandler;
+			minibson::document reqDoc;
+			principalIDHandler.AddRequest(NetHandler::RequestHandler::RequestType::UNIQUEPID, reqDoc);
+			principalIDHandler.Start();
+			principalIDHandler.Wait();
+			minibson::document resDoc;
+			int res = principalIDHandler.GetResult(NetHandler::RequestHandler::RequestType::UNIQUEPID, &resDoc);
+			if (res >= 0) {
+				SaveHandler::saveData.principalID = resDoc.get_numerical("unique_pid", 0);
+				SaveHandler::SaveSettingsAll();
+				return SaveHandler::saveData.principalID;
+			} else {
+				return 0;
+			}
+		}
+		#endif
+	}
+
 	Result Net::OnGetMyPassword(char* passwordOut, u32 maxPasswordSize) {
 		if (Net::IsOnCTGP7Network()) {
 			strncpy(passwordOut, NetHandler::GetConsoleUniquePassword().c_str(), maxPasswordSize);
@@ -477,7 +495,6 @@ namespace CTRPluginFramework {
 	}
 
 	static s32 requestOnlineTokenTaskFunc(void* arg) {
-		#if CITRA_MODE == 0
 		NetHandler::RequestHandler onlineTokenHandler;
 		{
 			minibson::document reqDoc;
@@ -493,6 +510,7 @@ namespace CTRPluginFramework {
 		if (res >= 0) {
 			Net::temporaryRedirectCTGP7 = !resDoc.get("available", false);
 			if (Net::temporaryRedirectCTGP7) {
+				#if CITRA_MODE == 0
 				OSD::Notify("CTGP-7 Network is under maintenance.");
 				OSD::Notify("Falling back to Nintendo Network...");
 				useCTGP7server_apply(false);
@@ -502,6 +520,10 @@ namespace CTRPluginFramework {
 					Net::customAuthData.sdkMajor,
 					Net::customAuthData.sdkMinor	
 				);
+				#else
+				MarioKartFramework::dialogBlackOut("CTGP-7 Network is under maintenance.");
+				return 0;
+				#endif
 			} else {
 				Net::customAuthData.server_address = resDoc.get("address", "");
 				Net::customAuthData.server_port = (u16)resDoc.get_numerical("port", 0);
@@ -517,13 +539,11 @@ namespace CTRPluginFramework {
 			Net::customAuthData.result = res;
 		}
 		svcSignalEvent(Net::customAuthData.eventHandle);
-		#endif
 		return 0;
 	}
 
 	static Task requestOnlineTokenTask{requestOnlineTokenTaskFunc, nullptr, Task::Affinity::AppCore};
 	Result Net::OnRequestGameAuthenticationData(Handle event, u32 serverID, u16* arg2, u8 arg3, u8 arg4) {
-		#if CITRA_MODE == 0
 		if (SaveHandler::saveData.flags1.useCTGP7Server) {
 			customAuthData.eventHandle = event;
 			customAuthData.serverID = serverID;
@@ -535,13 +555,9 @@ namespace CTRPluginFramework {
 		} else {
 			return ((Result(*)(Handle, u32, u16*, u8, u8))RequestGameAuthenticationDataHook.callCode)(event, serverID, arg2, arg3, arg4);
 		}
-		#else
-		return -1;
-		#endif
 	}
 
 	Result Net::OnGetGameAuthenticationData(GameAuthenticationData* data) {
-		#if CITRA_MODE == 0
 		if (IsOnCTGP7Network()) {
 			memset(data, 0, sizeof(GameAuthenticationData));
 			if (R_SUCCEEDED(customAuthData.result) && customAuthData.populated) {
@@ -556,8 +572,34 @@ namespace CTRPluginFramework {
 		} else {
 			return ((Result(*)(GameAuthenticationData*))GetGameAuthenticationDataHook.callCode)(data);
 		}
+	}
+
+	void Net::OnWrapMiiData(u8* output, u8* input) {
+		#if CITRA_MODE == 1
+		constexpr u32 nonce_offset = 0xA;
+		constexpr u32 nonce_size = 0xC;
+		constexpr u32 in_size = 0x60;
+		
+		memcpy(output, input + nonce_offset, nonce_size);
+		memcpy(output + nonce_size, input, nonce_offset);
+		memcpy(output + nonce_size + nonce_offset, input + nonce_size + nonce_offset, in_size - (nonce_offset + nonce_size));
 		#else
-		return -1;
+		((void(*)(u8*, u8*))wrapMiiDataHook.callCode)(output, input);
+		#endif
+	}
+
+	void Net::OnUnWrapMiiData(u8* output, u8* input) {
+		#if CITRA_MODE == 1
+		constexpr u32 nonce_offset = 0xA;
+		constexpr u32 nonce_size = 0xC;
+		constexpr u32 in_size = 0x70;
+
+		memcpy(output, input + nonce_size, nonce_offset);
+		memcpy(output + nonce_offset, input, nonce_size);
+		memcpy(output + nonce_offset + nonce_size, input + nonce_offset + nonce_size, in_size - (nonce_offset + nonce_size));
+		return;
+		#else
+		((void(*)(u8*, u8*))unWrapMiiDataHook.callCode)(output, input);
 		#endif
 	}
 

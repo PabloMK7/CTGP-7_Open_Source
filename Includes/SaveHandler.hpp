@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 306/312 (98.08%)
+Open source lines: 302/302 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -30,15 +30,12 @@ namespace CTRPluginFramework {
 		};
 		class CupRankSave {
 			public:
-				struct LegacyCupRankFormat {
-				};
 				struct GrandPrixData {
 					bool isCompleted;
 					u32 starRank; // 4 -> 1 star; 5 -> 2 stars; 6 -> 3 stars
 					u32 trophyType; // 1 -> bronze; 2 -> silver; 3 -> gold
 				};
 				static std::map<u32, u8> cupData; 
-				static u32 calculateCheckSumLegacy(SaveHandler::CupRankSave::LegacyCupRankFormat & data);
 				static inline void fromPackedToGP(GrandPrixData* out, const u8 inPackedData)
 				{
 					out->isCompleted = inPackedData & 0x1;
@@ -53,7 +50,6 @@ namespace CTRPluginFramework {
 				}			
 				static void getGrandPrixData(u32 saveData, GrandPrixData* out, u32* GPID, u32* engineLevel, bool isMirror);
 				static void setGrandPrixData(u32 saveData, GrandPrixData* in, u32* GPID, u32* engineLevel, bool isMirror);
-				static void legacyLoad();
 
 				static void Load();
 				static void Save();
@@ -105,6 +101,7 @@ namespace CTRPluginFramework {
 
 			u32 pendingAchievements;
 			u32 achievements;
+			int principalID;
 
 			bool IsAchievementPending(Achievements achiev) {
 				return pendingAchievements & (u32)achiev;
@@ -162,6 +159,7 @@ namespace CTRPluginFramework {
 				consoleID = 0;
 				pendingAchievements = 0;
 				achievements = 0;
+				principalID = 0;
 			}
 
 			CTGP7Save(minibson::document& doc) {
@@ -196,9 +194,14 @@ namespace CTRPluginFramework {
 				flags1.brakedrift = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BRAKE_DRIFT), true);
 				flags1.creditsWatched = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CREDITS_WATCHED), false);
 				flags1.automaticDelayDrift = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTOMATIC_DELAY_DRIFT), true);
+				#if CITRA_MODE == 0
 				flags1.useCTGP7Server = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_CTGP7_SERVER), true);
+				#else
+				flags1.useCTGP7Server = true;
+				#endif
 				pendingAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)0);
 				achievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)0);
+				principalID = (int)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)0);
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -232,9 +235,12 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BRAKE_DRIFT), (bool)flags1.brakedrift);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CREDITS_WATCHED), (bool)flags1.creditsWatched);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::AUTOMATIC_DELAY_DRIFT), (bool)flags1.automaticDelayDrift);
+				#if CITRA_MODE == 0
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_CTGP7_SERVER), (bool)flags1.useCTGP7Server);
+				#endif
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)pendingAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)achievements);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)principalID);
 			}
 		};
 		static CTGP7Save saveData;
@@ -285,21 +291,11 @@ namespace CTRPluginFramework {
 		private:
 			static constexpr u32 SaveMagic = 0x56533743;
 			static const char* SaveNames[(u32)SaveType::MAX_TYPE];
-		};		
-
-		struct CTGP7SaveFileLegacy
-		{
-			u32 magic;
-			u32 checksum;
-			u8 bsondata[];
 		};
-
-		static u32 calculateChecksumLegacy(SaveHandler::CTGP7SaveFileLegacy* save, u32 fileSize);
 	private:	
 
 		static Task saveSettinsTask;
 		static s32 SaveSettingsTaskFunc(void* args);
-		static void LoadSettingsLegacy();
 
 		static int lastAchievementCount;
 	};

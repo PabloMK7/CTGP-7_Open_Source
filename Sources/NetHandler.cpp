@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 428/476 (89.92%)
+Open source lines: 440/525 (83.81%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -12,7 +12,7 @@ Open source lines: 428/476 (89.92%)
 #include "cheats.hpp"
 
 namespace CTRPluginFramework {
-	#if CITRA_MODE == 0
+	u64 NetHandler::ConsoleSecureHash[2] = {0, 0};
 	std::vector<NetHandler::Session*> NetHandler::Session::pendingSessions;
 	Mutex NetHandler::Session::pendingSessionsMutex{};
 	ThreadEx* NetHandler::Session::sessionThread;
@@ -41,7 +41,8 @@ namespace CTRPluginFramework {
 		"put_onlracefinish",
 		"req_discordinfo",
 		"put_miiicon",
-		"req_onlinetoken"
+		"req_onlinetoken",
+		"req_uniquepid"
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)
@@ -59,7 +60,11 @@ namespace CTRPluginFramework {
 		runThread = true;
 		LightEvent_Init(&threadEvent, RESET_STICKY);
 		LightEvent_Init(&threadFinishEvent, RESET_ONESHOT);
+		#if CITRA_MODE == 0
 		sessionThread = new ThreadEx(sessionFunc, 0x800, 0x20, System::IsNew3DS() ? 2 : 1);
+		#else
+		sessionThread = new ThreadEx(sessionFunc, 0x800, 0x20, 1);
+		#endif
 		sessionThread->Start(nullptr);
 	}
 
@@ -241,6 +246,9 @@ namespace CTRPluginFramework {
 						&& R_SUCCEEDED(res = httpcPatchSetKeepAlive(&context, HTTPCPATCH_KEEPALIVE_DISABLED))
 						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "User-Agent", userAgent))
 						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "Content-Type", "application/octet-stream"))
+						#if CITRA_MODE == 1
+						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "Citra", "1"))
+						#endif
 						&& R_SUCCEEDED(res = httpcPatchAddPostDataRaw(&context, (u32*)currS->rawbsondata, currS->rawbsonsize))
 						&& R_SUCCEEDED(res = httpcPatchBeginRequest(&context))
 						&& R_SUCCEEDED(res = httpcPatchGetResponseStatusCodeTimeout(&context, &responseCode, 10ULL * 1000ULL * 1000ULL * 1000ULL))
@@ -294,6 +302,11 @@ namespace CTRPluginFramework {
 	u64 NetHandler::GetConsoleUniqueHash()
 	{
 		return ConsoleUniqueHash;
+	}
+
+	u64 NetHandler::GetConsoleSecureHash(int part)
+	{
+		return ConsoleSecureHash[part & 1];
 	}
 
 	std::string NetHandler::GetConsoleUniquePassword()
@@ -424,5 +437,4 @@ namespace CTRPluginFramework {
 	{
 		return HttpcStolenMemory;
 	}
-	#endif
 }

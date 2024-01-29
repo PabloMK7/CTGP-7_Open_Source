@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3315/3419 (96.96%)
+Open source lines: 3319/3423 (96.96%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -1488,6 +1488,7 @@ namespace CTRPluginFramework {
 
 	static void OnTitleOnlineButtonPressed() {
 		*(PluginMenu::GetRunningInstance()) -= OnTitleOnlineButtonPressed;
+		#if CITRA_MODE == 0
 		Keyboard keyboard("dummy");
 		std::string ctgp7Network = NOTE("server_name");
 		std::string nintendoNetwork = NAME("server_name");
@@ -1510,6 +1511,9 @@ namespace CTRPluginFramework {
 				break;
 		}
 		Process::Play();
+		#else
+		useCTGP7server_apply(true);
+		#endif
 		Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::IDLE, true);
 	}
 
@@ -1570,11 +1574,7 @@ namespace CTRPluginFramework {
 #endif // BETA_BUILD
 		if (SaveHandler::saveData.flags1.firstOpening) {
 			if (isDialogOpened()) return 0;
-			#if CITRA_MODE == 0
 			if (g_welccounter == 3) PluginMenu::ForceOpen();
-			#else
-			if (g_welccounter == 3) {PluginMenu::ForceOpen(); g_welccounter = 6;}
-			#endif
 			openDialog(DialogFlags::Mode::OK, NAME("welc_" << std::to_string(g_welccounter)));
 			g_welccounter++;
 			if (g_welccounter > 7) {
@@ -3288,7 +3288,11 @@ namespace CTRPluginFramework {
 			break;
 		case ONLINE_CTWW_CD:
 			CourseManager::setCustomTracksAllowed(true);
+			#if CITRA_MODE == 0
 			CourseManager::setOriginalTracksAllowed(true);
+			#else
+			CourseManager::setOriginalTracksAllowed(false);
+			#endif
 			MarioKartFramework::improvedTricksAllowed = true;
 			MarioKartFramework::improvedTricksForced = false;
 			MarioKartFramework::brakeDriftAllowed = true;

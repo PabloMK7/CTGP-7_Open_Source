@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 354/367 (96.46%)
+Open source lines: 351/364 (96.43%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -278,7 +278,6 @@ namespace CTRPluginFramework
 		);
 
 		#if CITRA_MODE == 1
-		serverEntry->Hide();
 		comcodegenentry->Hide();
 		warnitementry->Hide();
 		#endif
@@ -340,9 +339,7 @@ namespace CTRPluginFramework
 			Net::WaitOnlineStateMachine();
 			Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::OFFLINE);
 			Net::WaitOnlineStateMachine();
-			#if CITRA_MODE == 0
 			NetHandler::Session::Terminate();
-			#endif
 			#if CITRA_MODE == 0
 			if (System::IsNew3DS() && SaveHandler::saveData.flags1.renderOptimization)
 				svcKernelSetState(10, (1 << 3));

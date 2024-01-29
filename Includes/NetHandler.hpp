@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 146/147 (99.32%)
+Open source lines: 137/138 (99.28%)
 *****************************************************/
 
 #pragma once
@@ -12,7 +12,6 @@ Open source lines: 146/147 (99.32%)
 #include "Minibson.hpp"
 
 namespace CTRPluginFramework {
-	#if CITRA_MODE == 0
 	class NetHandler
 	{
 	public:
@@ -89,6 +88,7 @@ namespace CTRPluginFramework {
 				DISCORD_INFO,
 				UPLOAD_MII,
 				ONLINETOKEN,
+				UNIQUEPID,
 			};
 			RequestHandler();
 
@@ -122,6 +122,7 @@ namespace CTRPluginFramework {
 		static const std::string mainServerHost;
 
 		static u64 GetConsoleUniqueHash();
+		static u64 GetConsoleSecureHash(int part);
 		static std::string GetConsoleUniquePassword();
 		static void InitColsoleUniqueHash();
 		static void SetHttpcStolenMemory(u32* addr);
@@ -129,18 +130,8 @@ namespace CTRPluginFramework {
 
 	private:
 		static u64 ConsoleUniqueHash;
+		static u64 ConsoleSecureHash[2];
 		static std::string ConsoleUniquePassword;
 		static u32* HttpcStolenMemory;
 	};
-	#else
-	class NetHandler
-	{
-	public:
-		static u64 GetConsoleUniqueHash() {return 0x5AFF5AFF5AFF5AFF;};
-		static std::string GetConsoleUniquePassword() {return "tontoelquelolea0";};
-		static void InitColsoleUniqueHash() {};
-		static void SetHttpcStolenMemory(u32* addr) {};
-		static u32* GetHttpcStolenMemory() {return nullptr;};
-	};
-	#endif
 }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 613/613 (100.00%)
+Open source lines: 604/604 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -34,7 +34,7 @@ namespace CTRPluginFramework {
 		"",
 		"",
 		"failed_mission#2",
-		"completed_missionv#2",
+		"completed_mission#2",
 		"perfect_mission#2",
 		"custom_mission#2",
 		"grademean_mission#2",
@@ -46,7 +46,11 @@ namespace CTRPluginFramework {
 	minibson::encdocument StatsHandler::statsDoc;
 	minibson::document* StatsHandler::uploadDoc;
 	Mutex StatsHandler::statsDocMutex{};
+	#if CITRA_MODE == 0
 	Task StatsHandler::uploadStatsTask(StatsHandler::UploadStatsFunc, nullptr, Task::Affinity::AppCores);
+	#else
+	Task StatsHandler::uploadStatsTask(StatsHandler::UploadStatsFunc, nullptr, Task::Affinity::AppCore);
+	#endif
 	bool StatsHandler::firstReport = true;
 	s32 StatsHandler::racePointsPos = -1;
 
@@ -118,7 +122,6 @@ namespace CTRPluginFramework {
 
 	void StatsHandler::UploadStats()
 	{
-		#if CITRA_MODE == 0
 		Lock lock(statsDocMutex);
 		if (uploadDoc != nullptr || !SaveHandler::saveData.flags1.uploadStats)
 			return;
@@ -138,7 +141,6 @@ namespace CTRPluginFramework {
 				uploadStatsTask.Start();
 			}
 		}
-		#endif
 	}
 
 	minibson::document StatsHandler::FetchSendStatus() {
@@ -225,7 +227,6 @@ namespace CTRPluginFramework {
 	}
 
 	s32 StatsHandler::UploadStatsFunc(void* args) {
-		#if CITRA_MODE == 0
 		if (uploadDoc == nullptr)
 			return -1;
 
@@ -265,8 +266,6 @@ namespace CTRPluginFramework {
 		delete uploadDoc;
 		uploadDoc = nullptr;
 		return 0;
-		#endif
-		return -1;
 	}
 
 	int StatsHandler::GetDocStat(const minibson::document& doc, Stat stat, int courseID)
@@ -550,19 +549,11 @@ namespace CTRPluginFramework {
 			{
 			case 1:
 				currMenu++;
-				#if CITRA_MODE == 1
-				if (currMenu == 1)
-					currMenu++;
-				#endif
 				if (currMenu >= totalMenu)
 					currMenu = 0;
 				break;
 			case 2:
 				currMenu--;
-				#if CITRA_MODE == 1
-				if (currMenu == 1)
-					currMenu--;
-				#endif
 				if (currMenu < 0)
 					currMenu = totalMenu - 1;
 				break;

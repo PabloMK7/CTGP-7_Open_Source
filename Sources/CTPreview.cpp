@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTPreview.cpp
-Open source lines: 184/184 (100.00%)
+Open source lines: 188/188 (100.00%)
 *****************************************************/
 
 #include "CTPreview.hpp"
@@ -100,7 +100,11 @@ namespace CTRPluginFramework {
             return;
         }
         if (!fileReplaceTask)
+        #if CITRA_MODE == 0
             fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::SysCores);
+        #else
+            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::SysCore);
+        #endif
         loaded = true;
         globalLoaded = true;
     }

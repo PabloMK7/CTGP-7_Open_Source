@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: cheats.cpp
-Open source lines: 629/637 (98.74%)
+Open source lines: 632/640 (98.75%)
 *****************************************************/
 
 #include "types.h"
@@ -521,7 +521,6 @@ namespace CTRPluginFramework
 	}
 
 	static void serverChangeDisplayName(const std::string& miiName) {
-		#if CITRA_MODE == 0
 		Keyboard kbd(NOTE("serv_displname"));
 		kbd.Populate({ NAME("serv_disphid"), NAME("serv_dispmii"), NAME("custom") });
 		int opt = kbd.Open();
@@ -555,12 +554,10 @@ namespace CTRPluginFramework
 				SaveHandler::saveData.serverDisplayNameMode = (u8)Net::PlayerNameMode::CUSTOM;
 			}
 		}
-		#endif
 	} 
 
 	void serverEntryHandler(MenuEntry* entry)
 	{
-		#if CITRA_MODE == 0
 		Keyboard kbd("dummy");
 		std::string topStr;
 		MarioKartFramework::SavePlayerData sv;
@@ -597,7 +594,13 @@ namespace CTRPluginFramework
 				break;
 			}
 			kbd.GetMessage() = topStr;
-			kbd.Populate({ "1. " + ((SaveHandler::saveData.flags1.uploadStats) ? enSlid : disSlid), "2. " + NAME("chng"), NAME("disc_info"), NAME("exit") });
+			kbd.Populate({ "1. " + ((SaveHandler::saveData.flags1.uploadStats) ? enSlid : disSlid), "2. " + NAME("chng"),
+			#if CITRA_MODE == 0
+			 	NAME("disc_info"),
+			#else
+				Color::Gray << NAME("disc_info") << ResetColor(),
+			#endif
+			NAME("exit") });
 			kbd.ChangeEntrySound(0, (SaveHandler::saveData.flags1.uploadStats) ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			kbd.ChangeEntrySound(3, SoundEngine::Event::CANCEL);
 			opt = kbd.Open();
@@ -610,15 +613,15 @@ namespace CTRPluginFramework
 				serverChangeDisplayName(miiName);
 				break;
 			case 2:
+				#if CITRA_MODE == 0
 				Net::DiscordLinkMenu();
+				#endif
 				break;
 			default:
 				opt = -1;
 				break;
 			}
 		} while (opt >= 0);
-		
-		#endif
 	}
 
 	void useCTGP7server_apply(bool useCTGP7) {

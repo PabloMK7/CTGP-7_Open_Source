@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1540/1551 (99.29%)
+Open source lines: 1545/1556 (99.29%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -1448,7 +1448,12 @@ namespace CTRPluginFramework {
     void MissionHandler::SaveData::Load() {
         SaveHandler::SaveFile::LoadStatus status;
         save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::MISSION, status);
-        if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS || save.get<u64>("cID", 0ULL) != NetHandler::GetConsoleUniqueHash()) {
+        u64 scID = save.get<u64>("cID", 0ULL);
+        if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS || (scID != NetHandler::GetConsoleUniqueHash()
+        #if CITRA_MODE == 1
+        && scID != 0x5AFF5AFF5AFF5AFF
+        #endif
+        )) {
             save.clear();
             save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
             save.set("missionSave", minibson::document());

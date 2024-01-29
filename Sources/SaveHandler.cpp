@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 469/524 (89.50%)
+Open source lines: 425/428 (99.30%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -97,16 +97,10 @@ namespace CTRPluginFramework {
 			}
 		}
 		if (!SaveHandler::saveData.IsAchievementCompleted(Achievements::VR_5000) && !SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
-		#if CITRA_MODE == 0
 			if (saveData.ctVR >= 5000 || saveData.cdVR >= 5000) {
 				SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, true);
 				justGranted = true;
 			}
-		#else
-			if (justGranted) {
-				SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, true);
-			}
-		#endif
 		}
 		if (justGranted) {
 			SaveHandler::SaveSettingsAll();
@@ -146,9 +140,7 @@ namespace CTRPluginFramework {
 			return true;
 		} if (SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
-			#if CITRA_MODE == 0
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_5000_vr"));
-			#endif
 			SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::VR_5000, true);
 			SaveHandler::SaveSettingsAll();
@@ -190,53 +182,22 @@ namespace CTRPluginFramework {
 		return false;
 	}
 
-	u32 SaveHandler::calculateChecksumLegacy(SaveHandler::CTGP7SaveFileLegacy* saveFile, u32 fileSize)
-	{
-	}
-
 	s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
 		SaveSettings();
 		StatsHandler::CommitToFile();
 		return 0;
 	}
 
-	void SaveHandler::LoadSettingsLegacy() {
-		static constexpr const char* OptionsSaveFilePathLegacy = "/CTGP-7/savefs/mod/options.sav";
-		static constexpr u32 OptionsSaveFileMagicLegacy = 0x53375443;
-
-		bool loaded = false;
-		do {
-			File savefile(OptionsSaveFilePathLegacy);
-			if (!savefile.IsOpen()) break;
-
-			u32 saveFileSize = savefile.GetSize();
-			if (saveFileSize < 0xC || saveFileSize > 0x8000) break;
-
-			CTGP7SaveFileLegacy* filedata = (CTGP7SaveFileLegacy*)::memalign(0x1000, saveFileSize);
-			savefile.Read(filedata, saveFileSize);
-			if (filedata->magic == OptionsSaveFileMagicLegacy) {
-				if (calculateChecksumLegacy(filedata, saveFileSize) != filedata->checksum) {
-					free(filedata);
-					break;
-				}
-				minibson::document bsonDoc(filedata->bsondata, saveFileSize - offsetof(CTGP7SaveFileLegacy, bsondata));
-				saveData = CTGP7Save(bsonDoc);
-				loaded = true;
-			}
-			free(filedata);
-		} while (false);
-
-		if (!loaded)
-			DefaultSettings();
-	}
-
 	void SaveHandler::LoadSettings() {
 		SaveFile::LoadStatus status;
 		minibson::encdocument doc = SaveFile::Load(SaveFile::SaveType::OPTIONS, status);
-		if (status == SaveFile::LoadStatus::SUCCESS && doc.get<u64>("cID", NetHandler::GetConsoleUniqueHash()) == NetHandler::GetConsoleUniqueHash()) {
+		u64 scID = doc.get<u64>("cID", 0);
+		if (status == SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
+		#if CITRA_MODE == 1
+		|| scID == 0x5AFF5AFF5AFF5AFF
+		#endif
+		)) {
 			saveData = CTGP7Save(doc);
-		} else if (status == SaveFile::LoadStatus::MAGIC_MISMATCH) {
-			LoadSettingsLegacy();
 		} else DefaultSettings();
 
 		CupRankSave::Load();
@@ -262,21 +223,16 @@ namespace CTRPluginFramework {
 	
 	std::map<u32, u8> SaveHandler::CupRankSave::cupData; 
 
-	u32 SaveHandler::CupRankSave::calculateCheckSumLegacy(SaveHandler::CupRankSave::LegacyCupRankFormat &data)
-	{
-	}
-	
-	
-	void SaveHandler::CupRankSave::legacyLoad()
-	{
-	}
-
 	void SaveHandler::CupRankSave::Load() {
-		legacyLoad();
 		SaveFile::LoadStatus status;
 		minibson::encdocument doc = SaveFile::Load(SaveFile::SaveType::RACES, status);
 		if (status == SaveFile::LoadStatus::SUCCESS) {
-			if (doc.get<u64>("cID", 0ULL) == NetHandler::GetConsoleUniqueHash()) {
+			u64 scID = doc.get<u64>("cID", 0ULL);
+			if (scID == NetHandler::GetConsoleUniqueHash()
+			#if CITRA_MODE == 1
+			|| scID == 0x5AFF5AFF5AFF5AFF
+			#endif
+			) {
 				const minibson::document& cuprankdoc = doc.get("cuprank", minibson::document());
 				for (auto it = cuprankdoc.cbegin(); it != cuprankdoc.cend(); it++) {
 					if (it->second->get_node_code() == minibson::bson_node_type::null_node)
