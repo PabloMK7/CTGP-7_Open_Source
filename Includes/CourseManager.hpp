@@ -4,15 +4,15 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.hpp
-Open source lines: 125/129 (96.90%)
+Open source lines: 127/131 (96.95%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include <bitset>
 
-#define MAXCUPS 28
-#define MAXTRACKS 0x7A
+#define MAXCUPS 30
+#define MAXTRACKS 130
 
 // No need to change anything below here
 #define INVALIDTRACK 0x29
@@ -27,6 +27,8 @@ Open source lines: 125/129 (96.90%)
 #define MAXCUPSBUTTON (FROMCUPTOBUTTON(MAXCUPS - 1) + 1)
 #define CUSTOMCUPLOWER 0xA
 #define CUSTOMCUPUPPER (MAXCUPS + 1) // To compensate FROMCUPTOBUTTON
+#define TOTALCUSTOMCUPS (CUSTOMCUPUPPER - CUSTOMCUPLOWER + 1)
+#define TOTALALLCUPS (TOTALCUSTOMCUPS + 8)
 
 namespace CTRPluginFramework
 {
@@ -88,7 +90,7 @@ namespace CTRPluginFramework
 			static u32 getCupGlobalIDName(u32 cupID);
 			static u32 getSingleCourseGlobalIDName(u32 courseID);
 			static u32 getCourseGlobalIDName(u32 cup, int track, bool forceOrig = false);
-			static u32* getGPCourseID(u32* ptr, u32 cup, int track);
+			static u32* getGPCourseID(u32* ptr, u32 cup, int track, bool forceOriginal = false);
 			static u32	getCourseName(u32* trackID);
 			static u32  getCountdownCourseTime(u32 courseID);
 			static int  getCourseIDFromName(const std::string& str);

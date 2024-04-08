@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.hpp
-Open source lines: 609/687 (88.65%)
+Open source lines: 624/702 (88.89%)
 *****************************************************/
 
 /*
@@ -237,16 +237,22 @@ namespace minibson {
     class binary : public node {
         public:
             struct buffer {
+
+                buffer() : data(nullptr), length(0), owned(false) {}
+
                 buffer(const buffer& other) : owned(true) { 
                     length = other.length;
-                    data = new unsigned char[length];
-                    std::memcpy(data, other.data, length);
+                    if (length) {
+                        data = new unsigned char[length];
+                        std::memcpy(data, other.data, length);
+                    } else
+                        data = nullptr;
                 }
 
                 buffer(void* data, size_t length) : data(data), length(length), owned(false) { }
 
                 ~buffer() {
-                    if (owned)
+                    if (owned && data)
                         delete[] reinterpret_cast<unsigned char*>(data);
                 }
                 
@@ -283,7 +289,8 @@ namespace minibson {
 
                 std::memcpy(byte_buffer, &(value.length), sizeof(int));
                 byte_buffer[4] = 0;
-                std::memcpy(byte_buffer + 5, value.data, value.length);
+                if (value.length)
+                    std::memcpy(byte_buffer + 5, value.data, value.length);
             }
 
             size_t get_serialized_size() const {
@@ -298,7 +305,7 @@ namespace minibson {
                 return new binary(value.data, value.length, true);
             }
 
-            const buffer get_value() const { return value; }
+            const buffer& get_value() const { return value; }
     };
     
     template<> struct type_converter< binary::buffer > { enum { node_type_code = binary_node }; typedef binary node_class; };
@@ -475,7 +482,7 @@ namespace minibson {
             }          
 
             template<typename result_type>
-            const result_type get(const char* key, const result_type& _default) const {
+            const result_type get(const char* key, const result_type& _default = result_type()) const {
                 const bson_node_type node_type_code = static_cast<bson_node_type>(type_converter<result_type>::node_type_code);
                 typedef typename type_converter<result_type>::node_class node_class;
 
@@ -486,7 +493,7 @@ namespace minibson {
                     return _default;
             }
 
-            unsigned long long int get_numerical(const char* key, const unsigned long long int& _default) const {
+            unsigned long long int get_numerical(const char* key, const unsigned long long int& _default = 0) const {
                 if (contains<int>(key))
                     return get<int>(key, _default);
                 else if (contains<long long int>(key))
@@ -494,8 +501,16 @@ namespace minibson {
                 else
                     return get<unsigned long long int>(key, _default);
             }
+
+            const binary::buffer& get_binary(const char* key, const binary::buffer& _default = binary::buffer()) const {
+                std::string key_str(key);
+                if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == binary_node)) 
+                    return reinterpret_cast<const binary*>(at(key_str))->get_value();
+                else
+                    return _default;
+            }
             
-            const document& get(const char* key, const document& _default) const {
+            const document& get(const char* key, const document& _default = document()) const {
                 std::string key_str(key);
                 if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == document_node))
                     return *reinterpret_cast<const document*>(at(key_str));
@@ -503,7 +518,7 @@ namespace minibson {
                     return _default;
             }
 
-            const std::string get(const char* key, const char* _default) const {
+            const std::string get(const char* key, const char* _default = "") const {
                 std::string key_str(key);
                 if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == string_node))
                     return reinterpret_cast<const string*>(at(key_str))->get_value();

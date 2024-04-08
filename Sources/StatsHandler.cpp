@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 604/604 (100.00%)
+Open source lines: 591/591 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -12,7 +12,7 @@ Open source lines: 604/604 (100.00%)
 #include "CourseManager.hpp"
 #include "Unicode.h"
 #include "ExtraResource.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "malloc.h"
 #include "UserCTHandler.hpp"
 
@@ -58,25 +58,8 @@ namespace CTRPluginFramework {
     {
 		SaveHandler::SaveFile::LoadStatus status;
 		statsDoc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::STATS, status);
-		if (status == SaveHandler::SaveFile::LoadStatus::MAGIC_MISMATCH) { // Legacy
-			static constexpr const char* StatsSaveFileNameLegacy = "/CTGP-7/savefs/mod/stats.sav";
-			static constexpr u32 StatsSaveFileMagicLegacy = 0x54533743;
-			do {
-				File savefile(StatsSaveFileNameLegacy);
-				if (!savefile.IsOpen()) {break;}
-
-				u32 saveFileSize = savefile.GetSize();
-				if (saveFileSize < 0xC || saveFileSize > 0x10000) {break;}
-
-				StatsSaveLegacy* filedata = (StatsSaveLegacy*)::memalign(0x1000, saveFileSize);
-				savefile.Read(filedata, saveFileSize);
-				if (filedata->magic != StatsSaveFileMagicLegacy) {free(filedata); break;}
-				
-				minibson::encdocument bsonDoc(filedata->bsondata, saveFileSize - offsetof(StatsSaveLegacy, bsondata));
-				if (!bsonDoc.valid) { free(filedata); break;}
-				free(filedata);
-				statsDoc = bsonDoc;
-			} while (false);
+		if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS) {
+			statsDoc.clear();
 		}
 
 		if (!statsDoc.contains<minibson::document>("Uploaded")) {
@@ -145,11 +128,15 @@ namespace CTRPluginFramework {
 
 	minibson::document StatsHandler::FetchSendStatus() {
 		minibson::document ret;
+		
 		ret.set<bool>("allgold", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_GOLD));
 		ret.set<bool>("all1star", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_ONE_STAR));
 		ret.set<bool>("all3star", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_THREE_STAR));
 		ret.set<bool>("all10pts", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
 		ret.set<bool>("vr5000", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
+		ret.set<bool>("bluecoin", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
+
+		ret.set<int>("version", achievementReportVersion);
 		return ret;
 	}
 	

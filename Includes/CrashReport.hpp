@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CrashReport.hpp
-Open source lines: 91/91 (100.00%)
+Open source lines: 92/92 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -34,7 +34,8 @@ namespace CTRPluginFramework {
 			STATE_MAIN = 2,
 			STATE_MENU = 3,
 			STATE_RACE = 4,
-			STATE_TROPHY = 5
+			STATE_TROPHY = 5,
+			STATE_INITIALIZE = 6,
 		};
 		struct QRData {
 			struct BinaryException {

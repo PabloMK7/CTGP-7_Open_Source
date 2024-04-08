@@ -4,10 +4,11 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: RMCLogger.hpp
-Open source lines: 68/68 (100.00%)
+Open source lines: 69/69 (100.00%)
 *****************************************************/
 
-#include "cheats.hpp"
+#pragma once
+#include "main.hpp"
 #ifdef USE_HOKAKU
 
 namespace CTRPluginFramework {

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: OnionFS.hpp
-Open source lines: 26/26 (100.00%)
+Open source lines: 27/27 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -22,5 +22,6 @@ namespace CTRPluginFramework::OnionFS {
 	};
 	void initGameFsFileMap();
 	GameFSFileState CheckGameFSFileExists(const u16* file);
+	void InitFSFileMapThread();
 	bool initOnionFSHooks(u32 textSize);
 }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BCLIM.cpp
-Open source lines: 211/211 (100.00%)
+Open source lines: 287/287 (100.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -19,7 +19,7 @@ namespace CTRPluginFramework {
         return Color;
     }
 
-    int BCLIM::textureTileOrder[] =
+    const u8 BCLIM::textureTileOrder[] =
 	{
 		0,  1,   4,  5,
 		2,  3,   6,  7,
@@ -28,7 +28,7 @@ namespace CTRPluginFramework {
 		10, 11,  14, 15
 	};
 
-    int BCLIM::etc1Modifiers[][2] =
+    const u8 BCLIM::etc1Modifiers[][2] =
     {
         { 2, 8 },
         { 5, 17 },
@@ -40,8 +40,39 @@ namespace CTRPluginFramework {
         { 47, 183 }
     };
 
-    void BCLIM::Render(Rect<int> position, Render::Interface& renderer, Rect<int> crop) {
-        auto mapping = [](Rect<int> position, int x, int y, int w, int h) {
+    Color BCLIM::TransparentBlendFunc(const Color& dst, const Color& src) {
+        return src.Blend(dst, Color::BlendMode::Alpha);
+    }
+
+    Color BCLIM::OpaqueBlendFunc(const Color& dst, const Color& src) {
+        return dst;
+    }
+
+    void BCLIM::RenderInterfaceBackend(void* usrData, bool isRead, Color* c, int posX, int posY) {
+        Render::Interface* interface = (Render::Interface*)usrData;
+        if (isRead) {
+            interface->ReadPixel(posX, posY, *c);
+        } else {
+            interface->DrawPixel(posX, posY, *c);
+        }
+    }
+
+    void BCLIM::ScreenBackend(void* usrData, bool isRead, Color* c, int posX, int posY) {
+        Screen* screen = (Screen*)usrData;
+        if (isRead) {
+            screen->ReadPixel(posX, posY, *c);
+        } else {
+            screen->DrawPixel(posX, posY, *c);
+        }
+    }
+
+    static bool FastContains(const Rect<int>& rect, Vector<int> point) {
+        return point.x >= rect.leftTop.x && point.x < (rect.leftTop.x + rect.size.x) &&
+            point.y >= rect.leftTop.y && point.y < (rect.leftTop.y + rect.size.y);
+    } 
+
+    void BCLIM::Render(const Rect<int>& position, std::pair<void*, RenderBackend> backend, const Rect<int>& crop, const Rect<int>& limits, std::pair<bool, ColorBlendCallback> colorBlender) {
+        auto mappingScale = [](const Rect<int>& position, int x, int y, int w, int h) {
             int posX = position.leftTop.x;
             int posY = position.leftTop.y;
             float progX = x/(float)w;
@@ -49,6 +80,16 @@ namespace CTRPluginFramework {
 
             return Vector<int>(posX + position.size.x * progX, posY + position.size.y * progY);
         };
+        auto mappingDirect = [](const Rect<int>& position, int x, int y, int w, int h) {
+            return Vector<int>(position.leftTop.x + x, position.leftTop.y + y);
+        };
+        Vector<int>(*mapping)(const Rect<int>& position, int x, int y, int w, int h);
+		Color current;
+
+        if (position.size.x == header->imag.width && position.size.y == header->imag.height)
+            mapping = mappingDirect;
+        else
+            mapping = mappingScale;
 
         switch (header->imag.format) {
             case TextureFormat::L8:
@@ -61,9 +102,36 @@ namespace CTRPluginFramework {
             case TextureFormat::RGBA8:
             case TextureFormat::ETC1:
             case TextureFormat::L4:
+            {
+                int offs = 0;
+                Vector<int> prevPos(-1, -1);
+                for (int y = 0; y < header->imag.height; y+=8) {
+                    for (int x = 0; x < header->imag.width; x+=8) {
+                        for (int i = 0; i < 64; i++) {
+                            int x2 = i % 8;
+                            if (x + x2 >= crop.size.x || x + x2 >= header->imag.width) continue;
+                            int y2 = i / 8;
+                            if (y + y2 >= crop.size.y || y + y2 >= header->imag.height) continue;
+                            auto drawPos = mapping(position, x + x2, y + y2, header->imag.width, header->imag.height);
+                            if (!FastContains(limits, drawPos)) continue;
+                            if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
+                                prevPos = drawPos;
+                                int pos = textureTileOrder[x2 % 4 + y2 % 4 * 4] + 16 * (x2 / 4) + 32 * (y2 / 4);
+                                int shift = (pos & 1) * 4;
+                                u8 l = ((GetDataAt<u8>(offs + pos / 2) >> shift) & 0xF) * 0x11;
+                                if (colorBlender.first)
+                                    backend.second(backend.first, true, &current, drawPos.x, drawPos.y);
+                                Color finalcolor = colorBlender.second(Color(l, l, l), current);
+                                backend.second(backend.first, false, &finalcolor, drawPos.x, drawPos.y);
+                            }
+                        }
+                        offs += 64 / 2;
+                    }
+                }
+            }
+            break;
             case TextureFormat::A4:
                 break;
-            
             case TextureFormat::RGB565:
             {
                 int offs = 0;
@@ -76,6 +144,7 @@ namespace CTRPluginFramework {
                             int y2 = i / 8;
                             if (y + y2 >= crop.size.y || y + y2 >= header->imag.height) continue;
                             auto drawPos = mapping(position, x + x2, y + y2, header->imag.width, header->imag.height);
+                            if (!FastContains(limits, drawPos)) continue;
                             if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
                                 prevPos = drawPos;
                                 int pos = textureTileOrder[x2 % 4 + y2 % 4 * 4] + 16 * (x2 / 4) + 32 * (y2 / 4);
@@ -83,7 +152,10 @@ namespace CTRPluginFramework {
                                 u8 b = (u8)((pixel & 0x1F) << 3);
                                 u8 g = (u8)((pixel & 0x7E0) >> 3);
                                 u8 r = (u8)((pixel & 0xF800) >> 8);
-                                renderer.DrawPixel(drawPos.x, drawPos.y, Color(r, g, b));
+                                if (colorBlender.first)
+                                    backend.second(backend.first, true, &current, drawPos.x, drawPos.y);
+                                Color finalcolor = colorBlender.second(Color(r, g, b), current);
+                                backend.second(backend.first, false, &finalcolor, drawPos.x, drawPos.y);
                             }
                         }
                         offs += 64 * 2;
@@ -103,6 +175,7 @@ namespace CTRPluginFramework {
                             int y2 = i / 8;
                             if (y + y2 >= crop.size.y || y + y2 >= header->imag.height) continue;
                             auto drawPos = mapping(position, x + x2, y + y2, header->imag.width, header->imag.height);
+                            if (!FastContains(limits, drawPos)) continue;
                             if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
                                 prevPos = drawPos;
                                 int pos = textureTileOrder[x2 % 4 + y2 % 4 * 4] + 16 * (x2 / 4) + 32 * (y2 / 4);
@@ -111,9 +184,10 @@ namespace CTRPluginFramework {
                                 u8 g = ((pixel >> 8) & 0xF) * 16;
                                 u8 b = ((pixel >> 4) & 0xF) * 16;
                                 u8 a = ((pixel >> 0) & 0xF) * 16;
-				                Color current;
-                                renderer.ReadPixel(drawPos.x, drawPos.y, current);
-                                renderer.DrawPixel(drawPos.x, drawPos.y, current.Blend(Color(r, g, b, a), Color::BlendMode::Alpha));
+                                if (colorBlender.first)
+                                    backend.second(backend.first, true, &current, drawPos.x, drawPos.y);
+                                Color finalcolor = colorBlender.second(Color(r, g, b, a), current);
+                                backend.second(backend.first, false, &finalcolor, drawPos.x, drawPos.y);
                             }
 						}
 						offs += 64 * 2;
@@ -172,6 +246,7 @@ namespace CTRPluginFramework {
                                         if (x + j + x3 >= crop.size.x) continue;
                                         if (y + i + y3 >= crop.size.y) continue;
                                         auto drawPos = mapping(position, x + j + x3, y + i + y3, header->imag.width, header->imag.height);
+                                        if (!FastContains(limits, drawPos)) continue;
                                         if (drawPos.x != prevPos.x || drawPos.y != prevPos.y) {
                                             prevPos  = drawPos;
                                             int val = (int)((data >> (x3 * 4 + y3)) & 0x1);
@@ -193,9 +268,10 @@ namespace CTRPluginFramework {
                                                 c.g = (u8)ColorClamp(g2 + add);
                                                 c.b = (u8)ColorClamp(b2 + add);
                                             }
-                                            Color current;
-                                            renderer.ReadPixel(drawPos.x, drawPos.y, current);
-                                            renderer.DrawPixel(drawPos.x, drawPos.y, current.Blend(c, Color::BlendMode::Alpha));
+                                            if (colorBlender.first)
+                                                backend.second(backend.first, true, &current, drawPos.x, drawPos.y);
+                                            Color finalcolor = colorBlender.second(c, current);
+                                            backend.second(backend.first, false, &finalcolor, drawPos.x, drawPos.y);
                                         }
                                     }
                                 }

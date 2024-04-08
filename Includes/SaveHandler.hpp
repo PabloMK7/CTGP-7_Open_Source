@@ -4,13 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 302/302 (100.00%)
+Open source lines: 395/395 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "string.h"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "entrystructs.hpp"
 #include "VersusHandler.hpp"
 #include "Minibson.hpp"
@@ -28,6 +28,12 @@ namespace CTRPluginFramework {
 			ALL_MISSION_TEN = (1 << 3),
 			VR_5000 = (1 << 4),
 		};
+		enum class SpecialAchievements {
+			NONE = -1,
+			ALL_BLUE_COINS = 0,
+		};
+		static constexpr u32 TOTAL_ACHIEVEMENTS = 5;
+		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 1;
 		class CupRankSave {
 			public:
 				struct GrandPrixData {
@@ -61,6 +67,7 @@ namespace CTRPluginFramework {
 					THREE_STAR,
 				};
 				static bool CheckModAllSatisfy(SatisfyCondition condition);
+				static std::pair<int, std::array<int, 4>> CheckModSatisfyProgress(SatisfyCondition condition);
 		};
 		struct CTGP7Save {
 			CCSettings cc_settings;
@@ -85,6 +92,7 @@ namespace CTRPluginFramework {
 				u32 creditsWatched : 1;
 				u32 automaticDelayDrift : 1;
 				u32 useCTGP7Server : 1;
+				u32 customKartsEnabled : 1;
 			} flags1;
 			struct 
 			{
@@ -101,14 +109,24 @@ namespace CTRPluginFramework {
 
 			u32 pendingAchievements;
 			u32 achievements;
+			u32 pendingSpecialAchievements;
+			u32 specialAchievements;
 			int principalID;
+
+			u64 driverChoices[EDriverID::DRIVER_SIZE];
+			std::vector<u64> disabledChars;
+			std::vector<u32> collectedBlueCoins;
 
 			bool IsAchievementPending(Achievements achiev) {
 				return pendingAchievements & (u32)achiev;
 			}
 
 			bool IsAchievementCompleted(Achievements achiev) {
+				#ifdef ALL_ACHIEVEMENTS
+				return true;
+				#else
 				return achievements & (u32)achiev;
+				#endif
 			}
 
 			void SetAchievementPending(Achievements achiev, bool set) {
@@ -125,7 +143,46 @@ namespace CTRPluginFramework {
 			}
 
 			u32 GetCompletedAchievementCount() {
+				#ifdef ALL_ACHIEVEMENTS
+				return TOTAL_ACHIEVEMENTS;
+				#else
 				return __builtin_popcount(achievements);
+				#endif
+			}
+
+			bool IsSpecialAchievementPending(SpecialAchievements achiev) {
+				return pendingSpecialAchievements & (1 << (u32)achiev);
+			}
+
+			bool IsSpecialAchievementCompleted(SpecialAchievements achiev) {
+				#ifdef ALL_ACHIEVEMENTS
+				return true;
+				#else
+				return specialAchievements & (1 << (u32)achiev);
+				#endif
+			}
+
+			void SetSpecialAchievementPending(SpecialAchievements achiev, bool set) {
+				u32 ach = (1 << (u32)achiev);
+				pendingSpecialAchievements = (pendingSpecialAchievements & ~(u32)ach) | (set ? (u32)ach : 0);
+			}
+
+			void SetSpecialAchievementCompleted(SpecialAchievements achiev, bool set) {
+				u32 ach = (1 << (u32)achiev);
+				specialAchievements = (specialAchievements & ~(u32)ach) | (set ? (u32)ach : 0);
+				UpdateAchievementCryptoFiles();
+			}
+
+			u32 GetPendingSpecialAchievementCount() {
+				return __builtin_popcount(pendingSpecialAchievements);
+			}
+
+			u32 GetCompletedSpecialAchievementCount() {
+				#ifdef ALL_ACHIEVEMENTS
+				return TOTAL_ACHIEVEMENTS;
+				#else
+				return __builtin_popcount(specialAchievements);
+				#endif
 			}
 
 			CTGP7Save& operator=(const CTGP7Save& other) = default;
@@ -153,13 +210,19 @@ namespace CTRPluginFramework {
 				flags1.creditsWatched = false;
 				flags1.automaticDelayDrift = true;
 				flags1.useCTGP7Server = true;
+				flags1.customKartsEnabled = true;
 				numberOfRounds = 4;
 				serverDisplayNameMode = (u8)Net::PlayerNameMode::SHOW;
 				serverDisplayCustomName[0] = '\0';
 				consoleID = 0;
 				pendingAchievements = 0;
 				achievements = 0;
+				pendingSpecialAchievements = 0;
+				specialAchievements = 0;
 				principalID = 0;
+				memset(driverChoices, sizeof(driverChoices), 0);
+				disabledChars.clear();
+				collectedBlueCoins.clear();
 			}
 
 			CTGP7Save(minibson::document& doc) {
@@ -202,6 +265,28 @@ namespace CTRPluginFramework {
 				pendingAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)0);
 				achievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)0);
 				principalID = (int)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)0);
+				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES))) {
+					const minibson::binary::buffer& char_handler_choices = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES));
+					if (char_handler_choices.length == sizeof(driverChoices))
+						memcpy(driverChoices, char_handler_choices.data, char_handler_choices.length);
+				} else memset(driverChoices, 0, sizeof(driverChoices));
+				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED))) {
+					const minibson::binary::buffer& char_handler_disabled = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED));
+					if (char_handler_disabled.length && char_handler_disabled.length % sizeof(u64) == 0) {
+						disabledChars.resize(char_handler_disabled.length / sizeof(u64));
+						memcpy(disabledChars.data(), char_handler_disabled.data, char_handler_disabled.length);
+					}
+				} else disabledChars.clear();
+				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS))) {
+					const minibson::binary::buffer& collected_blue_coins = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS));
+					if (collected_blue_coins.length && collected_blue_coins.length % sizeof(u32) == 0) {
+						collectedBlueCoins.resize(collected_blue_coins.length / sizeof(u32));
+						memcpy(collectedBlueCoins.data(), collected_blue_coins.data, collected_blue_coins.length);
+					}
+				} else collectedBlueCoins.clear();
+				pendingSpecialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)0);
+				specialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)0);
+				flags1.customKartsEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), true);
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -241,6 +326,12 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)pendingAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)achievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)principalID);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES), driverChoices, sizeof(driverChoices));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED), disabledChars.data(), disabledChars.size() * sizeof(u64));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS), collectedBlueCoins.data(), collectedBlueCoins.size() * sizeof(u32));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)pendingSpecialAchievements);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)specialAchievements);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), (bool)flags1.customKartsEnabled);
 			}
 		};
 		static CTGP7Save saveData;
@@ -250,6 +341,7 @@ namespace CTRPluginFramework {
 		static void DefaultSettings();
 		static void UpdateAchievementCryptoFiles();
 		static void UpdateAchievementsConditions();
+		static void UpdateCharacterIterator();
 		static bool CheckAndShowAchievementMessages();
 		
 		static void SaveSettingsAll() {
@@ -298,5 +390,6 @@ namespace CTRPluginFramework {
 		static s32 SaveSettingsTaskFunc(void* args);
 
 		static int lastAchievementCount;
+		static u32 lastSpecialAchievements;
 	};
 }

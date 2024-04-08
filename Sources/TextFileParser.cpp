@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.cpp
-Open source lines: 305/305 (100.00%)
+Open source lines: 332/332 (100.00%)
 *****************************************************/
 
 #include "TextFileParser.hpp"
@@ -155,6 +155,33 @@ namespace CTRPluginFramework {
 		if (key.empty())
 			return false;
 		dataMap[key] = currVector;
+		return true;
+	}
+
+	bool TextFileParser::ParseLines(const std::string& lines, const std::string& separator) {
+
+		std::string     line;
+
+		StringLineReader      reader(lines);
+
+		u32 lineNumber = 0;
+		std::string part;
+		std::string key;
+		std::vector<std::string> currVector;
+
+		// Read our file until the last line
+		for (; reader(line); lineNumber++)
+		{
+			currVector.clear();
+			key.clear();
+			part.clear();
+
+			ParseLineImpl(key, currVector, line, separator, lineNumber == 0);
+			
+			if (currVector.empty()) continue;
+			// Add to our current map
+			dataMap[key] = currVector;
+		}
 		return true;
 	}
 

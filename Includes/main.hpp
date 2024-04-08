@@ -3,13 +3,14 @@ This file is part of the CTGP-7 Open Source project.
 Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
-File: cheats.hpp
-Open source lines: 100/109 (91.74%)
+File: main.hpp
+Open source lines: 108/117 (92.31%)
 *****************************************************/
 
 #pragma once
 
 //#define GOTO_TOADCIRCUIT
+//#define LOAD_MINIMUM_RESOURCES
 //#define IGNORE_STATS
 //#define BETA_BUILD
 //#define BETA_PATTERN_FILES
@@ -23,6 +24,11 @@ Open source lines: 100/109 (91.74%)
 //#define BETA_GHOST_FILE
 //#define USE_HOKAKU
 //#define DISABLE_ONLINE_ACCESS
+//#define ALL_ACHIEVEMENTS
+//#define STRESS_TEST_DEMO_TITLE
+//#define ALLOW_SAVES_FROM_OTHER_CID
+//#define DISABLE_BLUE_COINS
+//#define NO_HUD_RACE
 
 #include "CTRPluginFramework.hpp"
 #include "Lang.hpp"
@@ -53,7 +59,7 @@ namespace CTRPluginFramework
 
 	#define ISGAMEONLINE (g_isOnlineMode & 0x01)
 
-	using StringVector = std::vector<std::string>;
+	void 	InitMainClasses(void);
 
 	void	menucallback();
 
@@ -97,4 +103,6 @@ namespace CTRPluginFramework
 	void serverEntryHandler(MenuEntry* entry);
 
 	void useCTGP7server_apply(bool useCTGP7);
+
+	void achievementsEntryHandler(MenuEntry* entry);
 }

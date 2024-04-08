@@ -4,20 +4,21 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 473/646 (73.22%)
+Open source lines: 545/720 (75.69%)
 *****************************************************/
 
 #include "DataStructures.hpp"
-#include "CharacterManager.hpp"
 #include "CourseManager.hpp"
 #include "VersusHandler.hpp"
 #include "MenuPage.hpp"
 #include "MissionHandler.hpp"
 #include "UserCTHandler.hpp"
 #include "Sound.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "StaffRoll.hpp"
 #include "CrashReport.hpp"
+#include "CharacterHandler.hpp"
+#include "BlueCoinChallenge.hpp"
 
 namespace CTRPluginFramework {
 	
@@ -34,6 +35,7 @@ namespace CTRPluginFramework {
 	void ExtraResource::setupExtraResource() {
 		if (!GameAlloc::gameHeap) panic("Game heap missing.");
 		MissionHandler::setupExtraResource();
+		CharacterHandler::setupExtraResource();
 #ifdef BETA_GHOST_FILE
 		File extraSarc("/CTGP-7/resources/ghostsBeta.bin", File::READ);
 #else
@@ -54,11 +56,12 @@ namespace CTRPluginFramework {
 #endif
 		graphicsSarc = new SARC(graphicdata);
 		mainSarc->Append(graphicsSarc, true);
-		CharacterManager::applySarcPatches();
 		VersusHandler::Initialize();
 		Snd::InitializeMenuSounds();
 		ItemHandler::Initialize();
 		CrashReport::Initialize();
+		BlueCoinChallenge::Initialize();
+		CharacterHandler::applySarcPatches();
 	}
 
 	static inline void concatSZSCustomName(char* dst, const char* archive, const char* file) {
@@ -81,12 +84,32 @@ namespace CTRPluginFramework {
 	}
 	u8* ExtraResource::loadExtraFile(u32* archive, SafeStringBase* file, SARC::FileInfo* fileInfo) {
 		char* archiveN = (char*)archive[-5];
+		u32 len = strlen(file->data);
 		if (archiveN[2] == '/' && archiveN[3] == 'm' && archiveN[7] == '.') {
 			latestMenuSzsArchive = archive;
 		}
+		// Handle custom character texture
+		if (file->data[len - 1] == 0xFF) {
+			return CharacterHandler::OnGetCharaTexture(file, fileInfo);
+		}
+		if (archiveN[2] == '/' && archiveN[3] == 'm' && archiveN[7] == '.') {
+			if (!strncmp(file->data, "select_", 7)) {
+				CharacterHandler::OnMenuCharaLoadSelectUI(archive, file);
+			} else if (!strncmp(file->data, "b_", 2) || !strncmp(file->data, "t_", 2) || !strncmp(file->data, "g_", 2)) {
+				CharacterHandler::OnMenuCharaLoadKartUI(archive, file);
+			}
+		}
 		if (archiveN[2] != '/' && archiveN[3] == 'r') {
-			u32 len = strlen(file->data);
 			if (MissionHandler::isMissionMode) return MissionHandler::GetReplacementFile(file, fileInfo, (u8*)(archive[0xE] - 0x14));
+			if (BlueCoinChallenge::coinSpawned && !strcmp(file->data, "IceBoundStar/IceBoundStar.bcmdl")) {
+				return mainSarc->GetFile((BlueCoinChallenge::IsCoinCollected(CourseManager::lastLoadedCourseID) || BlueCoinChallenge::coinDisabledCCSelector) ?
+					"RaceCommon.szs/blueCoin/blueCoinCollected.bcmdl" :
+					"RaceCommon.szs/blueCoin/blueCoin.bcmdl"
+					 , fileInfo);
+			}
+			if (BlueCoinChallenge::coinSpawned && !strcmp(file->data, "IceBoundStar/IceBoundStar.kcl")) {
+				return mainSarc->GetFile("RaceCommon.szs/blueCoin/blueCoin.kcl", fileInfo);
+			}
 			u8* replFile = UserCTHandler::LoadTextureFile(archive, file, fileInfo);
 			if (replFile) return replFile;
 		}
@@ -279,6 +302,7 @@ namespace CTRPluginFramework {
 		if (!isInMemory) return nullptr;
 		else {
 			u8* ret = fileData + (*it).startOffset;
+			return (u8*)CryptoResource::ProcessCryptoFile(ret);
 		}
 	}
 
@@ -291,98 +315,124 @@ namespace CTRPluginFramework {
 	}
 
 	ExtraResource::StreamedSarc::StreamedSarc(const std::string& fileName, u32 bufferSize) {
+		_fileName = fileName;
 		_file = new File(fileName, File::READ);
 		_sarc = new SARC(*_file, false);
 		processed = _sarc->processed;
-		_buffer = (u8*)memalign(0x1000, bufferSize);
-		_bufferSize = bufferSize;
-		_fileSize = _file->GetSize();
+		if (!processed) {
+			delete _sarc;
+			delete _file;
+		} else {
+			_fileSize = _file->GetSize();
+		}
 	}
 	
 	ExtraResource::StreamedSarc::~StreamedSarc() {
-		free(_buffer);
-		delete _sarc;
-		delete _file;
+		if (processed) {
+			delete _sarc;
+			delete _file;
+		}
+	}
+
+	void ExtraResource::StreamedSarc::SetEnabled(bool enabled) {
+		if (!processed)
+			return;
+		_sarc->SetEnabled(enabled);
+		if (enabled && !_file->IsOpen()) {
+			File::Open(*_file, _fileName, File::READ);
+		}
+		if (!enabled && _file->IsOpen()) {
+			_file->Close();
+		}
 	}
 
 	bool ExtraResource::StreamedSarc::SetFile(const char* name, SARC::FileInfo* info) {
-		currFileOffset = 0;
+		if (!processed)
+			return false;
 		info->fileSize = -1;
 		_sarc->GetFile(name, info);
 		if (info->fileSize == -1) return false;
-		currFileOffset = _sarc->header.dataOffset + info->dataStart;
-		if (_file->Seek(currFileOffset, File::SeekPos::SET) != File::OPResult::SUCCESS)
+		u32 _currFileOffset = _sarc->header.dataOffset + info->dataStart;
+		if (_file->Seek(_currFileOffset, File::SeekPos::SET) != File::OPResult::SUCCESS)
 			return false;
 		return true;
 	}
 
 	bool ExtraResource::StreamedSarc::SetFileDirectly(SARC::FileInfo* info) {
-		currFileOffset = _sarc->header.dataOffset + info->dataStart;
-		if (_file->Seek(currFileOffset, File::SeekPos::SET) != File::OPResult::SUCCESS)
+		if (!processed)
+			return false;
+		u32 _currFileOffset = _sarc->header.dataOffset + info->dataStart;
+		if (_file->Seek(_currFileOffset, File::SeekPos::SET) != File::OPResult::SUCCESS)
 			return false;
 		return true;
 	}
 
-	const u8* ExtraResource::StreamedSarc::GetData(s32 offset) {
-		if (!currFileOffset) return nullptr;
-		if (offset >= 0)
-			if (_file->Seek(currFileOffset + offset, File::SeekPos::SET) != File::OPResult::SUCCESS)
+	const void* ExtraResource::StreamedSarc::GetData(void* dest, u32 size) {
+		if (!processed) return nullptr;
+		u32 remainingSize = _file->Tell();
+		u32 readSize = ((_fileSize - remainingSize < size) ? (_fileSize - remainingSize) : (size));
+		
+		// This addresses will crash if passed to FS directly.
+		if (((u32)dest & (1 << 31)) || (((u32)dest & 0xFF000000) == 0x1F000000)) {
+			bool worked = true;
+			void* tmpData = operator new(0x4000);
+			u32 offset = 0;
+			while (readSize) {
+				u32 toRead = readSize >= 0x4000 ? 0x4000 : readSize;
+				if (_file->Read(tmpData, toRead) != File::OPResult::SUCCESS) {
+					worked = false;
+					break;
+				}
+				memcpy((u8*)dest + offset, tmpData, toRead);
+				readSize -= toRead;
+				offset += toRead;
+			}
+			operator delete(tmpData);
+			return worked ? dest : nullptr;
+		} else {
+			if (_file->Read(dest, readSize) == File::OPResult::SUCCESS)
+				return dest;
+			else
 				return nullptr;
-		u32 readSize = ((_fileSize - _file->Tell() < _bufferSize) ? (_fileSize - _file->Tell()) : (_bufferSize));
-		if (_file->Read(_buffer, readSize) == File::OPResult::SUCCESS)
-			return _buffer;
-		else
-			return nullptr;
+		}
 	}
 
 	const bool ExtraResource::StreamedSarc::ReadFile(void* dest, SARC::FileInfo& destFileInfo, const char* name, bool allowCropSize) {
-		if (!dest || !destFileInfo.fileSize || !_sarc->processed || !_sarc->IsEnabled())
+		if (!processed || !dest || !destFileInfo.fileSize || !_sarc->processed || !_sarc->IsEnabled()) {
 			return false;
+		}
 		SARC::FileInfo info;
 		bool fileFound = SetFile(name, &info);
-		if (!fileFound || (info.fileSize > destFileInfo.fileSize && !allowCropSize))
+		if (!fileFound || (info.fileSize > destFileInfo.fileSize && !allowCropSize)) {
 			return false;
-		u32 destSize = std::min(info.fileSize, destFileInfo.fileSize);
-		u32 offset = 0;
-		while (destSize) {
-			const u8* data = GetData();
-			if (!data)
-				return false;
-			u32 toCopy = (destSize > _bufferSize) ? _bufferSize : destSize;
-			destSize -= toCopy;
-			memcpy((u8*)dest + offset, data, toCopy);
-			offset += toCopy;
 		}
+		u32 destSize = std::min(info.fileSize, destFileInfo.fileSize);
+		if (!GetData(dest, destSize))
+			return false;
 		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)dest & ~0xFFF), (info.fileSize & ~0xFFF) + 0x2000);
 		destFileInfo.fileSize = info.fileSize;
+		CryptoResource::ProcessCryptoFile(dest, &destFileInfo);
 		return true;
 	}
 
 	const bool ExtraResource::StreamedSarc::ReadFileDirectly(void* dest, SARC::FileInfo& destFileInfo, SARC::FileInfo& inputFileInfo, bool allowCropSize) {
-		if (!dest || !destFileInfo.fileSize || !_sarc->processed || !_sarc->IsEnabled())
+		if (!processed || !dest || !destFileInfo.fileSize || !_sarc->processed || !_sarc->IsEnabled())
 			return false;
-		SARC::FileInfo info = inputFileInfo;
+		SARC::FileInfo& info = inputFileInfo;
 		bool fileFound = SetFileDirectly(&info);
 		if (!fileFound || (info.fileSize > destFileInfo.fileSize && !allowCropSize))
 			return false;
 		u32 destSize = std::min(info.fileSize, destFileInfo.fileSize);
-		u32 offset = 0;
-		while (destSize) {
-			const u8* data = GetData();
-			if (!data)
-				return false;
-			u32 toCopy = (destSize > _bufferSize) ? _bufferSize : destSize;
-			destSize -= toCopy;
-			memcpy((u8*)dest + offset, data, toCopy);
-			offset += toCopy;
-		}
+		if (!GetData(dest, destSize))
+			return false;
 		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)dest & ~0xFFF), (info.fileSize & ~0xFFF) + 0x2000);
 		destFileInfo.fileSize = info.fileSize;
+		CryptoResource::ProcessCryptoFile(dest, &destFileInfo);
 		return true;
 	}
 
 	const bool ExtraResource::StreamedSarc::GetFileInfo(SARC::FileInfo& outFileInfo, const char* name) {
-		if (!_sarc->processed || !_sarc->IsEnabled())
+		if (!processed || !_sarc->processed || !_sarc->IsEnabled())
 			return false;
 		outFileInfo.fileSize = -1;
 		_sarc->GetFile(name, &outFileInfo);
@@ -390,6 +440,28 @@ namespace CTRPluginFramework {
 		return true;
 	}
 
+
+	u64 ExtraResource::StreamedSarc::GetNonSecureDataChecksum(u32 bufferSize) {
+		if (!processed || !_file->IsOpen()) return 0;
+		u32 remaining = _sarc->header.fileLength - _sarc->header.dataOffset;
+		_file->Seek(_sarc->header.dataOffset, File::SeekPos::SET);
+		u32 ret1 = 0;
+		u32 ret2 = 0;
+		void* _buffer = memalign(0x1000, bufferSize);
+		u32 _bufferSize = bufferSize;
+		while (remaining)
+		{
+			u32 currblockSize = (remaining > _bufferSize) ? _bufferSize : remaining;
+			_file->Read(_buffer, currblockSize);
+			for (int i = 0; i < currblockSize / sizeof(u32); i+=2) {
+				ret1 += ((u32*)_buffer)[i] * 47;
+				ret2 += ((u32*)_buffer)[i+1] * 47;
+			}
+			remaining -= currblockSize;
+		}
+		free(_buffer);
+		return ret1 | ((u64)ret2 << 32);
+	}
 
 	ExtraResource::MultiSARC::MultiSARC(SARC* start)
 	{

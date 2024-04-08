@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2215/2549 (86.90%)
+Open source lines: 2350/2704 (86.91%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -21,7 +21,8 @@ Open source lines: 2215/2549 (86.90%)
 #include "MarioKartTimer.hpp"
 #include "HookInit.hpp"
 #include "Unicode.h"
-#include "CharacterManager.hpp"
+#include "CharacterHandler.hpp"
+#include "CwavReplace.hpp"
 
 extern "C" {
     void coursePageInitOmakaseTfunc();
@@ -30,6 +31,8 @@ extern "C" {
 	u32 g_coursePageInitOmakaseBret;
 	void trophyPageSelectNextScenefunc();
 	u32 g_trophyPageSelectNextSceneret;
+	void trophyPageSelectNextScene2func();
+	u32 g_trophyPageSelectNextScene2ret;
 	void thankyouPageInitControlfunc();
 	u32 g_thankyouPageInitControlret;
 }
@@ -66,19 +69,26 @@ namespace CTRPluginFramework {
     RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseTHook;
     RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseBHook;
 
+    RT_HOOK MenuPageHandler::MenuSingleCourseBattle::onPageEnterHook;
+
     std::vector<u32> MenuPageHandler::MenuSingleCourseBasePage::blockedCourses;
 
     RT_HOOK MenuPageHandler::trophyPageSelectNextSceneHook;
+    RT_HOOK MenuPageHandler::trophyPageSelectNextSceneHook2;
     RT_HOOK MenuPageHandler::thankyouPageInitControlHook;
 
     bool MenuPageHandler::MenuEndingPage::loadCTGPCredits = false;
 
-    VisualControl::GameVisualControlVtable* MenuPageHandler::MenuSingleCharaPage::controlVtable;
-    bool MenuPageHandler::MenuSingleCharaPage::isInSingleCharaPage = false;
-    void (*MenuPageHandler::MenuSingleCharaPage::initControlBackup)(GameSequenceSection* own) = nullptr;
-    void (*MenuPageHandler::MenuSingleCharaPage::pageEnterBackup)(GameSequenceSection* own) = nullptr;
-    void (*MenuPageHandler::MenuSingleCharaPage::pageExitBackup)(GameSequenceSection* own) = nullptr;
-    void (*MenuPageHandler::MenuSingleCharaPage::pagePreStepBackup)(GameSequenceSection* own) = nullptr;
+    VisualControl::GameVisualControlVtable* MenuPageHandler::MenuCharaBasePage::controlVtable;
+    std::array<int, EDriverID::DRIVER_SIZE> MenuPageHandler::MenuCharaBasePage::currentChoices{};
+    void (*MenuPageHandler::MenuCharaBasePage::deallocateBackup)(GameSequenceSection* own) = nullptr;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::destructorHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::initControlHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::pageEnterHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::pageExitHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::pagePreStepHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::buttonHandlerSelectOnHook;
+    RT_HOOK MenuPageHandler::MenuCharaBasePage::buttonHandlerOKHook;
 
     u32 MenuPageHandler::GameFuncs::SectionClassInfoBaseSubObject = 0; // 0x004C0E14;
     u32 MenuPageHandler::GameFuncs::SectionClassInfoListAddSectionClassInfo = 0; // 0x004B9A80;
@@ -1080,6 +1090,11 @@ namespace CTRPluginFramework {
         for (int i = 0; i < 8; i++) {
             obj->SetButtonEnabledState(i, true);
         }
+
+        if (CharacterHandler::heapVoiceMode != CharacterHandler::HeapVoiceMode::MENU) {
+            // Returned from a race, reload character voice
+            CharacterHandler::SetupMenuVoices(CharacterHandler::GetSelectedMenuCharacter());
+        }
     }
 
     void MenuPageHandler::MenuMultiCupPage::OnPageEnter(GameSequenceSection* own) {
@@ -1687,6 +1702,16 @@ namespace CTRPluginFramework {
         if (!isCupBase) MoflexReset(true);
     }
 
+    void MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses() {
+        blockedCourses.clear();
+    }
+    void MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(u32 course) {
+        blockedCourses.push_back(course);
+    }
+    bool MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(u32 course) {
+        return (std::find(blockedCourses.begin(), blockedCourses.end(), course) != blockedCourses.end());
+    }
+
     void MenuPageHandler::MenuSingleCourseBasePage::OnPageEnter(GameSequenceSection* own) {
         void(*moflexUpdateCourse)(GameSequenceSection*) = (decltype(moflexUpdateCourse))GameFuncs::moflexUpdateCourse;
         void(*uiMovieViewAnimOut)(VisualControl::GameVisualControl*) = (decltype(uiMovieViewAnimOut))GameFuncs::uiMovieViewAnimOut;
@@ -1792,6 +1817,14 @@ namespace CTRPluginFramework {
         if (lastTrack >= 0 && lastTrack <= 4 && cupID > 7) {
             obj->parent[0]->ctPreviewChildTrack = lastTrack + 1;
             obj->parent[0]->ctPreviewChildAnim = obj->ctPreview.GetTarget();
+        }
+    }
+
+    void MenuPageHandler::MenuSingleCourseBattle::OnPageEnter(GameSequenceSection* own) {
+        ((void(*)(GameSequenceSection*))onPageEnterHook.callCode)(own);
+        if (CharacterHandler::heapVoiceMode != CharacterHandler::HeapVoiceMode::MENU) {
+            // Returned from a battle, reload character voice
+            CharacterHandler::SetupMenuVoices(CharacterHandler::GetSelectedMenuCharacter());
         }
     }
 
@@ -1947,53 +1980,155 @@ namespace CTRPluginFramework {
         if (obj->staffroll)
             obj->staffroll->onPageExit();
     }
-    
-    void MenuPageHandler::MenuSingleCharaPage::OnInitControl(GameSequenceSection* own) {
-        initControlBackup(own);
 
+    u64 MenuPageHandler::MenuCharaBasePage::GetSelectedCustomCharacterID(EDriverID driverID) {
+        if (currentChoices[(int)driverID] == 0)
+            return 0;
+        return CharacterHandler::GetCharEntry(driverID, currentChoices[(int)driverID] - 1).id;
+    }
+    
+    void MenuPageHandler::MenuCharaBasePage::UpdateEntriesString() {
+        EDriverID currDriver = GetSelectedDriverID(own);
+        u32 totalChars = CharacterHandler::GetCharCount(currDriver) + 1;
+        u32 currEntry = currentChoices[currDriver] + 1;
+
+        std::string msg = Utils::Format("(%02d/%02d)", currEntry, totalChars);
+        string16 msg16;
+        Utils::ConvertUTF8ToUTF16(msg16, msg);
+        u32 textElementHandle = charCountControl->GetNwlytControl()->vtable->getElementHandle(charCountControl->GetNwlytControl(), SafeStringBase("T_mngr"), 0);
+        charCountControl->GetNwlytControl()->vtable->replaceMessageImpl(charCountControl->GetNwlytControl(), textElementHandle, VisualControl::Message(msg16.c_str()), nullptr, nullptr);
+    
+        CharacterHandler::UpdateMenuCharaText(currDriver, GetSelectedCustomCharacterID(currDriver));
+    }
+    
+    void MenuPageHandler::MenuCharaBasePage::UpdateDriverIcon(EDriverID driverID, bool forceReset) {
+        if (driverID == EDriverID::DRIVER_MIIF || driverID == EDriverID::DRIVER_MIIM)
+            return;
+        VisualControl::GameVisualControl* icon = GetButtonFromDriverID(own, driverID);
+        u32 elementHandle = icon->GetNwlytControl()->vtable->getElementHandle(icon->GetNwlytControl(), SafeStringBase("P_chara"), 0);
+        u32 elementHandle_sh = icon->GetNwlytControl()->vtable->getElementHandle(icon->GetNwlytControl(), SafeStringBase("P_chara_sh"), 0);
+        u8* texVaddr = (u8*)icon->GetRawTextureVAddr(elementHandle);
+        u8* texVaddr_sh = (u8*)icon->GetRawTextureVAddr(elementHandle_sh);
+        CharacterHandler::UpdateMenuCharaTextures(driverID, texVaddr, texVaddr_sh, forceReset);
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnDestruct(GameSequenceSection* own) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+        if (page) delete page;
+        own->vtable->userData = nullptr;
+        ((void(*)(GameSequenceSection*))destructorHook.callCode)(own);
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnDeallocate(GameSequenceSection* own) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+        if (page) delete page;
+        own->vtable->userData = nullptr;
+        deallocateBackup(own);
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnInitControl(GameSequenceSection* own) {
+        MenuCharaBasePage* page = new MenuCharaBasePage();
+        own->vtable->userData = page;
+        ((void(*)(GameSequenceSection*))initControlHook.callCode)(own);
         u32* ownU32 = (u32*)own;
         if (!controlVtable) {
             controlVtable = (VisualControl::GameVisualControlVtable*)operator new(sizeof(VisualControl::GameVisualControlVtable));
             memcpy(controlVtable, (u32*)GameFuncs::omakaseViewVtable, sizeof(VisualControl::GameVisualControlVtable));
             controlVtable->onReset = (decltype(controlVtable->onReset))VisualControl::nullFunc;
         }
-        VisualControl::GameVisualControl* charmngr = VisualControl::Build(ownU32, "chara_mngr", "omakase_T", &VisualControl::AnimationDefine::empty, controlVtable, VisualControl::ControlType::BASEMENUVIEW_CONTROL);
+        page->charCountControl = VisualControl::Build(ownU32, "chara_mngr", "omakase_T", &VisualControl::AnimationDefine::empty, controlVtable, VisualControl::ControlType::BASEMENUVIEW_CONTROL);
         SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
-        ((void(*)(void*, VisualControl::GameVisualControl*))GameFuncs::ControlSliderSetSlideH)(controlSliderArray[0], charmngr);
-
-        string16 msg;
-        Utils::ConvertUTF8ToUTF16(msg, NAME("charman"));
-        u32 textElementHandle = charmngr->GetNwlytControl()->vtable->getElementHandle(charmngr->GetNwlytControl(), SafeStringBase("T_mngr"), 0);
-        charmngr->GetNwlytControl()->vtable->replaceMessageImpl(charmngr->GetNwlytControl(), textElementHandle, VisualControl::Message(msg.c_str()), nullptr, nullptr);
+        ((void(*)(void*, VisualControl::GameVisualControl*))GameFuncs::ControlSliderSetSlideH)(controlSliderArray[0], page->charCountControl);
+        page->own = own;
     }
 
-    void MenuPageHandler::MenuSingleCharaPage::OnPageEnter(GameSequenceSection* own) {
-        isInSingleCharaPage = true;
-        pageEnterBackup(own);
-    }
-
-    void MenuPageHandler::MenuSingleCharaPage::OnPageExit(GameSequenceSection* own) {
-        pageExitBackup(own);
-        isInSingleCharaPage = false;
-    }
-
-    static bool g_pageprestepcallbackadded = false;
-    static void OnPagePreStepCallback() {
-	    extern MenuEntry *customCharactersEntry;
-        *(PluginMenu::GetRunningInstance()) -= OnPagePreStepCallback;
-		Process::Pause();
-        SoundEngine::PlayMenuSound(SoundEngine::Event::ACCEPT);
-        CharacterManager::characterManagerSettings(customCharactersEntry);
-		Process::Play();
-        g_pageprestepcallbackadded = false;
-    }
-
-    void MenuPageHandler::MenuSingleCharaPage::OnPagePreStep(GameSequenceSection* own) {
-        pagePreStepBackup(own);
-        if (Controller::IsKeyPressed(Key::Select) && !g_pageprestepcallbackadded) {
-            g_pageprestepcallbackadded = true;
-           *(PluginMenu::GetRunningInstance()) += OnPagePreStepCallback;
+    void MenuPageHandler::MenuCharaBasePage::OnPageEnter(GameSequenceSection* own) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+        ((void(*)(GameSequenceSection*))pageEnterHook.callCode)(own);
+        CharacterHandler::ApplyMenuCharacter(GetSelectedCustomCharacterID(GetSelectedDriverID(own)));
+        ((MenuCharaBasePage*)own->vtable->userData)->UpdateEntriesString();
+        page->loadAllIconsDelay = 3;
+        page->coolDownScrollTimer = 0;
+        for (int i = 0; i < (int)EDriverID::DRIVER_SIZE; i++) {
+            CharacterHandler::UpdateMenuCharaText((EDriverID)i, GetSelectedCustomCharacterID((EDriverID)i));
         }
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnPageExit(GameSequenceSection* own) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+		CharacterHandler::potentialCrashReason = "";
+        for (int i = 0; i < EDriverID::DRIVER_SIZE; i++)
+            page->UpdateDriverIcon((EDriverID)i, true);
+        ((void(*)(GameSequenceSection*))pageExitHook.callCode)(own);
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnPagePreStep(GameSequenceSection* own) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+        u32* ownU32 = (u32*)own;
+        ((void(*)(GameSequenceSection*))pagePreStepHook.callCode)(own);
+        if (page->reloadCharacterModelTimer != 0) {
+            if (--page->reloadCharacterModelTimer == 0) {
+                u32 previewPartsManager = *(u32*)(MarioKartFramework::getGarageDirector() + 0x40);
+                *(EDriverID*)(previewPartsManager + 0x138) = EDriverID::DRIVER_SIZE;
+            }
+        }
+
+        EDriverID currDriver = GetSelectedDriverID(own);
+        if (page->coolDownScrollTimer != 0)
+            page->coolDownScrollTimer--;
+        if (page->loadAllIconsDelay == 1) {
+            for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
+                u64 newID = GetSelectedCustomCharacterID((EDriverID)i);
+                CharacterHandler::ApplyMenuCharacter(newID);
+                page->UpdateDriverIcon((EDriverID)i);
+            }
+            u64 newID = GetSelectedCustomCharacterID(currDriver);
+            CharacterHandler::ApplyMenuCharacter(newID);
+            page->reloadCharacterModelTimer = 1;
+            ((void(*)(GameSequenceSection*, int))buttonHandlerSelectOnHook.callCode)(own, own->GetLastSelectedButton());
+        }
+        if (page->loadAllIconsDelay != 0)
+            page->loadAllIconsDelay--;
+        bool rPressed = Controller::IsKeyDown(Key::R);
+        bool lPressed = !rPressed && Controller::IsKeyDown(Key::L);
+        if ((rPressed || lPressed) && page->coolDownScrollTimer == 0) {
+            page->coolDownScrollTimer = 15;
+            s32 totalChars = CharacterHandler::GetCharCount(currDriver) + 1;
+            s32 prevEntry = currentChoices[currDriver];
+            currentChoices[currDriver] += (rPressed ? 1 : -1);
+            if (currentChoices[currDriver] >= totalChars)
+                currentChoices[currDriver] = 0;
+            else if (currentChoices[currDriver] < 0)
+                currentChoices[currDriver] = totalChars - 1;
+            if (prevEntry != currentChoices[currDriver]) {
+                Snd::PlayMenu(Snd::SCROLL_LIST_STOP);
+                u64 newID = GetSelectedCustomCharacterID(currDriver);
+                CharacterHandler::ApplyMenuCharacter(newID);
+                page->UpdateEntriesString();
+                page->UpdateDriverIcon(currDriver);
+                page->reloadCharacterModelTimer = 30;
+                ((void(*)(GameSequenceSection*, int))buttonHandlerSelectOnHook.callCode)(own, own->GetLastSelectedButton());
+            }
+        }
+    }
+    
+    void MenuPageHandler::MenuCharaBasePage::OnButtonHandlerSelectOn(GameSequenceSection* own, int buttonID) {
+        ((void(*)(GameSequenceSection*, int))buttonHandlerSelectOnHook.callCode)(own, buttonID);
+        EDriverID currDriver = GetSelectedDriverID(own);
+        u64 newID = GetSelectedCustomCharacterID(currDriver);
+        CharacterHandler::ApplyMenuCharacter(newID);
+        ((MenuCharaBasePage*)own->vtable->userData)->UpdateEntriesString();
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnButtonHandlerOK(GameSequenceSection* own, int buttonID) {
+        MenuCharaBasePage* page = (MenuCharaBasePage*)own->vtable->userData;
+        page->coolDownScrollTimer = 0x7FFFFFFF;
+        if (page->reloadCharacterModelTimer != 0) page->reloadCharacterModelTimer = 1;
+        EDriverID currDriver = GetSelectedDriverID(own);
+        u64 newID = GetSelectedCustomCharacterID(currDriver);
+        CharacterHandler::SetupMenuVoices(newID);
+        CharacterHandler::SaveCharacterChoices();
+        ((void(*)(GameSequenceSection*, int))buttonHandlerOKHook.callCode)(own, buttonID);
     }
 
     void MenuPageHandler::InitHooksFromSingleCupGP(u32 sectionVtable) {

@@ -4,12 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: RMCLogger.cpp
-Open source lines: 78/78 (100.00%)
+Open source lines: 100/100 (100.00%)
 *****************************************************/
 
 #include "RMCLogger.hpp"
 #ifdef USE_HOKAKU
 #include "time.h"
+
+//#define LOG_RAW_PACKETS
 
 namespace CTRPluginFramework {
     void RMCLogger::Initialize() {
@@ -51,6 +53,7 @@ namespace CTRPluginFramework {
 
     Mutex logMutex;
     void RMCLogger::LogRMCPacket(const u8* data, u32 packetSize, bool isRecieved) {
+        #ifndef LOG_RAW_PACKETS
         if (packetSize < 4 || ((u32*)data)[0] != packetSize - 4)
             return;
         Lock logLock(logMutex);
@@ -73,6 +76,25 @@ namespace CTRPluginFramework {
         
         memcpy(writeBuffer + sizeof(PcapPacketHeader) + sizeof(PacketMetadata), data, packetSize);
         pcapFile->Write(writeBuffer, sizeof(PcapPacketHeader) + sizeof(PacketMetadata) + packetSize);
+        #else
+        Lock logLock(logMutex);
+        if (packetSize > maxPacketSize) {
+            OSD::Notify(Utils::Format("Packet too big! 0x%08X, 0x%08X", (u32)data, packetSize));
+        }
+        PcapPacketHeader* pHdr = reinterpret_cast<PcapPacketHeader*>(writeBuffer);
+        pHdr->savedBytes = pHdr->packetBytes = packetSize;
+
+        s64 elapsedMsecTot = currentElapsed.GetElapsedTime().AsMicroseconds();
+        u32 elapsedSec = elapsedMsecTot / 1000000;
+        u32 elapsedMsec = elapsedMsecTot - elapsedSec * 1000000;
+
+        pHdr->timestamp = startTime + elapsedSec;
+        pHdr->microsecondoffset = elapsedMsec;
+        
+        memcpy(writeBuffer + sizeof(PcapPacketHeader), data, packetSize);
+        pcapFile->Write(writeBuffer, sizeof(PcapPacketHeader) + packetSize);
+        #endif
+
     }
 }
 #endif

@@ -4,12 +4,12 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 440/525 (83.81%)
+Open source lines: 441/526 (83.84%)
 *****************************************************/
 
 #include "NetHandler.hpp"
 #include "httpcPatch.h"
-#include "cheats.hpp"
+#include "main.hpp"
 
 namespace CTRPluginFramework {
 	u64 NetHandler::ConsoleSecureHash[2] = {0, 0};
@@ -42,7 +42,8 @@ namespace CTRPluginFramework {
 		"req_discordinfo",
 		"put_miiicon",
 		"req_onlinetoken",
-		"req_uniquepid"
+		"req_uniquepid",
+		"req_roomcharids"
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)

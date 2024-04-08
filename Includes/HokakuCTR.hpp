@@ -4,14 +4,16 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HokakuCTR.hpp
-Open source lines: 17/17 (100.00%)
+Open source lines: 19/19 (100.00%)
 *****************************************************/
 
 #pragma once
-#include "cheats.hpp"
+#include "main.hpp"
 #ifdef USE_HOKAKU
+#include "RMCLogger.hpp"
 namespace CTRPluginFramework
 {
     void    InitHokaku();
+    extern RMCLogger* mainLogger;
 }
 #endif

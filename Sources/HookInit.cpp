@@ -4,13 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HookInit.cpp
-Open source lines: 37/3298 (1.12%)
+Open source lines: 41/3457 (1.19%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
 #include "rt.hpp"
 #include "OnionFS.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "foolsday.hpp"
 #include "MarioKartFramework.hpp"
 #include "CourseManager.hpp"
@@ -24,7 +24,11 @@ Open source lines: 37/3298 (1.12%)
 #include "ItemHandler.hpp"
 #include "DataStructures.hpp"
 #include "ExtraUIElements.hpp"
+#include "CharacterHandler.hpp"
 #include "Net.hpp"
+#include "CwavReplace.hpp"
+#include "BootSceneHandler.hpp"
+#include "BlueCoinChallenge.hpp"
 
 namespace CTRPluginFramework {
 

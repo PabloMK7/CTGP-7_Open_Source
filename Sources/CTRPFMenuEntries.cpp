@@ -3,12 +3,12 @@ This file is part of the CTGP-7 Open Source project.
 Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
-File: cheats.cpp
-Open source lines: 632/640 (98.75%)
+File: CTRPFMenuEntries.cpp
+Open source lines: 790/798 (99.00%)
 *****************************************************/
 
 #include "types.h"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "3ds.h"
 #include "rt.hpp"
 #include "string.h"
@@ -30,6 +30,7 @@ Open source lines: 632/640 (98.75%)
 #include "Net.hpp"
 #include "mallocDebug.hpp"
 #include "ExtraUIElements.hpp"
+#include "BlueCoinChallenge.hpp"
 
 u32 g_currMenuVal = 0;
 u8 g_isOnlineMode = (CTRPluginFramework::Utils::Random() | 2) & ~0x1;
@@ -83,7 +84,7 @@ namespace CTRPluginFramework
 
    	bool speedometer_value() {
    		Keyboard        keyboard(NAME("spd_sunit"));
-        StringVector    unitsList = {"km/h", "mph"};
+        std::vector<std::string>    unitsList = {"km/h", "mph"};
 		int ret, ret2;
 
         // First part
@@ -454,7 +455,7 @@ namespace CTRPluginFramework
 
 	bool autoAccel_button() {
    		Keyboard        keyboard(NAME("autoaccel_button"));
-        StringVector    buttonList = {FONT_Y, FONT_A};
+        std::vector<std::string>    buttonList = {FONT_Y, FONT_A};
 		int ret;
 
         // First part
@@ -569,13 +570,13 @@ namespace CTRPluginFramework
 		do {
 			topStr = NAME("servsett") + "\n\nVR:\n";
 			if (Net::vrPositions[0] > 0)
-				topStr += "  " + NAME("ctww") + ": " + std::to_string(SaveHandler::saveData.ctVR) + " VR (" + Language::GenerateOrdinal(Net::vrPositions[0]) + ")\n";
+				topStr += "  " + NAME("ctww") + ": " + std::to_string(SaveHandler::saveData.ctVR) + " " + NAME("vr") +" (" + Language::GenerateOrdinal(Net::vrPositions[0]) + ")\n";
 			else
-				topStr += "  " + NAME("ctww") + ": " + std::to_string(SaveHandler::saveData.ctVR) + " VR\n";
+				topStr += "  " + NAME("ctww") + ": " + std::to_string(SaveHandler::saveData.ctVR) + " " + NAME("vr") +"\n";
 			if (Net::vrPositions[1] > 0)
-				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " VR (" + Language::GenerateOrdinal(Net::vrPositions[1]) + ")\n";
+				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " " + NAME("vr") + " (" + Language::GenerateOrdinal(Net::vrPositions[1]) + ")\n";
 			else
-				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " VR\n";
+				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " " + NAME("vr") + "\n";
 			topStr += NAME("serv_consID") + ":\n  " + Utils::Format("0x%016llX", NetHandler::GetConsoleUniqueHash()) + "\n\n";
 			topStr += "1. " + NAME("serv_statsupl") + ":\n  " + ((SaveHandler::saveData.flags1.uploadStats) ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 			topStr += "2. " + NAME("serv_displname") + ":\n  ";
@@ -628,5 +629,162 @@ namespace CTRPluginFramework
 		Language::MsbtHandler::SetTextEnabled(6001, useCTGP7);
 		Language::MsbtHandler::SetTextEnabled(6002, useCTGP7);
 		Language::MsbtHandler::SetTextEnabled(6334, useCTGP7);
+	}
+
+	static int g_keyboardkey = -1;
+	void achievementsEntryHandler(MenuEntry* entry) {
+		constexpr int normalPages = 3;
+		auto generateAchievementsText = [](int page, int totalMenu) -> std::string {
+			auto genTextAchv = [](const std::string& text, bool completed) -> std::string {
+				std::string ret = "- ";
+				if (completed)
+					ret += Color::Lime;
+				else
+					ret += Color::Gray;
+				ret += text;
+				ret += ResetColor() + "\n";
+				return ret;
+			};
+			auto genProgressString = [](int curr, int total) {
+				std::string s;
+				if (curr >= total)
+					s += Color::Lime;
+				s += Utils::Format("%02d/%02d", curr, total);
+				s += ResetColor();
+				return s;
+			};
+			std::string topStr = CenterAlign(NAME("achieventry") + "\n");
+			std::string fmtStr = std::string(FONT_L " ") + NAME("page") + " (%02d/%02d) " FONT_R;
+			topStr += ToggleDrawMode(Render::UNDERLINE) + " " + CenterAlign(Utils::Format(fmtStr.c_str(), page + 1, totalMenu)) + RightAlign(" ", 30, 365) + ToggleDrawMode(Render::UNDERLINE);
+			if (page == 0) {
+				topStr += "\n" + CenterAlign( ToggleDrawMode(Render::UNDERLINE) + NAME("summary") + ToggleDrawMode(Render::UNDERLINE)) + "\n";
+				topStr += Utils::Format((NAME("types_achievs") + ": %d/%d").c_str(), SaveHandler::saveData.GetCompletedAchievementCount(), SaveHandler::TOTAL_ACHIEVEMENTS) + "\n";
+				topStr += genTextAchv(NAME("gold_tro_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_GOLD));
+				topStr += genTextAchv(NAME("1star_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_ONE_STAR));
+				topStr += genTextAchv(NAME("3star_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_THREE_STAR));
+				topStr += genTextAchv(NAME("10pts_msn_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
+				topStr += genTextAchv(NAME("5000vr_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
+				topStr += std::string("\n") + NOTE("types_achievs") + ":" + "\n";
+				topStr += genTextAchv(NAME("blue_coin_achiev"), SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
+			} else if (page == 1) {
+				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("custom_track_cups") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				auto progressGold = SaveHandler::CupRankSave::CheckModSatisfyProgress(SaveHandler::CupRankSave::SatisfyCondition::GOLD);
+				auto progress1Star = SaveHandler::CupRankSave::CheckModSatisfyProgress(SaveHandler::CupRankSave::SatisfyCondition::ONE_STAR);
+				auto progress3Star = SaveHandler::CupRankSave::CheckModSatisfyProgress(SaveHandler::CupRankSave::SatisfyCondition::THREE_STAR);
+				auto anyProgress = [](std::pair<int, std::array<int, 4>> &prog) -> bool {
+					for (int i = 0; i < 4; i++)
+						if (prog.second[i] >= prog.first)
+							return true;
+					return false;
+				};
+				int tot = progressGold.first;
+				std::string cc50 = Language::MsbtHandler::GetString(2220);
+				std::string cc100 = Language::MsbtHandler::GetString(2221);
+				std::string cc150 = Language::MsbtHandler::GetString(2222);
+				std::string ccMirror = Language::MsbtHandler::GetString(2223);
+				std::string gold = "- " + (anyProgress(progressGold) ? (std::string() << Color::Lime) : "") + NAME("tro_gold") + ResetColor() + ":";
+				std::string star1 = "- " + (anyProgress(progress1Star) ? (std::string() << Color::Lime) : "") + NAME("tro_1star") + ResetColor() + ":";
+				std::string star3 = "- " + (anyProgress(progress3Star) ? (std::string() << Color::Lime) : "") + NAME("tro_3star") + ResetColor() + ":";
+				topStr += gold + SkipToPixel(120) + cc50 + ": " + genProgressString(progressGold.second[0], tot) + ", " + cc100 + ": " + genProgressString(progressGold.second[1], tot) + "\n" +
+							SkipToPixel(120) + cc150 + ": " + genProgressString(progressGold.second[2], tot) + ", " + ccMirror + ": " + genProgressString(progressGold.second[3], tot);
+				topStr += HorizontalSeparator();
+				topStr += star1 + SkipToPixel(120) + cc50 + ": " + genProgressString(progress1Star.second[0], tot) + ", " + cc100 + ": " + genProgressString(progress1Star.second[1], tot) + "\n" +
+							SkipToPixel(120) + cc150 + ": " + genProgressString(progress1Star.second[2], tot) + ", " + ccMirror + ": " + genProgressString(progress1Star.second[3], tot);
+				topStr += HorizontalSeparator();
+				topStr += star3 + SkipToPixel(120) + cc50 + ": " + genProgressString(progress3Star.second[0], tot) + ", " + cc100 + ": " + genProgressString(progress3Star.second[1], tot) + "\n" +
+							SkipToPixel(120) + cc150 + ": " + genProgressString(progress3Star.second[2], tot) + ", " + ccMirror + ": " + genProgressString(progress3Star.second[3], tot);
+				
+			} else if (page == 2) {
+				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("ms_miss") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				auto prog = MissionHandler::SaveData::GetAllFullGradeFlag();
+				topStr += ((prog.second >= prog.first) ? (std::string() << Color::Lime) : "") + NAME("tro_10pts") + ResetColor() + ":";
+				topStr += SkipToPixel(120) + genProgressString(prog.second, prog.first);
+				topStr += HorizontalSeparator();
+				topStr += CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("ctww") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				int ctwwVR = SaveHandler::saveData.ctVR;
+				int cdVR = SaveHandler::saveData.cdVR;
+				int maxVR = std::max(ctwwVR, cdVR);
+				int totalVR = 5000;
+				topStr += ((maxVR >= totalVR) ? (std::string() << Color::Lime) : "") + NAME("vr") + ResetColor() + ":";
+				topStr += SkipToPixel(120) + NAME("ctww") + ": " + genProgressString(ctwwVR, totalVR) + "\n" +
+							SkipToPixel(120) + NAME("cntdwn") + ": " + genProgressString(cdVR, totalVR);
+			} else if (page >= normalPages) {
+				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("blue_coins") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				u32 curr = BlueCoinChallenge::GetCollectedCoinCount();
+				u32 tot = BlueCoinChallenge::GetTotalCoinCount();
+				topStr += ((curr >= tot) ? (std::string() << Color::Lime) : "") + NAME("tro_blue_collected") + ResetColor() + ":";
+				topStr += SkipToPixel(120) + genProgressString(curr, tot);
+				topStr += HorizontalSeparator();
+				u32 currCup = page - normalPages;
+				u32 size;
+				const u32* cupTransTable = CourseManager::getCupTranslatetable(&size, true);
+				if ((currCup & 1) == 0) {
+					currCup = cupTransTable[currCup / 2];
+				} else {
+					currCup = cupTransTable[currCup / 2 + size / 2];
+				}
+				u32 courseIDs[4];
+				bool obtained[4];
+				for (int i = 0; i < 4; i++) {
+					CourseManager::getGPCourseID(&courseIDs[i], currCup, i, true);
+					obtained[i] = BlueCoinChallenge::IsCoinCollected(courseIDs[i]);
+				}
+				bool allObtainer = obtained[0] && obtained[1] && obtained[2] && obtained[3];
+				topStr += (allObtainer ? (std::string() << Color::Blue) : (std::string() << Color::Gray));
+				CourseManager::getCupText(topStr, currCup);
+				topStr += ResetColor() + "\n";
+				for (int i = 0; i < 4; i++) {
+					topStr += "    ";
+					topStr += (obtained[i] ? (std::string() << Color::Blue) : (std::string() << Color::Gray));
+					CourseManager::getCourseText(topStr, courseIDs[i], true);
+					topStr += ResetColor() + "\n";
+				}
+			}
+			return topStr;
+		};
+
+		Keyboard kbd("dummy");
+		kbd.OnKeyboardEvent([](Keyboard& k, KeyboardEvent& event) {
+			if (event.type == KeyboardEvent::EventType::KeyPressed) {
+				if (event.affectedKey == Key::R) {
+					g_keyboardkey = 1;
+					SoundEngine::PlayMenuSound(SoundEngine::Event::SELECT);
+					k.Close();
+				}
+				else if (event.affectedKey == Key::L) {
+					g_keyboardkey = 2;
+					SoundEngine::PlayMenuSound(SoundEngine::Event::SELECT);
+					k.Close();
+				}
+			}
+		});
+
+		int opt;
+		int currMenu = 0;
+		constexpr int totalMenu = normalPages + TOTALALLCUPS;
+		do {
+			kbd.Populate({  NAME("exit") });
+			kbd.ChangeEntrySound(0, SoundEngine::Event::CANCEL);
+			kbd.GetMessage() = generateAchievementsText(currMenu, totalMenu);
+			opt = kbd.Open();
+			if (g_keyboardkey != -1) opt = g_keyboardkey;
+			g_keyboardkey = -1;
+			switch (opt)
+			{
+			case 1:
+				currMenu++;
+				if (currMenu >= totalMenu)
+					currMenu = 0;
+				break;
+			case 2:
+				currMenu--;
+				if (currMenu < 0)
+					currMenu = totalMenu - 1;
+				break;
+			default:
+				opt = -1;
+				break;
+			}
+		} while (opt != 0 && opt != -1);
 	}
 }

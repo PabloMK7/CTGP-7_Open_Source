@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Sound.hpp
-Open source lines: 54/54 (100.00%)
+Open source lines: 59/59 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -30,6 +30,7 @@ namespace CTRPluginFramework {
 			FLAG_OPEN = 0x01000502,
 			PAUSE_OFF = 0x01000504,
 			PAUSE_TO_NEXT = 0x01000509,
+			KART_DASH = 0x0100052D,
 			BANANA_STAND = 0x01000557,
 			BREAK_ITEMBOX = 0x0100054B,
 			BOMB_GND = 0x0100055D,
@@ -37,6 +38,10 @@ namespace CTRPluginFramework {
 			STAR_THEME_ENEMY = 0x1000561,
 			TAIL_APPEAR = 0x01000576,
 			TAIL_DISAPPEAR = 0x01000577,
+			CANNON_MV = 0x010007DB,
+			COIN_GET = 0x010007EF,
+			CANNON_START_WALUIGI_PINBALL = 0x010008F6,
+			KART_DASH_WALUIGI_PINBALL = 0x010008F7,
 		};
 		
 		static void setupGamePlaySeFunc(u32 func);

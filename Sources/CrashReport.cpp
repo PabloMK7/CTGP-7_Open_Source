@@ -4,16 +4,17 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CrashReport.cpp
-Open source lines: 250/250 (100.00%)
+Open source lines: 266/267 (99.63%)
 *****************************************************/
 
 #include "CrashReport.hpp"
 #include "MarioKartFramework.hpp"
 #include "CourseManager.hpp"
 #include "base64.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "csvc.h"
 #include "ExtraResource.hpp"
+#include "CharacterHandler.hpp"
 
 extern "C" char* __text_end__;
 
@@ -36,6 +37,9 @@ namespace CTRPluginFramework {
     }
 
     void CrashReport::OnAbort() {
+    #if CITRA_MODE == 1
+        panic("abort() called");
+    #else
         u32 sp = SaveStackPointer();
         {
             memset(&abortRegs, 0, sizeof(CpuRegisters));
@@ -46,6 +50,7 @@ namespace CTRPluginFramework {
         }
         // Trigger exception
         *(u32*)nullptr = 0;
+    #endif
         for (;;);
     }
 
@@ -81,6 +86,7 @@ namespace CTRPluginFramework {
                 break;
             case CrashReport::STATE_UNINITIALIZED:
             case CrashReport::STATE_PATCHPROCESS:
+            case CrashReport::STATE_INITIALIZE:
             case CrashReport::STATE_MAIN:
             case CrashReport::STATE_TROPHY:
             default:
@@ -99,10 +105,20 @@ namespace CTRPluginFramework {
         scr.Draw("An exception occurred!", 24, posY, Color::Red);
         const char** crashMessage = getRandomCrahMsg();
         posY += 10 * 2;
-        scr.Draw(crashMessage[0], 25, posY, Color::Gray);
-        posY += 10 * 1;
-        scr.Draw(crashMessage[1], 25, posY, Color::Gray);
-        posY += 10 * 4;
+        if (!CharacterHandler::potentialCrashReason.empty()) {
+            scr.Draw("Reason:", 25, posY, Color::Gray);
+            posY += 10 * 1;
+            scr.Draw(" Custom character", 25, posY, Color::Gray);
+            posY += 10 * 1;
+            scr.Draw(" " + CharacterHandler::potentialCrashReason.substr(0, 19), 25, posY, Color::Gray);
+            posY += 10 * 3;
+        } else {
+            scr.Draw(crashMessage[0], 25, posY, Color::Gray);
+            posY += 10 * 1;
+            scr.Draw(crashMessage[1], 25, posY, Color::Gray);
+            posY += 10 * 4;
+        }
+        
         scr.Draw("B: Home menu.", 25, posY, Color::White);
         posY += 10 * 1;
         scr.Draw("X: Reboot.", 25, posY, Color::White);
@@ -154,7 +170,7 @@ namespace CTRPluginFramework {
     Process::ExceptionCallbackState CrashReport::CTGPExceptCallback(ERRF_ExceptionInfo* excep, CpuRegisters* regs)
     {
 #ifdef RELEASE_BUILD
-        if (stateID == StateID::STATE_UNINITIALIZED || stateID == StateID::STATE_PATCHPROCESS) return Process::EXCB_DEFAULT_HANDLER;
+        if (stateID == StateID::STATE_UNINITIALIZED || stateID == StateID::STATE_PATCHPROCESS || stateID == StateID::STATE_INITIALIZE) return Process::EXCB_DEFAULT_HANDLER;
         static bool first = true;
         if (first) {
             first = false;

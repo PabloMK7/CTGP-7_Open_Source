@@ -4,12 +4,12 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 167/171 (97.66%)
+Open source lines: 180/184 (97.83%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "NetHandler.hpp"
 #include "array"
 #include "rt.hpp"
@@ -106,7 +106,16 @@ namespace CTRPluginFramework {
 			u64 server_time{};
 		};
 		static bool temporaryRedirectCTGP7;
+		static bool friendsLoggedInCTGP7;
 		static CustomGameAuthentication customAuthData;
+		static RT_HOOK friendsLoginHook;
+		static int OnFriendsLogin(Handle handle);
+		static RT_HOOK friendsGetLastResponseResultHook;
+		static int OnFriendsGetLastResponseResult();
+		static RT_HOOK friendsIsLoggedInHook;
+		static int OnFriendsIsLoggedIn(bool* logged);
+		static RT_HOOK friendsLogoutHook;
+		static int OnFriendsLogout();
 		static RT_HOOK GetMyPrincipalIDHook;
 		static int OnGetMyPrincipalID();
 		static RT_HOOK GetMyPasswordHook;
@@ -119,6 +128,10 @@ namespace CTRPluginFramework {
 		static void OnWrapMiiData(u8* output, u8* input);
 		static RT_HOOK unWrapMiiDataHook;
 		static void OnUnWrapMiiData(u8* output, u8* input);
+		static RT_HOOK setPrimaryNATCheckServerHook;
+		static void OnSetPrimaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort);
+		static RT_HOOK setSecondaryNATCheckServerHook;
+		static void OnSetSecondaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort);
 
 		class DiscordInfo
 		{

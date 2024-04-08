@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 713/745 (95.70%)
+Open source lines: 768/800 (96.00%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -16,6 +16,7 @@ Open source lines: 713/745 (95.70%)
 #include "lz.hpp"
 #include "acta.h"
 #include "MenuPage.hpp"
+#include "CharacterHandler.hpp"
 
 extern "C" u32 g_regionID;
 
@@ -35,12 +36,19 @@ namespace CTRPluginFramework {
 	u32 Net::lastErrorMessage = 0;
 	u32 Net::latestCourseID = INVALIDTRACK;
 	u32 Net::pretendoState = 2;
+	bool Net::friendsLoggedInCTGP7 = false;
 	RT_HOOK Net::GetGameAuthenticationDataHook = { 0 };
 	RT_HOOK Net::RequestGameAuthenticationDataHook = { 0 };
 	RT_HOOK Net::GetMyPrincipalIDHook = { 0 };
 	RT_HOOK Net::GetMyPasswordHook = { 0 };
 	RT_HOOK Net::wrapMiiDataHook = { 0 };
 	RT_HOOK Net::unWrapMiiDataHook = { 0 };
+	RT_HOOK Net::setPrimaryNATCheckServerHook = { 0 };
+	RT_HOOK Net::setSecondaryNATCheckServerHook = { 0 };
+	RT_HOOK Net::friendsLoginHook = { 0 };
+	RT_HOOK Net::friendsIsLoggedInHook = { 0 };
+	RT_HOOK Net::friendsLogoutHook = { 0 };
+	RT_HOOK Net::friendsGetLastResponseResultHook = { 0 };
 	bool Net::temporaryRedirectCTGP7 = false;
 	Net::CustomGameAuthentication Net::customAuthData;
 
@@ -357,7 +365,9 @@ namespace CTRPluginFramework {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
 				reqDoc.set<u64>("gatherID", MarioKartFramework::currGatheringID);
-				reqDoc.set<bool>("imHost", MarioKartFramework::imRoomHost);
+				reqDoc.set<bool>("imHost", MarioKartFramework::myRoomPlayerID == 0);
+				reqDoc.set<int>("myPlayerID", MarioKartFramework::myRoomPlayerID);
+				reqDoc.set<u64>("customCharID", CharacterHandler::GetSelectedMenuCharacter());
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING, reqDoc);
 				netRequests.Start();
 				if (g_getCTModeVal != CTMode::ONLINE_NOCTWW)
@@ -460,29 +470,66 @@ namespace CTRPluginFramework {
 		return SaveHandler::saveData.flags1.useCTGP7Server && !temporaryRedirectCTGP7;
 	}
 
-	int Net::OnGetMyPrincipalID() {
-		#if CITRA_MODE == 0
-		return ((int(*)())GetMyPrincipalIDHook.callCode)();
-		#else
-		if (SaveHandler::saveData.principalID) {
-			return SaveHandler::saveData.principalID;
+	int Net::OnFriendsLogin(Handle handle) {
+		if (IsOnCTGP7Network()) {
+			friendsLoggedInCTGP7 = true;
+			svcSignalEvent(handle);
+			return 0;
 		} else {
-			NetHandler::RequestHandler principalIDHandler;
-			minibson::document reqDoc;
-			principalIDHandler.AddRequest(NetHandler::RequestHandler::RequestType::UNIQUEPID, reqDoc);
-			principalIDHandler.Start();
-			principalIDHandler.Wait();
-			minibson::document resDoc;
-			int res = principalIDHandler.GetResult(NetHandler::RequestHandler::RequestType::UNIQUEPID, &resDoc);
-			if (res >= 0) {
-				SaveHandler::saveData.principalID = resDoc.get_numerical("unique_pid", 0);
-				SaveHandler::SaveSettingsAll();
+			return ((int(*)(Handle))friendsLoginHook.callCode)(handle);
+		}
+	}
+
+	int Net::OnFriendsGetLastResponseResult() {
+		if (IsOnCTGP7Network()) {
+			return 0;
+		} else {
+			return ((int(*)())friendsGetLastResponseResultHook.callCode)();
+		}
+	}
+
+	int Net::OnFriendsIsLoggedIn(bool* logged) {
+		if (IsOnCTGP7Network()) {
+			*logged = friendsLoggedInCTGP7;
+			return 0;
+		} else {
+			return ((int(*)(bool*))friendsIsLoggedInHook.callCode)(logged);
+		}
+	}
+
+	int Net::OnFriendsLogout() {
+		if (IsOnCTGP7Network()) {
+			friendsLoggedInCTGP7 = false;
+			return 0;
+		} else {
+			return ((int(*)())friendsLogoutHook.callCode)();
+		}
+	}
+
+	int Net::OnGetMyPrincipalID() {
+		if (Net::IsOnCTGP7Network()) {
+			if (SaveHandler::saveData.principalID) {
 				return SaveHandler::saveData.principalID;
 			} else {
-				return 0;
+				NetHandler::RequestHandler principalIDHandler;
+				minibson::document reqDoc;
+				principalIDHandler.AddRequest(NetHandler::RequestHandler::RequestType::UNIQUEPID, reqDoc);
+				principalIDHandler.Start();
+				principalIDHandler.Wait();
+				minibson::document resDoc;
+				int res = principalIDHandler.GetResult(NetHandler::RequestHandler::RequestType::UNIQUEPID, &resDoc);
+				if (res >= 0) {
+					SaveHandler::saveData.principalID = resDoc.get_numerical("unique_pid", 0);
+					SaveHandler::SaveSettingsAll();
+					return SaveHandler::saveData.principalID;
+				} else {
+					MarioKartFramework::dialogBlackOut();
+					return 0;
+				}
 			}
+		} else {
+			return ((int(*)())GetMyPrincipalIDHook.callCode)();
 		}
-		#endif
 	}
 
 	Result Net::OnGetMyPassword(char* passwordOut, u32 maxPasswordSize) {
@@ -603,6 +650,14 @@ namespace CTRPluginFramework {
 		#endif
 	}
 
+	void Net::OnSetPrimaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort) {
+		((void(*)(u32, const char16_t*, u16, u16))setPrimaryNATCheckServerHook.callCode)(rootTransport, u"nncs1-lp1.n.n.srv.nintendo.net", startPort, endPort);
+	}
+
+	void Net::OnSetSecondaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort) {
+		((void(*)(u32, const char16_t*, u16, u16))setSecondaryNATCheckServerHook.callCode)(rootTransport, u"nncs2-lp1.n.n.srv.nintendo.net", startPort, endPort);
+	}
+
 	Net::DiscordInfo Net::GetDiscordInfo(bool requestLink)
 	{
 		Net::DiscordInfo ret;
@@ -701,12 +756,12 @@ namespace CTRPluginFramework {
 	}
 
 	void Net::applyBlockedTrackList() {
-		MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
+		MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 		std::vector<std::string> tracks = TextFileParser::Split(trackHistory);
 		for (auto it = tracks.cbegin(); it != tracks.cend(); it++) {
 			int courseID = CourseManager::getCourseIDFromName(*it);
 			if (courseID >= 0)
-				MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.push_back(courseID);
+				MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(courseID);
 		}
 	}
 }

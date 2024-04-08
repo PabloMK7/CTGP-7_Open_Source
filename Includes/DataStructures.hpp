@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.hpp
-Open source lines: 834/834 (100.00%)
+Open source lines: 911/911 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -90,11 +90,18 @@ namespace CTRPluginFramework {
         WING_SIZE,
 		WING_RANDOM = -1,
 	};
+
+    enum EScrewID : s32 {
+        SCREW_STD = 0,
+        SCREW_SIZE,
+    };
+
 	enum EPlayerType : s32 {
 		TYPE_USER = 0,
 		TYPE_CPU = 1,
 		TYPE_CONTROLLEDUSER = 2,
 		TYPE_GHOST = 3,
+        TYPE_UNKNOWN = 4,
 		TYPE_MAX = 0xFFFFFFF
 	};
     enum EItemMode : s32
@@ -108,6 +115,36 @@ namespace CTRPluginFramework {
 
         ITEMMODE_CUSTOM = 100,
         ITEMMODE_RANDOM = 101,
+    };
+    enum ECharaIconType : u32
+    {
+        CHARAICONTYPE_MAPRACE = 0, // map_(name)_r90.bclim
+        CHARAICONTYPE_RANKRACE = 1, // rank_(name)_r90.bclim
+        CHARAICONTYPE_RANKMENU = 2, // rank_(name).bclim
+        CHARAICONTYPE_SELECT = 3, // select_(name).bclim
+        CHARAICONTYPE_SIZE,
+    };
+    constexpr u32 GetCharaIconTextureSize(ECharaIconType type) {
+        switch (type)
+        {
+        case ECharaIconType::CHARAICONTYPE_MAPRACE:
+            return 0x828;
+        case ECharaIconType::CHARAICONTYPE_RANKRACE:
+        case ECharaIconType::CHARAICONTYPE_RANKMENU:
+            return 0x1028;
+        case ECharaIconType::CHARAICONTYPE_SELECT:
+            return 0x2028;
+        default:
+            return 0;
+        }
+    }
+
+    struct ResourceLoaderLoadArg {
+        void* heap;
+        u32 alignment;
+        u32 unknown;
+        bool unknown2;
+        u32 archiveID; // 0x9 = ThankYou3D, 0xB = romfs root
     };
 
     template <class T>
@@ -133,11 +170,45 @@ namespace CTRPluginFramework {
         }
 
         inline T Pop() {
-            return (count > 0) ? data[count--] : nullptr;
+            return (count > 0) ? data[count--] : T{};
         }
 
         inline T operator[](int element) {
-            return (element < count) ? data[element] : nullptr;
+            return (element < count) ? data[element] : T{};
+        }
+
+        inline void Set(int element, T value) {
+            if (element < count) data[element] = value;
+        }
+
+        inline void Fill(T value) {
+            while (data && count < size)
+            {
+                data[count++] = value;
+            }
+        }
+    };
+
+    template <class T, size_t S>
+    struct SeadArray {
+        u32 count;
+        u32 size;
+        T data[S]{};
+
+        SeadArray() : count(0), size(S) {}
+
+        inline void Push(T element) {
+            if (count < size) {
+                data[count++] = element;
+            }
+        }
+
+        inline T Pop() {
+            return (count > 0) ? data[count--] : T{};
+        }
+
+        inline T operator[](int element) {
+            return (element < count) ? data[element] : T{};
         }
 
         inline void Set(int element, T value) {
@@ -231,10 +302,15 @@ namespace CTRPluginFramework {
 		Vector3 scale = {1.f, 1.f, 1.f};
 		s16 routeID = -1;
 		u16 settings[8] = {0};
-		u16 visibility = 0;
+		u16 visibility = 7;
 		u16 enemyRoute = -1;
 		u16 unknown = 0;
 	};
+    struct GOBJEntryList {
+        u32 signature;
+        u32 count;
+        GOBJEntry entries[];
+    };
 
 	struct GOBJAccessor {
 		u32 vtable;
@@ -666,7 +742,7 @@ namespace CTRPluginFramework {
         EBodyID bodyID;
         ETireID tireID;
         EWingID wingID;
-        u32 screwID;
+        EScrewID screwID;
         EDriverID driverID;
         EPlayerType playerType;
         u32 teamType;
@@ -680,7 +756,7 @@ namespace CTRPluginFramework {
 
     struct CRaceMode { // Demo race 3 6 2, Demo coin 3 7 0, Demo balloon 3 7 1, Winning run 3 4 2, live 2 2 0
         u32 type; // 0 -> SP, 1 -> MP, 2 -> Online 3 -> Demo
-        u32 mode; // 0 -> GP, 1 -> TT, 2 -> VS, 3 -> Bt, 4 -> award
+        u32 mode; // 0 -> GP, 1 -> TT, 2 -> VS, 3 -> Bt, 4 -> award, 5 -> course prev, 6 -> demo race, 7 -> demo battle, 8 -> menu video preview (unused)
         u32 submode; // 3 0 -> coin, 3 1 -> balloon, 0 2 -> Race
     };
 
@@ -727,8 +803,9 @@ namespace CTRPluginFramework {
         CUSTOM_BRONZE = 8,
         CUSTOM_SILVER = 9,
         CUSTOM_GOLD = 10,
-        CUSTOM_DIAMOND = 11,
-        CUSTOM_RAINBOW = 12,
+        CUSTOM_EMERALD = 11,
+        CUSTOM_DIAMOND = 12,
+        CUSTOM_RAINBOW = 13,
         // Invalid
         INVALID = 0xFF
     };

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StaffRoll.cpp
-Open source lines: 584/584 (100.00%)
+Open source lines: 574/574 (100.00%)
 *****************************************************/
 
 #include "StaffRoll.hpp"
@@ -12,7 +12,7 @@ Open source lines: 584/584 (100.00%)
 #include "Math.hpp"
 #include "TextFileParser.hpp"
 #include "CourseCredits.hpp"
-#include "CharacterManager.hpp"
+#include "CharacterHandler.hpp"
 #include "MusicSlotMngr.hpp"
 #include "SaveHandler.hpp"
 
@@ -63,16 +63,6 @@ namespace CTRPluginFramework {
         SetAlpha(0.f);
     }
 
-    static u32 ConvertPhysToVirt(u32 phys) {
-        if (phys >= OS_VRAM_PADDR && phys < (OS_VRAM_PADDR + OS_VRAM_SIZE)) {
-            return phys - (OS_VRAM_PADDR - OS_VRAM_VADDR);
-        }
-        if (phys >= OS_OLD_FCRAM_PADDR && phys < (OS_OLD_FCRAM_PADDR + OS_VRAM_SIZE)) {
-            return phys - (OS_OLD_FCRAM_PADDR - OS_OLD_FCRAM_VADDR);
-        }
-        return 0;
-    }
-
     s32 StaffRoll::StaffRollImage::ReplaceTaskFunc(void* userData) {
         StaffRoll::StaffRollImage* own = (StaffRoll::StaffRollImage*)userData;
         std::string file;
@@ -82,8 +72,8 @@ namespace CTRPluginFramework {
         }
         ExtraResource::SARC::FileInfo fInfo;
         fInfo.fileSize = 0x4000;
-        u32 vaddr = ConvertPhysToVirt((u32)*own->control->GetGameVisualControl()->GetRawTexturePAddr(own->elementHandle));
-        own->sarc->ReadFile((void*)vaddr, fInfo, file, true);
+        u32* vaddr = own->control->GetGameVisualControl()->GetRawTextureVAddr(own->elementHandle);
+        own->sarc->ReadFile(vaddr, fInfo, file, true);
         own->fileIsReplacing = false;
         return 0;
     }
@@ -476,7 +466,7 @@ namespace CTRPluginFramework {
                     auto musicAuthors = MusicSlotMngr::GetAllAuthors();
                     std::copy(musicAuthors.begin(), musicAuthors.end(), std::back_inserter(items.back()));
                 } else if (line == "<chars>") {
-                    auto charAuthors = CharacterManager::GetAllAuthors();
+                    auto charAuthors = CharacterHandler::GetAllAuthors();
                     std::copy(charAuthors.begin(), charAuthors.end(), std::back_inserter(items.back()));
                 } else {
                     TextFileParser::Trim(line);

@@ -4,12 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: UserCTHandler.hpp
-Open source lines: 101/101 (100.00%)
+Open source lines: 106/106 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "ExtraResource.hpp"
+#include "BootSceneHandler.hpp"
 
 #define USERCUPID 65
 extern u32 USERTRACKID;
@@ -17,6 +18,9 @@ extern u32 USERTRACKID;
 namespace CTRPluginFramework {
     class UserCTHandler
     {
+    private:
+        static BootSceneHandler::ProgressHandle progressHandle;
+        static std::vector<std::string> pendingDirs;
     public:
         class CustomCourse {
         public:
@@ -41,6 +45,7 @@ namespace CTRPluginFramework {
             CustomCourse courses[4];
         };
 
+        static void RegisterProgress();
         static void Initialize();
         static void FixNames();
         static u32 GetCustomCupAmount();

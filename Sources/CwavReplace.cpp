@@ -4,15 +4,17 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CwavReplace.cpp
-Open source lines: 98/98 (100.00%)
+Open source lines: 101/101 (100.00%)
 *****************************************************/
 
 #include "CwavReplace.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
+#include "CharacterHandler.hpp"
 
 namespace CTRPluginFramework {
-    std::vector<std::tuple<u32, u32, u8*, u8, Time>> CwavReplace::replacements;
+    std::map<u32, CwavReplace::ReplacementCwavInfo> CwavReplace::replacements_map;
     Mutex CwavReplace::replacementsMutex;
+    u32 CwavReplace::fromWaveLR;
 
     //KnownIDs
     const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::coinGetSE;
@@ -22,70 +24,71 @@ namespace CTRPluginFramework {
     const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::konohaEndSE;
     //
 
-    void CwavReplace::SetReplacementCwav(u32 archiveID, u32 fileID, void* cwavFile, int times, float validForFrames) {
+    void CwavReplace::SetReplacementCwav(u32 archiveID, u32 fileID, void* cwavFile, int times, float validForFrames, u32* sndHandle, bool amend) {
         Lock l(replacementsMutex);
         Time validUntil = Time::Zero;
+        u32 key = ArchiveIDFileIDToKey(archiveID, fileID);
         if (validForFrames)
             validUntil = Ticks(svcGetSystemTick()) + Seconds(validForFrames / 60.f);
-        for (auto it = replacements.begin(); it != replacements.end(); it++) {
-            if (std::get<0>(*it) == archiveID && std::get<1>(*it) == fileID)
-            {
-                if (cwavFile) {
-                    bool isValid = std::get<4>(*it) == Time::Zero || std::get<4>(*it) >= Ticks(svcGetSystemTick());
-                    u32 prevTimes = isValid ? std::get<3>(*it) : 0;
-                    *it = std::make_tuple(std::get<0>(*it), std::get<1>(*it), (u8*)cwavFile, (prevTimes + times), validUntil);
+
+        auto it = replacements_map.find(key);
+        if (it != replacements_map.end()) {
+            ReplacementCwavInfo& info = it->second;
+            if (cwavFile) {
+                bool isValid = info.validUntil == Time::Zero || info.validUntil >= Ticks(svcGetSystemTick());
+                u32 prevTimes = isValid ? info.times : 0;
+                if (!amend) {
+                    info = ReplacementCwavInfo{.times = (prevTimes + times), .validUntil = validUntil};
                 }
-                else replacements.erase(it);
+                info.cwavData[sndHandle] = cwavFile;
                 return;
+            } else {
+                replacements_map.erase(it);
+            }
+        } else {
+            if (cwavFile) {
+                ReplacementCwavInfo& info = replacements_map[key];
+                info = ReplacementCwavInfo{.times = (u32)times, .validUntil = validUntil};
+                info.cwavData[sndHandle] = cwavFile;
             }
         }
-        if (cwavFile) replacements.push_back(std::make_tuple(archiveID, fileID, (u8*)cwavFile, times, validUntil));
     }
 
-    u8* CwavReplace::GetReplacementCwav(u8* originalCwav, u32 archiveID, u32 fileID) {
+    static u32 g_incomingsndhandle;
+    u8* CwavReplace::GetReplacementCwav(u8* originalCwav, u32 archiveID, u32 fileID, u32 soundPlayer, u32 trackPlayer, u32 lr) {
         Lock l(replacementsMutex);
-        for (auto it = replacements.begin(); it != replacements.end();) {
-            if (std::get<0>(*it) == archiveID && std::get<1>(*it) == fileID)
-            {
-                u8* ret = std::get<2>(*it);
-                bool isValid = std::get<4>(*it) == Time::Zero || std::get<4>(*it) >= Ticks(svcGetSystemTick());
-                if (!isValid) {
-                    it = replacements.erase(it);
-                    continue;
-                }
+        u32 key = ArchiveIDFileIDToKey(archiveID, fileID);
 
-                u8 times = std::get<3>(*it);
-                if (times) {
-                    if (times == 1) it = replacements.erase(it);
-                    else *it = std::make_tuple(std::get<0>(*it), std::get<1>(*it), ret, times - 1, std::get<4>(*it));
+        auto it = replacements_map.find(key);
+        if (it != replacements_map.end()) {
+            ReplacementCwavInfo& info = it->second;
+            auto soundIt = info.cwavData.begin();
+            if (soundIt->first != nullptr) {
+                if (lr == CwavReplace::fromWaveLR) {
+                    g_incomingsndhandle = *(((u32*)soundPlayer) - 0xEC/4);
+                } else {
+                    g_incomingsndhandle = ((u32***)trackPlayer)[0x1C/4][0xC0/4][-0xEC/4];
                 }
-
-                return ret;
+                soundIt = std::find_if(info.cwavData.begin(), info.cwavData.end(), [](const std::pair<u32*, void*> & t){
+                    return g_incomingsndhandle == *t.first;
+                });
+                if (soundIt == info.cwavData.end())
+                    return originalCwav;
             }
-            ++it;
+            u8* ret = (u8*)soundIt->second;
+            bool isValid = info.validUntil == Time::Zero || info.validUntil >= Ticks(svcGetSystemTick());
+            if (!isValid) {
+                replacements_map.erase(it);
+                return originalCwav;
+            }
+            if (info.times) {
+                if (info.times == 1) replacements_map.erase(it);
+                else {
+                    info.times--; 
+                }
+            }
+            return ret;
         }
-        
-        /*const u8 tempData[] = {0x5B ,0x00 ,0x0F ,0x0F ,0x0F ,0x32 ,0x10 ,0x5D ,0x5B ,0xC6 ,0xD2 ,0xD3 ,0x0D ,0x24 ,0xDE ,0x12};
-        const u32 offsetIntoFile = 0xE0;
-
-        if (originalCwav && !memcmp(originalCwav + offsetIntoFile, tempData, sizeof(tempData))) {
-            NOXTRACE("asdas", "0x%08X, 0x%08X, %d", archiveID, fileID, counter++);
-        }*/
-        /*
-        if (!waslognext && logNext) 
-            ids.clear();
-        if (logNext) {
-            if (std::find(ids.begin(), ids.end(), fileID) == ids.end())
-                ids.push_back(fileID);   
-        }
-        if (!logNext && ids.size()) {
-            std::string log = "";
-            for (int i = 0; i < ids.size(); i++)
-                log += std::to_string(ids[i]) + " ";
-            NOXTRACE("sdfsdfsdfsd", log.c_str());
-        }
-        waslognext = logNext;
-        */
         
         return originalCwav;
     }

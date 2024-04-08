@@ -4,15 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.hpp
-Open source lines: 193/210 (91.90%)
+Open source lines: 209/228 (91.67%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "DataStructures.hpp"
 #include "GameAlloc.hpp"
-
-#define CRITICALVER 0xFEDE000A
+#include "malloc.h"
 
 namespace CTRPluginFramework {
 	class ExtraResource {
@@ -41,8 +40,8 @@ namespace CTRPluginFramework {
 					u32 endOffset;
 				};
 				struct FileInfo {
-					u32 dataStart;
-					u32 fileSize;
+					u32 dataStart{};
+					u32 fileSize{};
 				};
 				Header header;
 				u32 hashMultiplier;
@@ -103,6 +102,18 @@ namespace CTRPluginFramework {
 
 				const bool ReadFileDirectly(void* dest, SARC::FileInfo& destSize, SARC::FileInfo& inputFileInfo, bool allowCropSize = false);
 
+				template <typename T>
+				bool ReadFullFile(T& outData, const std::string& name) {
+					SARC::FileInfo info;
+					bool found = GetFileInfo(info, name);
+					if (found) {
+						SARC::FileInfo dstFileInfo = info;
+						outData.resize(dstFileInfo.fileSize);
+						return ReadFileDirectly(outData.data(), dstFileInfo, info);
+					}
+					return found;
+				}
+
 				inline const bool GetFileInfo(SARC::FileInfo& outFileInfo, SafeStringBase& name) {
 					return GetFileInfo(outFileInfo, name.data);
 				}
@@ -113,23 +124,28 @@ namespace CTRPluginFramework {
 
 				const bool GetFileInfo(SARC::FileInfo& outFileInfo, const char* name);
 
+				u64 GetNonSecureDataChecksum(u32 bufferSize = 0x4000);
 				u32 GetFileCount() const {
+					if (!processed) return 0;
 					return _sarc->GetFileCount();
 				}
+				const std::string& GetFileName() {return _fileName;}
+				const u32 GetOffsetInSARCFile(const SARC::FileInfo& fInfo) {
+					return _sarc->header.dataOffset + fInfo.dataStart;
+				}
 
+				StreamedSarc() {}
 				StreamedSarc(const std::string& fileName, u32 bufferSize = 0x1000);
 				~StreamedSarc();
 				bool IsEnabled() {return _sarc->IsEnabled();}
-				void SetEnabled(bool enabled) {_sarc->SetEnabled(enabled);}
+				void SetEnabled(bool enabled);
 
-				bool processed;
+				bool processed = false;
 			private:
-				u8* _buffer;
-				u32 _bufferSize;
-				SARC* _sarc;
-				File* _file;
-				u32 _fileSize;
-				u32 currFileOffset = 0;
+				SARC* _sarc = nullptr;
+				File* _file = nullptr;
+				std::string _fileName = "";
+				u32 _fileSize = 0;
 
 				inline bool SetFile(SafeStringBase& name, SARC::FileInfo* info)
 				{
@@ -143,7 +159,7 @@ namespace CTRPluginFramework {
 
 				bool SetFileDirectly(SARC::FileInfo* info);
 
-				const u8* GetData(s32 offset = -1);
+				const void* GetData(void* dest, u32 size);
 			};
 			class MultiSARC
 			{

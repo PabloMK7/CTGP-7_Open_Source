@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VisualControl.hpp
-Open source lines: 367/367 (100.00%)
+Open source lines: 382/382 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -236,10 +236,25 @@ namespace CTRPluginFramework {
             }
 
             u32** GetRawTexturePAddr(u32 elementHandle) {
+                
                 u32 getmat = ((u32**)elementHandle)[0][0x28/4];
                 u32 mat = ((u32(*)(u32, u32))getmat)(elementHandle, 0);
                 u32** texdata = ((u32***)mat)[0x34/4] + 0x4/4;
                 return texdata;
+            }
+
+            u32* GetRawTextureVAddr(u32 elementHandle) {
+                auto convertPhysToVirt =[](u32 phys) {
+                    u32 res = 0;
+                    if (phys >= OS_VRAM_PADDR && phys < (OS_VRAM_PADDR + OS_VRAM_SIZE)) {
+                        res = phys - (OS_VRAM_PADDR - OS_VRAM_VADDR);
+                    }
+                    if (phys >= OS_OLD_FCRAM_PADDR && phys < (OS_OLD_FCRAM_PADDR + OS_VRAM_SIZE)) {
+                        res = phys - (OS_OLD_FCRAM_PADDR - OS_OLD_FCRAM_VADDR);
+                    }
+                    return res;
+                };
+                return (u32*)convertPhysToVirt((u32)*GetRawTexturePAddr(elementHandle));
             }
         };
 

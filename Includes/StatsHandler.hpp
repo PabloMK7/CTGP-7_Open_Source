@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.hpp
-Open source lines: 96/96 (100.00%)
+Open source lines: 91/91 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -17,6 +17,8 @@ namespace CTRPluginFramework {
 	class StatsHandler
 	{
 	public:
+		static constexpr u32 achievementReportVersion = 0;
+
 		enum class Stat
 		{
 			LAUNCHES = 0,
@@ -64,13 +66,6 @@ namespace CTRPluginFramework {
 		static void StatsMenu(MenuEntry* entry);
 	private:
 		static const char* statStr[];
-
-		struct StatsSaveLegacy
-		{
-			u32 magic;
-			u8 bsondata[];
-		};
-		
 		static minibson::encdocument statsDoc;
 		static minibson::document* uploadDoc;
 		static Mutex statsDocMutex;

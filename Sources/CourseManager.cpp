@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 997/1134 (87.92%)
+Open source lines: 1023/1160 (88.19%)
 *****************************************************/
 
 #include <locale>
@@ -15,10 +15,9 @@ Open source lines: 997/1134 (87.92%)
 #include "csvc.h"
 #include "Sound.hpp"
 #include "entrystructs.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "LED_Control.hpp"
 #include "MusicSlotMngr.hpp"
-#include "CharacterManager.hpp"
 #include "ExtraResource.hpp"
 #include "VersusHandler.hpp"
 #include "str16utils.hpp"
@@ -173,6 +172,7 @@ namespace CTRPluginFramework
 		if (isCT) {
 			do {
 				chosen = globalCustomTracksWithReplay[Utils::Random(0, (sizeof(globalCustomTracksWithReplay) / sizeof(u32)) - 1)];
+				if (MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(chosen)) chosen = lastChosen[isCT];
 			} while (chosen == lastChosen[isCT]);
 		}
 		else {
@@ -185,7 +185,7 @@ namespace CTRPluginFramework
 		return chosen;
 	}
 
-	u32* CourseManager::getGPCourseID(u32* ptr, u32 cup, int track) {
+	u32* CourseManager::getGPCourseID(u32* ptr, u32 cup, int track, bool forceOriginal) {
 		if (cup == VERSUSCUPID) {
 			if (VersusHandler::IsVersusMode)
 				*ptr = VersusHandler::versusCupTable[VersusHandler::currentVersusCupTableEntry];
@@ -204,7 +204,7 @@ namespace CTRPluginFramework
 			*ptr = USERTRACKID;
 		} else {
 			if (track >= 0 && track < 4) {
-				if (ISGAMEONLINE && SaveHandler::saveData.flags1.isAlphabeticalEnabled) *ptr = alphabeticalGlobalCupData[FROMBUTTONTOCUP(cup)][track];
+				if (!forceOriginal && ISGAMEONLINE && SaveHandler::saveData.flags1.isAlphabeticalEnabled) *ptr = alphabeticalGlobalCupData[FROMBUTTONTOCUP(cup)][track];
 				else *ptr = globalCupData[FROMBUTTONTOCUP(cup)][track];
 			}
 			else {
@@ -382,6 +382,7 @@ namespace CTRPluginFramework
 		case 0x61:
 		case 0x72:
 		case 0x78:
+		case 0x81:
 			return true;
 		default:
 			return false;
@@ -726,6 +727,16 @@ namespace CTRPluginFramework
 			0x77,
 			0x78,
 			0x79
+		},{ //0x1E Hammer Cup
+			0x7A,
+			0x7B,
+			0x7C,
+			0x7D
+		},{ //0x1F Wonder Cup
+			0x7E,
+			0x7F,
+			0x80,
+			0x81
 		}
 	};
 	const CTNameData globalNameData = {
@@ -805,7 +816,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_N64RainbowR", 0x1F, 0x01, MarioKartTimer::ToFrames(2,30)},				//0x46
 			{&globalNameData.f, "Gagb_RainbowRoad", 0x1F, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x47
 			{&globalNameData.f, "Ctgp_GCBowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x48
-			{&globalNameData.f, "Ctgp_MikuBirtSpe", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x49
+			{&globalNameData.f, "Ctgp_MikuBirtSpe2", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x49
 			{&globalNameData.f, "Ctgp_SandCastle", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x4A
 			{&globalNameData.f, "Ctgp_MarioCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4B
 			{&globalNameData.f, "Gcn_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4C
@@ -816,7 +827,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_GBALuigiCirc", 0x06, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x51
 			{&globalNameData.f, "Ctgp_SMORCChallen", 0x1E, 0x05, MarioKartTimer::ToFrames(2, 0)},				//0x52
 			{&globalNameData.f, "Gagb_BowserCastle4", 0x1D, 0x03, MarioKartTimer::ToFrames(3, 0)},			//0x53
-			{&globalNameData.f, "Gsfc_DonutPlainsThree", 0x1E, 0x03, MarioKartTimer::ToFrames(1,30)},	        //0x54
+			{&globalNameData.f, "Ctgp_RMXDP1", 0x1E, 0x03, MarioKartTimer::ToFrames(1,30)},	                //0x54
 			{&globalNameData.f, "Gn64_SecretSl", 0x21, 0x03, MarioKartTimer::ToFrames(3, 0)},					//0x55
 			{&globalNameData.f, "Gds_WarioStad", 0x17, 0x03, MarioKartTimer::ToFrames(2,30)},					//0x56
 			{&globalNameData.f, "Ctgp_ErmiiCir", 0x1A, 0x05, MarioKartTimer::ToFrames(1,30)},                 //0x57
@@ -852,8 +863,17 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_GnsGnoLair", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x75			
 			{&globalNameData.f, "Ctgp_VaLkO", 0x16, 0x03, MarioKartTimer::ToFrames(2, 0)},					//0x76		
 			{&globalNameData.f, "Ctgp_CliffCircuit", 0x13, 0x03, MarioKartTimer::ToFrames(1, 50)},			//0x77		
-			{&globalNameData.f, "Ctgp_InterstellarLabb", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x78	
-			{&globalNameData.f, "Ctgp_DarkMatterFortress", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x79		
+			{&globalNameData.f, "Ctgp_InterstellarLabb", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x78
+			{&globalNameData.f, "Ctgp_DarkMatterFortress", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x79
+
+			{&globalNameData.f, "Ctgp_SNESDonutPlains2", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x7A
+			{&globalNameData.f, "Ctgp_SoaringSkyway", 0x00, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x7B
+			{&globalNameData.f, "Ctgp_N64BowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x7C
+			{&globalNameData.f, "Ctgp_WiiDKSummit", 0x16, 0x03, MarioKartTimer::ToFrames(2, 15)},				//0x7D
+			{&globalNameData.f, "Ctgp_PaintSwpRC", 0x14, 0x03, MarioKartTimer::ToFrames(2, 15)},				//0x7E
+			{&globalNameData.f, "Ctgp_RouletteRoad", 0x17, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x7F
+			{&globalNameData.f, "Ctgp_OrbitalOutpost", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x80
+			{&globalNameData.f, "Ctgp_DsRainbowRoad", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x81
 		}
 	};
 	
@@ -872,6 +892,7 @@ namespace CTRPluginFramework
 		0x18,
 		0x1A,
 		0x1C,
+		0x1E,
 		0x17,
 		//Bottom
 		0x04,
@@ -887,6 +908,7 @@ namespace CTRPluginFramework
 		0x19,
 		0x1B,
 		0x1D,
+		0x1F,
 		0x11
 	};
 	const u32 ctwwCupTranslateTable[MAXCUPS - 8] = {
@@ -900,6 +922,7 @@ namespace CTRPluginFramework
 		0x18,
 		0x1A,
 		0x1C,
+		0x1E,
 		0x17,
 		//Bottom
 		0x0B,
@@ -911,6 +934,7 @@ namespace CTRPluginFramework
 		0x19,
 		0x1B,
 		0x1D,
+		0x1F,
 		0x11
 	};
 	const u32 vanillaCupTranslateTable[8] = {
@@ -970,6 +994,8 @@ namespace CTRPluginFramework
 			{&globalTrophyData.f, "Banana"},
 			{&globalTrophyData.f, "Leaf"},
 			{&globalTrophyData.f, "Lightning"},
+			{&globalTrophyData.f, "General"},
+			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},

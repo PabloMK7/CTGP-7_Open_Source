@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 425/428 (99.30%)
+Open source lines: 529/532 (99.44%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -20,13 +20,15 @@ Open source lines: 425/428 (99.30%)
 #include "MenuPage.hpp"
 #include "StatsHandler.hpp"
 #include "CustomTextEntries.hpp"
-#include "CharacterManager.hpp"
+#include "CharacterHandler.hpp"
+#include "BlueCoinChallenge.hpp"
 
 namespace CTRPluginFramework {
 	
 	SaveHandler::CTGP7Save SaveHandler::saveData;
 	Task SaveHandler::saveSettinsTask(SaveHandler::SaveSettingsTaskFunc, nullptr, Task::Affinity::AppCore);
 	int SaveHandler::lastAchievementCount = 0;
+	u32 SaveHandler::lastSpecialAchievements = 0;
 
 	void SaveHandler::ApplySettings() {
 		//
@@ -58,6 +60,7 @@ namespace CTRPluginFramework {
 
 		UpdateAchievementCryptoFiles();
 		lastAchievementCount = saveData.GetCompletedAchievementCount();
+		lastSpecialAchievements = saveData.specialAchievements;
 	}
 
 	void SaveHandler::DefaultSettings() {
@@ -68,6 +71,8 @@ namespace CTRPluginFramework {
 		for (int i = 0; i < saveData.GetCompletedAchievementCount(); i++) {
 			CryptoResource::AllowKnownFileID((CryptoResource::KnownFileID)(0x1000 | i), true);
 		}
+		if (saveData.IsSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS))
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, true);
 	}
 
 	void SaveHandler::UpdateAchievementsConditions() {
@@ -91,7 +96,8 @@ namespace CTRPluginFramework {
 			}
 		}
 		if (!SaveHandler::saveData.IsAchievementCompleted(Achievements::ALL_MISSION_TEN) && !SaveHandler::saveData.IsAchievementPending(Achievements::ALL_MISSION_TEN)) {
-			if (MissionHandler::SaveData::GetAllFullGradeFlag()) {
+			auto prog = MissionHandler::SaveData::GetAllFullGradeFlag();
+			if (prog.second >= prog.first) {
 				SaveHandler::saveData.SetAchievementPending(Achievements::ALL_MISSION_TEN, true);
 				justGranted = true;
 			}
@@ -102,50 +108,84 @@ namespace CTRPluginFramework {
 				justGranted = true;
 			}
 		}
+		
+		if (!SaveHandler::saveData.IsSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS) && !SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS)) {
+			if (BlueCoinChallenge::GetCollectedCoinCount() >= BlueCoinChallenge::GetTotalCoinCount()) {
+				SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS, true);
+				justGranted = true;
+			}
+		}
+
 		if (justGranted) {
 			SaveHandler::SaveSettingsAll();
 		}
 	}
 	
-	static u32 g_lastCharShown = 0;
+	static std::unordered_map<u64, CharacterHandler::CharacterEntry>::iterator g_lastCharShown;
 	static u32 g_pendingFlagOpen = 0;
+	void SaveHandler::UpdateCharacterIterator() {
+		g_lastCharShown = CharacterHandler::GetCharEntries().begin();
+	}
 	bool SaveHandler::CheckAndShowAchievementMessages() {
 		if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_GOLD)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_gold"));
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_GOLD, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_GOLD, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_ONE_STAR)) {
+		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_ONE_STAR)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_1star"));
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_ONE_STAR, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_ONE_STAR, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_THREE_STAR)) {
+		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_THREE_STAR)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_3star"));
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_THREE_STAR, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_THREE_STAR, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_MISSION_TEN)) {
+		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_MISSION_TEN)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_mission"));
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_MISSION_TEN, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_MISSION_TEN, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} if (SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
+		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
 			if (MarioKartFramework::isDialogOpened()) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_5000_vr"));
 			SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::VR_5000, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} else {
+		}
+		
+		else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS)) {
+			if (MarioKartFramework::isDialogOpened()) return true;
+			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_blue_coin"));
+			SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS, false);
+			SaveHandler::saveData.SetSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
+			SaveHandler::SaveSettingsAll();
+			return true;
+		} 
+		
+		else {
 			if (MarioKartFramework::isDialogOpened()) {
 				if (g_pendingFlagOpen) {
 					g_pendingFlagOpen--;
@@ -157,25 +197,56 @@ namespace CTRPluginFramework {
 			}
 			u32 newCount = SaveHandler::saveData.GetCompletedAchievementCount();
 			if (lastAchievementCount < newCount) {
-				for (int i = g_lastCharShown; i < CharacterManager::charEntries.size(); i++) {
-					if (CharacterManager::charEntries[i].achievementLevel > 0 && CharacterManager::charEntries[i].achievementLevel == (lastAchievementCount + 1)) {
+				for (auto it = g_lastCharShown; it != CharacterHandler::GetCharEntries().end(); it++) {
+					if (it->second.achievementLevel > 0 && it->second.achievementLevel == (lastAchievementCount + 1)) {
 						string16 text;
 						Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
 						text.append(
 							Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM,
-								CharacterManager::charEntries[i].achievementLevel < 5 ? Color(255, 180, 0) : Color(180, 0, 180)
+								it->second.achievementLevel < 5 ? Color(255, 180, 0) : Color(180, 0, 180)
 							)
 						);
-						Utils::ConvertUTF8ToUTF16(text, CharacterManager::charEntries[i].longName);
+						Utils::ConvertUTF8ToUTF16(text, it->second.longName);
 						Language::MsbtHandler::SetString(CustomTextEntries::dialog, text);
 						MarioKartFramework::openDialog(DialogFlags::Mode::OK, "", nullptr, true);
 						g_pendingFlagOpen = 30;
-						g_lastCharShown = i+1;
+						g_lastCharShown = it;
+						g_lastCharShown++;
 						return true;
 					}
 				}
-				g_lastCharShown = 0;
+				g_lastCharShown = CharacterHandler::GetCharEntries().begin();
 				lastAchievementCount++;
+				return true;
+			}
+			if (lastSpecialAchievements != SaveHandler::saveData.specialAchievements) {
+				SpecialAchievements next;
+				for (int i = 0; i < 32; i++) {
+					if ((lastSpecialAchievements & (1 << i)) != (SaveHandler::saveData.specialAchievements & (1 << i))) {
+						next = (SpecialAchievements)i;
+						break;
+					}
+				}
+				for (auto it = g_lastCharShown; it != CharacterHandler::GetCharEntries().end(); it++) {
+					if (it->second.specialAchievement != SpecialAchievements::NONE && it->second.specialAchievement == next) {
+						string16 text;
+						Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
+						text.append(
+							Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM,
+								Color(255, 180, 0)
+							)
+						);
+						Utils::ConvertUTF8ToUTF16(text, it->second.longName);
+						Language::MsbtHandler::SetString(CustomTextEntries::dialog, text);
+						MarioKartFramework::openDialog(DialogFlags::Mode::OK, "", nullptr, true);
+						g_pendingFlagOpen = 30;
+						g_lastCharShown = it;
+						g_lastCharShown++;
+						return true;
+					}
+				}
+				g_lastCharShown = CharacterHandler::GetCharEntries().begin();
+				lastSpecialAchievements |= (1 << (u32)next);
 				return true;
 			}
 		}
@@ -195,6 +266,9 @@ namespace CTRPluginFramework {
 		if (status == SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
 		#if CITRA_MODE == 1
 		|| scID == 0x5AFF5AFF5AFF5AFF
+		#endif
+		#ifdef ALLOW_SAVES_FROM_OTHER_CID
+		|| true
 		#endif
 		)) {
 			saveData = CTGP7Save(doc);
@@ -231,6 +305,9 @@ namespace CTRPluginFramework {
 			if (scID == NetHandler::GetConsoleUniqueHash()
 			#if CITRA_MODE == 1
 			|| scID == 0x5AFF5AFF5AFF5AFF
+			#endif
+			#ifdef ALLOW_SAVES_FROM_OTHER_CID
+			|| true
 			#endif
 			) {
 				const minibson::document& cuprankdoc = doc.get("cuprank", minibson::document());
@@ -295,6 +372,33 @@ namespace CTRPluginFramework {
 			}
 		}		
 		return false;
+	}
+
+	std::pair<int, std::array<int, 4>> SaveHandler::CupRankSave::CheckModSatisfyProgress(SatisfyCondition condition) {
+		constexpr int total = TOTALCUSTOMCUPS;
+		std::array<int, 4> current = {0};
+		u32 systemSaveData = MarioKartFramework::getSystemSaveData();
+		for (u32 i = 0; i < 4; i++) {
+			for (u32 cupID = CUSTOMCUPLOWER; cupID <= CUSTOMCUPUPPER; cupID++) {
+				GrandPrixData data;
+				u32 realLevel = (i == 3) ? 2 : i;
+				bool isMirror = (i == 3);
+				getGrandPrixData(systemSaveData, &data, &cupID, &realLevel, isMirror);
+				if (condition == SatisfyCondition::COMPLETED && data.isCompleted) {
+					current[i]++;
+				}
+				if (condition == SatisfyCondition::GOLD && (data.isCompleted && data.trophyType == 3)) {
+					current[i]++;
+				}
+				if (condition == SatisfyCondition::ONE_STAR && (data.isCompleted && data.starRank >= 4)) {
+					current[i]++;
+				}
+				if (condition == SatisfyCondition::THREE_STAR && (data.isCompleted && data.starRank == 6)) {
+					current[i]++;
+				}
+			}
+		}		
+		return std::make_pair(total, current);
 	}
 
 	void SaveHandler::CupRankSave::getGrandPrixData(u32 saveData, GrandPrixData* out, u32* GPID, u32* engineLevel, bool isMirror) {

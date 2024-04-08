@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BCLIM.hpp
-Open source lines: 64/64 (100.00%)
+Open source lines: 88/88 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -48,17 +48,41 @@ namespace CTRPluginFramework {
         BCLIM(void* bclimData, u32 bclimSize) : BCLIM(bclimData, (Header*)((u32)bclimData + bclimSize - 0x28)) {}
         BCLIM(void* bclimData, Header* bclimHeader) : data(bclimData), header(bclimHeader) {}
 
-        void Render(Rect<int> position, Render::Interface& renderer, Rect<int> crop = Rect<int>(0, 0, INT32_MAX, INT32_MAX));
 
-    private:
+        using ColorBlendCallback = Color(*)(const Color &, const Color &);
+        static std::pair<bool, ColorBlendCallback> TransparentBlend() {
+            return std::make_pair(true, TransparentBlendFunc);
+        }
+        static std::pair<bool, ColorBlendCallback> OpaqueBlend() {
+            return std::make_pair(false, OpaqueBlendFunc);
+        }
+
+        using RenderBackend = void(*)(void*, bool, Color*, int posX, int posY);
+        static std::pair<void*, RenderBackend> RenderInterface(Render::Interface& renderer) {
+            return std::make_pair(&renderer, RenderInterfaceBackend);
+        }
+        static std::pair<void*, RenderBackend> ScreenInterface(const Screen& screen) {
+            return std::make_pair((void*)&screen, ScreenBackend);
+        }
+
+        void Render(const Rect<int>& position, std::pair<void*, RenderBackend> backend, const Rect<int>& crop = Rect<int>(0, 0, INT32_MAX, INT32_MAX), const Rect<int>& limits = Rect<int>(0, 0, 400, 240), std::pair<bool, ColorBlendCallback> colorBlend = TransparentBlend());
+
         void* data;
+    private:
         Header* header;
-        static int textureTileOrder[16];
-        static int etc1Modifiers[8][2];
+        static const u8 textureTileOrder[16];
+        static const u8 etc1Modifiers[8][2];
 
         template<typename T>
-        T GetDataAt(int offset) {
+        inline T GetDataAt(int offset) {
             return *(T*)(((u32)data) + offset);
         }
+
+        static void RenderInterfaceBackend(void* usrData, bool isRead, Color* c, int posX, int posY);
+        static void ScreenBackend(void* usrData, bool isRead, Color* c, int posX, int posY);
+
+        
+        static Color TransparentBlendFunc(const Color& dst, const Color& src);
+        static Color OpaqueBlendFunc(const Color& dst, const Color& src);
     };
 }

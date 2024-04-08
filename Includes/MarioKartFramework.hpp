@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 748/748 (100.00%)
+Open source lines: 777/777 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -87,7 +87,7 @@ namespace CTRPluginFramework {
 		JUMP_TRICK = 7,
 		GLIDER_TRICK = 8,
 		STAR_START = 9,
-		GLIDER_FLY = 10,
+		GLIDER_CANNON = 10,
 		DAMAGE_SMALL = 11,
 		DAMAGE_HIT = 12,
 		DAMAGE_BIG = 13,
@@ -270,6 +270,7 @@ namespace CTRPluginFramework {
             static char getCharByCode(u8 num, u8 pos);
             static u32 oldStrptr;
 			static u8 previousCDScore;
+			static void* gobjrelocptr;
 
         public:
 
@@ -343,6 +344,8 @@ namespace CTRPluginFramework {
 			static ModeManagerData* getModeManagerData();
 			static CRaceInfo* getRaceInfo(bool global);
 			static FixedStringBase<u16, 0x20>* getPlayerNames();
+			static int getCurrentRaceNumber();
+			static bool isFirstRace() {return getCurrentRaceNumber() <= 0;}
 			static KartLapInfo* getKartLapInfo(u32 playerID);
 			static Vector3* GetGameCameraPosition();
 			static void BasePageSetCup(u8 cupID);
@@ -352,7 +355,7 @@ namespace CTRPluginFramework {
 			static void (*BasePage_SetRaceMode)(CRaceMode* mode);
 			static EPlayerInfo playerInfos[8];
 			static u32 currGatheringID;
-			static bool imRoomHost;
+			static u8 myRoomPlayerID;
 			static bool allowOpenCTRPFMenu();
 			static bool allowTakeScreenshot();
             static Vector3* playerCoord;
@@ -392,7 +395,9 @@ namespace CTRPluginFramework {
 			static bool wasKeyInjected;
 			static Key injectedKey;
 			static bool areKeysBlocked;
+			static bool isPauseBlocked;
 			//
+			static bool isLoadingAward;
 
             static void getLaunchInfo();
             static bool isCompatible(); //true success, false fail
@@ -433,6 +438,7 @@ namespace CTRPluginFramework {
 			static bool isBackCamBlockedComm;
 			static bool isWarnItemBlockedComm;
             //
+			static void patchKMP(void* kmp);
             static void kmpConstructCallback();
 			static void OnRaceEnter();
 			static void OnRaceExit(u32 mode);
@@ -502,6 +508,7 @@ namespace CTRPluginFramework {
 			static void (*BaseMenuPageApplySetting_CPU)(int cpuAmount, int startingCPUIndex, int* playerChar);
 			static void (*SequenceCorrectAIInfo)();
 			static void generateCPUDataSettings(CPUDataSettings* buffer, u32 playerID, u32 totalPlayers, ModeManagerData* raceinfo);
+			static void SetWatchRaceMode(bool setMode);
 			static bool isWatchRaceMode;
 			static bool allowCPURacersComm;
 			static bool allowCustomItemsComm;
@@ -587,7 +594,10 @@ namespace CTRPluginFramework {
 			static void OnKartAccident(u32* vehicleReact, ECrashType* type);
 			static bool kartCanAccident(u32* vehicleReact);
 			//
-			static void(*SndActorKArt_PlayDriverVoice)(u32 sndActorKartObj, EVoiceType voice);
+			static void(*SndActorKArt_PlayDriverVoice)(u32* sndActorKart, EVoiceType voice);
+			static void OnSndActorKartPlayDriverVoice(u32* sndActorKart, EVoiceType voice);
+			static MarioKartTimer loopVoiceCooldown[8];
+			static bool loopMasterWPSoundEffectPlayed;
 			//
 			static ImprovedTrickInfo trickInfos[8];
 			static bool improvedTricksAllowed;
@@ -645,6 +655,7 @@ namespace CTRPluginFramework {
 			//
 			static ObjectGeneratorBase* GenerateItemBox(CustomFieldObjectCreateArgs& createArgs);
 			static void ObjModelBaseChangeAnimation(u32 objModelBase, int anim, float value);
+			static void ObjModelBaseRotate(u32 objModelBase, u32 amount = 0xFF258C00);
 			//
 			static bool lastPolePositionLeft;
 			static bool bulletBillAllowed;
@@ -715,8 +726,14 @@ namespace CTRPluginFramework {
 			static RT_HOOK OnSimpleModelManagerHook;
 			static u32 OnSimpleModelManager(u32 own);
 			//
-			static inline bool vehicleIsInLoopKCL(u32 vehicle) {
-				return *(u32*)(vehicle + 0xD14) == 8 && *(u32*)(vehicle + 0xD20) == 2;
+			static inline int vehicleIsInLoopKCL(u32 vehicle) { // 0 - No loop, 1 - anti-grav, 2 - loop
+				if (*(u32*)(vehicle + 0xD14) == 8) {
+					if (*(u32*)(vehicle + 0xD20) == 1)
+						return 1;
+					else if (*(u32*)(vehicle + 0xD20) == 2)
+						return 2;
+				}
+				return 0;
 			}
 			static bool vehicleForceAntigravityCamera(u32 vehicle);
 			static bool vehicleDisableSteepWallPushback(u32 vehicle);
@@ -728,18 +745,30 @@ namespace CTRPluginFramework {
 			static RT_HOOK enemyAIControlRaceUpdateHook;
 			static u8 onMasterStartKillerPosition;
 			static void OnEnemyAIControlRaceUpdate(u32 enemyAI);
+			//
+			static void* OnLoadResGraphicFile(u32 resourceLoader, SafeStringBase* path, ResourceLoaderLoadArg* loadArgs);
+        	static RT_HOOK loadResGraphicFileHook;
+			//
+			static u64 rotateCharacterID;
+			static u8 characterRotateAmount[8];
+			static void OnKartUnitCalcDrawKartOn(u32 kartUnit, float* transformMatrix);
+			//
+			static RT_HOOK jugemSwitchReverseUpdateHook;
+			static void OnJugemSwitchReverseUpdate(u32 switchReverse);
+			//
+			static u32 SndActorKartDecideBoostSndID(u32 sndActorKart, u32 courseID);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);
 }
 
-enum CTMode {
+enum class CTMode : u32 {
 	OFFLINE = 0,
 	ONLINE_NOCTWW = 1,
 	ONLINE_COM = 2,
 	ONLINE_CTWW = 3,
 	ONLINE_CTWW_CD = 4,
-	MAXVAL = 0xFFFFFFFF
+	INVALID = 0xFFFFFFFF
 };
 
 extern "C" CTMode g_setCTModeVal;

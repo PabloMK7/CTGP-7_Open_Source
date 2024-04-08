@@ -4,13 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 789/790 (99.87%)
+Open source lines: 825/826 (99.88%)
 *****************************************************/
 
 #include "Lang.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "CTRPluginFramework.hpp"
-#include "CharacterManager.hpp"
+#include "CharacterHandler.hpp"
 #include "3ds.h"
 #include <algorithm>
 #include "CourseManager.hpp"
@@ -22,6 +22,7 @@ Open source lines: 789/790 (99.87%)
 #include "foolsday.hpp"
 #include "CustomTextEntries.hpp"
 #include "BCLIM.hpp"
+#include "BlueCoinChallenge.hpp"
 
 namespace CTRPluginFramework
 {
@@ -38,6 +39,8 @@ namespace CTRPluginFramework
 	Language::MsbtHandler::PluginMessageDataList* Language::MsbtHandler::allList = nullptr;
 
 	std::unordered_map<int, Language::MessageString*> Language::customText;
+	BootSceneHandler::ProgressHandle Language::progressHandle;
+	std::vector<std::string> Language::pendingLangfiles;
 	
 	int Language::currentTranslation = -1;
 	char Language::currPostfix[3] = { 0 };
@@ -91,12 +94,9 @@ namespace CTRPluginFramework
 	}
 
 	void Language::PopulateLang() {
-		Directory langRootDir("/CTGP-7/MyStuff/Languages");
-		if (!langRootDir.IsOpen()) return;
+		std::string langRootDir("/CTGP-7/MyStuff/Languages");
 		PluginHeader* header = reinterpret_cast<PluginHeader*>(0x07000000);
 		LaunchSettings* launchSet = reinterpret_cast<LaunchSettings*>(&header->config[0]);
-		std::vector<std::string> files;
-		langRootDir.ListFiles(files, ".ini");
 
 		int i = 0;
 		int engI = -1;
@@ -107,12 +107,13 @@ namespace CTRPluginFramework
 		else if (System::GetSystemLanguage() == LanguageId::Korean)
 			sysReg = GameRegion::KOREA;
 
-		for (std::string f : files) {
+		for (auto it = pendingLangfiles.begin(); it < pendingLangfiles.end(); it++, BootSceneHandler::Progress(progressHandle)) {
+			std::string& f = *it;
 			if (f.size() != 12 || f.substr(0, 5) != "Lang_" || f.substr(8, 4) != ".ini") { i++;  continue; }
 			std::string fID = f.substr(5, 3);
-			if (!Directory::IsExists(langRootDir.GetFullName() + "/Lang_" + fID)) { i++;  continue; }
+			if (!Directory::IsExists(langRootDir + "/Lang_" + fID)) { i++;  continue; }
 			TextFileParser parser;
-			if (!parser.Parse(langRootDir.GetFullName() + "/" + f)) { i++;  continue; }
+			if (!parser.Parse(langRootDir + "/" + f)) { i++;  continue; }
 			TranslationInfo currInfo;
 			currInfo.ID = fID;
 			currInfo.Name = parser.getEntry("name", 0);
@@ -159,7 +160,15 @@ namespace CTRPluginFramework
 		strcpy(currPostfix, (MarioKartFramework::region == GameRegion::AMERICA) ? availableLang[currentTranslation].USAPostfix.substr(0,2).c_str() : availableLang[currentTranslation].EURPostfix.substr(0, 2).c_str());
 		currOrdinalMode = availableLang[currentTranslation].ordinalMode;
 		for (int i = 0; i < NONE; i++)
-			availableSZS[i] = File::Exists(langRootDir.GetFullName() + "/Lang_" + availableLang[currentTranslation].ID + "/" + g_szsFileNames[i] + currPostfix + ".szs");
+			availableSZS[i] = File::Exists(langRootDir + "/Lang_" + availableLang[currentTranslation].ID + "/" + g_szsFileNames[i] + currPostfix + ".szs");
+		pendingLangfiles.clear();
+	}
+
+	void Language::RegisterProgress(void) {
+		Directory langRootDir("/CTGP-7/MyStuff/Languages");
+		if (!langRootDir.IsOpen()) return;
+		langRootDir.ListFiles(pendingLangfiles, ".ini");
+		progressHandle = BootSceneHandler::RegisterProgress(pendingLangfiles.size());
 	}
 
 	void	Language::Initialize(void) {
@@ -177,7 +186,7 @@ namespace CTRPluginFramework
         {
             currLanguage.Parse(langFile);
 			if (!File::Exists(kartFile)) kartFile = std::string("/CTGP-7/MyStuff/Karts/Lang_ENG.txt");
-			if (CharacterManager::currSave.customKartsEnabled) currLanguage.Parse(kartFile);
+			if (CharacterHandler::customKartsEnabled) currLanguage.Parse(kartFile);
 		}
 		else {
 			strcpy(currSettings.langID, "ENG");
@@ -192,7 +201,7 @@ namespace CTRPluginFramework
 			else {
 				panic("Current language files corrupted.");
 			}
-			if (CharacterManager::currSave.customKartsEnabled) currLanguage.Parse(kartFile);
+			if (CharacterHandler::customKartsEnabled) currLanguage.Parse(kartFile);
 		}
 		MsbtHandler::ApplyCustomText();
     }
@@ -286,10 +295,30 @@ namespace CTRPluginFramework
 	}
 
 	static u8* peaceIconData = nullptr;
+	static u8* peaceDoveIconData = nullptr;
 	static u32 peaceIconDataSize = 0;
+	static u32 peaceDoveIconDataSize = 0;
+	static u8 peaceFrame = 0;
 	static void LanguageKeyboardCallback(Keyboard& k, KeyboardEvent& event) {
-		if (event.type == KeyboardEvent::EventType::FrameTop && peaceIconData) {
-			BCLIM(peaceIconData, peaceIconDataSize).Render(IntRect(339, 189, 26, 26), *event.renderInterface);
+		auto transblendfunc = [](const Color& dst, const Color& src) -> Color {
+			float prog;
+			
+			if (peaceFrame > 128 + 64) {
+				prog = 1.f - (((float)peaceFrame - (128.f + 64.f)) / 64.f);
+			} else if (peaceFrame > 128)
+				prog = 1.f;
+			else if (peaceFrame > 64) {
+				prog = ((float)peaceFrame - 64.f) / 64.f;
+			} else
+				prog = 0.f;
+			Color copy = dst;
+			copy.a = copy.a * prog;
+			return src.Blend(copy, Color::BlendMode::Alpha);
+		};
+		if (event.type == KeyboardEvent::EventType::FrameTop) {
+			peaceFrame++;
+			if (peaceIconData) BCLIM(peaceIconData, peaceIconDataSize).Render(IntRect(339, 189, 26, 26), BCLIM::RenderInterface(*event.renderInterface));
+			if (peaceDoveIconData) BCLIM(peaceDoveIconData, peaceDoveIconDataSize).Render(IntRect(339, 189, 26, 26), BCLIM::RenderInterface(*event.renderInterface), Rect<int>(0, 0, INT32_MAX, INT32_MAX), Rect<int>(0, 0, 400, 240), std::make_pair(true, transblendfunc));
 		}
 	}
 	
@@ -299,19 +328,26 @@ namespace CTRPluginFramework
 			ExtraResource::SARC::FileInfo finfo;
 			peaceIconData = ExtraResource::mainSarc->GetFile("Plugin/peace.bclim", &finfo);
 			peaceIconDataSize = finfo.fileSize;
+			peaceDoveIconData = ExtraResource::mainSarc->GetFile("Plugin/peace_dove.bclim", &finfo);
+			peaceDoveIconDataSize = finfo.fileSize;
 		}
 		std::vector<std::string> langs;
 		for (int i = 0; i < availableLang.size(); i++) {
 			langs.push_back(availableLang[i].Name);
 		}
-		Keyboard kbd("Please select language.\n(Reboot required to apply changes.)");
+		Keyboard kbd("Please select language.");
+		peaceFrame = 0;
 		kbd.OnKeyboardEvent(LanguageKeyboardCallback);
 		kbd.Populate(langs);
 		int opt = kbd.Open();
 		if (opt >= 0) {
-			strcpy(currSettings.langID, availableLang[opt].ID.c_str());
-			entry->Name() = "Language (" + availableLang[opt].Name + ")";
-			UpdateLangSettings();
+			bool changed = strcmp(currSettings.langID, availableLang[opt].ID.c_str()) != 0;
+			if (changed) {
+				strcpy(currSettings.langID, availableLang[opt].ID.c_str());
+				entry->Name() = "Language (" + availableLang[opt].Name + ")";
+				UpdateLangSettings();
+				MessageBox("Reboot required to apply changes.")();
+			}
 		}
 	}
 
@@ -347,9 +383,10 @@ namespace CTRPluginFramework
 		msbtReady = true;
 		CourseManager::fixTranslatedMsbtEntries();
 		CourseManager::sortTracksAlphabetically();
-		CharacterManager::UpdateMsbtPatches();
+		CharacterHandler::UpdateMsbtPatches();
 		VersusHandler::InitializeText();
 		MissionHandler::InitializeText();
+		BlueCoinChallenge::InitializeLanguage();
 		CCSettings* settings = static_cast<CCSettings*>(ccselectorentry->GetArg());
 		if (settings->enabled) {
 			std::string cc_name = std::to_string((int)settings->value) + "cc";
@@ -691,7 +728,6 @@ namespace CTRPluginFramework
 	}
 
 	void Language::MsbtHandler::RemoveAllString(u32 id) {
-		// NOTE: Untested
 		auto it = customText.find(id);
 		if (it != customText.end()) {
 			MessageString* str = it->second;

@@ -4,12 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: GameAlloc.cpp
-Open source lines: 42/42 (100.00%)
+Open source lines: 43/43 (100.00%)
 *****************************************************/
 
 #include "GameAlloc.hpp"
 
 namespace CTRPluginFramework {
+	void* (*GameAlloc::get_current_heap)() = nullptr;
     void* (*GameAlloc::game_operator_new)(u32, u32*, u32) = nullptr;
 	void* (*GameAlloc::game_operator_new_autoheap)(u32 size) = nullptr;
 	void (*GameAlloc::game_operator_delete)(void* data) = nullptr; // 0x0052A448

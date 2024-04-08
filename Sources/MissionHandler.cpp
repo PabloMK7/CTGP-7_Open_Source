@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1545/1556 (99.29%)
+Open source lines: 1552/1563 (99.30%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -12,7 +12,7 @@ Open source lines: 1545/1556 (99.29%)
 #include "SequenceHandler.hpp"
 #include "VersusHandler.hpp"
 #include "Lang.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "Sound.hpp"
 #include "ExtraResource.hpp"
 #include "CourseManager.hpp"
@@ -895,7 +895,7 @@ namespace CTRPluginFramework {
             if (!sarcCalculatedChecksum) {
                 sarcCalculatedChecksum = true;
                 calculatedChecksum += extraSarc->GetDataChecksum(missionParam->InfoSection->key);
-                calculatedChecksum += replacementSarc->GetDataChecksum(missionParam->InfoSection->key);
+                calculatedChecksum += replacementSarc->GetDataChecksum(missionParam->InfoSection->key, 0x1000);
             }
         }
         ExtraResource::SARC::FileInfo tempFInfo;
@@ -1453,6 +1453,9 @@ namespace CTRPluginFramework {
         #if CITRA_MODE == 1
         && scID != 0x5AFF5AFF5AFF5AFF
         #endif
+        #ifdef ALLOW_SAVES_FROM_OTHER_CID
+        || true
+        #endif
         )) {
             save.clear();
             save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
@@ -1463,6 +1466,7 @@ namespace CTRPluginFramework {
             save.set("missionFullGrade", minibson::document());
     }
 	void MissionHandler::SaveData::Save() {
+        save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
         SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::MISSION, save);
     }
 
@@ -1534,12 +1538,15 @@ namespace CTRPluginFramework {
         return data & (1 << (((world - 1) & 7) * 4 + (level - 1)));
     }
 
-    bool MissionHandler::SaveData::GetAllFullGradeFlag() {
+    std::pair<int, int> MissionHandler::SaveData::GetAllFullGradeFlag() {
+        int total = 0, curr = 0;
         for (int i = 1; i <= 4; i++) {
-            for (int j = 1; j <= 4; j++)
-                if (!GetFullGradeFlag(i, j))
-                    return false;
+            for (int j = 1; j <= 4; j++) {
+                if (GetFullGradeFlag(i, j))
+                    curr++;
+                total++;
+            }
         }
-        return true;
+        return std::make_pair(total, curr);
     }
 }

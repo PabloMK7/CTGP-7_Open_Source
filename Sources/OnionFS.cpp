@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: OnionFS.cpp
-Open source lines: 411/411 (100.00%)
+Open source lines: 414/414 (100.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -12,7 +12,7 @@ Open source lines: 411/411 (100.00%)
 #include "rt.hpp"
 #include "3ds.h"
 #include "CourseManager.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "str16utils.hpp"
 
 #define NUMBER_FILE_OP 9
@@ -367,6 +367,11 @@ namespace CTRPluginFramework::OnionFS
 			return GameFSFileState::NOTEXISTS;
 	}
 
+	void InitFSFileMapThread() {
+		LightEvent_Init(&gameFsFileHashesEvent, RESET_ONESHOT);
+		gameFsFileHashesThread = threadCreate(initGameFsFileMapFunc, nullptr, 0x1000, 0x30, -2, true);
+	}
+
 	bool initOnionFSHooks(u32 textSize) {
 
 		u32* addr = (u32*)0x100000;
@@ -402,8 +407,6 @@ namespace CTRPluginFramework::OnionFS
 			return false;
 		}
 		
-		LightEvent_Init(&gameFsFileHashesEvent, RESET_ONESHOT);
-		gameFsFileHashesThread = threadCreate(initGameFsFileMapFunc, nullptr, 0x1000, 0x30, -2, true);
 		return true;
 	}
 

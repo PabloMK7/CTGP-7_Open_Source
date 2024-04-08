@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: rt.hpp
-Open source lines: 43/43 (100.00%)
+Open source lines: 40/40 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -15,10 +15,7 @@ extern "C" {
 #endif
 
 typedef struct _RT_HOOK {
-	struct
-	{
-		u8 isEnabled : 1;
-	};
+	u8 isEnabled;
 	u32 funcAddr;
 	u32 bakCode[2];
 	u32 jmpCode[2];

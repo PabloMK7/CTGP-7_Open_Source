@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: LED_Control.cpp
-Open source lines: 148/148 (100.00%)
+Open source lines: 154/154 (100.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -16,13 +16,13 @@ Open source lines: 148/148 (100.00%)
 
 namespace CTRPluginFramework {
 
-	Time currSecureTime = Time::Zero;
-	bool SecureTimeLock = false;
-	Handle ptmsysmHandle = 0;
-	Clock timer;
-	bool isTimeZero = false;
+	static Time currSecureTime = Time::Zero;
+	static bool SecureTimeLock = false;
+	static Handle ptmsysmHandle = 0;
+	static Clock timer;
+	static bool isTimeZero = false;
 
-	void SecureCallback() {
+	static void SecureCallback() {
 		if (timer.HasTimePassed(currSecureTime) && !isTimeZero) {
 			LED::StopLEDPattern();
 			*(PluginMenu::GetRunningInstance()) -= SecureCallback;
@@ -62,24 +62,30 @@ namespace CTRPluginFramework {
 		return res;
 	}
 
+	s32 PatternPlayerTaskfunc(void* arg) {
+		RGBLedPattern& pattern = *(RGBLedPattern*)arg;
+		if (LED::Init() < 0) return false;
+		if (LED::Play(pattern) < 0) return false;
+		return 0;
+	}
+
+	static Task ledPatternPlayer(PatternPlayerTaskfunc, nullptr, Task::Affinity::SysCore);
+
 	bool LED::PlayLEDPattern(RGBLedPattern& pattern, Time playtime) {
 		if (IsPatternPlaying()) return false;
-		pattern.unknown1 = 0;
-		if (Init() < 0) return false;
-		if (Play(pattern) < 0) return false;
+		ledPatternPlayer.Start(&pattern);
 		SetSecureTime(playtime);
 		return true;
 	}
 
+	static RGBLedPattern g_patEmpty = {0};
 	bool LED::StopLEDPattern() {
 		if (!IsPatternPlaying()) return false;
 		if (isTimeZero) {
 			isTimeZero = false;
 			return true;
 		}
-		RGBLedPattern pat = {0};
-		if (Init() < 0) return false;
-		if (Play(pat) < 0) return false;
+		ledPatternPlayer.Start(&g_patEmpty);
 		return true;
 	}
 

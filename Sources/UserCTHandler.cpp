@@ -4,14 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: UserCTHandler.cpp
-Open source lines: 412/413 (99.76%)
+Open source lines: 419/420 (99.76%)
 *****************************************************/
 
 #include "UserCTHandler.hpp"
 #include "TextFileParser.hpp"
 #include "CourseManager.hpp"
 #include "Lang.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "MarioKartFramework.hpp"
 #include "str16utils.hpp"
 #include "CustomTextEntries.hpp"
@@ -23,6 +23,8 @@ u32 USERTRACKID = 0xFF;
 
 namespace CTRPluginFramework {
     
+    BootSceneHandler::ProgressHandle UserCTHandler::progressHandle;
+    std::vector<std::string> UserCTHandler::pendingDirs;
     std::vector<UserCTHandler::CustomCup> UserCTHandler::customCups;
     bool UserCTHandler::usingCustomCup = false;
     u32 UserCTHandler::selectedCustomCup = -1;
@@ -42,6 +44,14 @@ namespace CTRPluginFramework {
     UserCTHandler::CustomCup::CustomCup() : cupName("") {}
     UserCTHandler::CustomCup::CustomCup(const std::string& cName) : cupName(cName) {}
 
+    void UserCTHandler::RegisterProgress() {
+        Directory rootDir("/CTGP-7/MyStuff/Courses");
+        if (!rootDir.IsOpen())
+            return;
+        rootDir.ListDirectories(pendingDirs);
+        progressHandle = BootSceneHandler::RegisterProgress(pendingDirs.size());
+    }
+
     void UserCTHandler::Initialize() {
         populateCups();
         CourseManager::initGlobalCupTranslateTable();
@@ -49,12 +59,7 @@ namespace CTRPluginFramework {
     }
 
     void UserCTHandler::populateCups() {
-        Directory rootDir("/CTGP-7/MyStuff/Courses");
-        if (!rootDir.IsOpen())
-            return;
-        std::vector<std::string> foundDir;
-        rootDir.ListDirectories(foundDir);
-        for (auto it = foundDir.cbegin(); it != foundDir.cend(); it++) {
+        for (auto it = pendingDirs.cbegin(); it != pendingDirs.cend(); it++, BootSceneHandler::Progress(progressHandle)) {
             Directory subDir("/CTGP-7/MyStuff/Courses/" + *it);
             if (!subDir.IsOpen())
                 continue;
@@ -69,6 +74,7 @@ namespace CTRPluginFramework {
         }
         if (customCups.size() & 1)
             customCups.push_back(CustomCup(""));
+        pendingDirs.clear();
     }
 
     static inline bool ends_with(std::string const & value, std::string const & ending)
@@ -314,15 +320,15 @@ namespace CTRPluginFramework {
     void UserCTHandler::initSkipConfig() {
 #ifdef GOTO_TOADCIRCUIT
         skipConfig.enabled = true;
-        skipConfig.skipCoursePreview = true;
+        skipConfig.skipCoursePreview = false;
         skipConfig.cpuAmount = 8;
         skipConfig.driverID = EDriverID::DRIVER_YOSHI;
         skipConfig.bodyID = EBodyID::BODY_DSH;
         skipConfig.tireID = ETireID::TIRE_BIGRED;
         skipConfig.wingID = EWingID::WING_BASA;
-        skipConfig.itemID = EItemSlot::ITEM_KILLER;
-        skipConfig.useLeftToFinish = false;
-        skipConfig.courseID = 0x4;
+        skipConfig.itemID = EItemSlot::ITEM_KOURAB;
+        skipConfig.useLeftToFinish = true;
+        skipConfig.courseID = -1;
 #else
         skipConfig.enabled = false;
         TextFileParser parser;
@@ -380,6 +386,7 @@ namespace CTRPluginFramework {
                 SequenceHandler::addFlowPatch(SequenceHandler::rootSequenceID, 0x594, 0x02, 0x01); // Boot -> Demo;
 
             //SequenceHandler::addFlowPatch(SequenceHandler::rootSequenceID, 0x594, 0x07, 0x01); //Credits
+            //MenuPageHandler::MenuEndingPage::loadCTGPCredits = true;
 
             MarioKartFramework::setSkipGPCoursePreview(skipConfig.skipCoursePreview);
 
@@ -396,7 +403,7 @@ namespace CTRPluginFramework {
             u32 screwID = 0;
 			MarioKartFramework::BasePage_SetDriver(0, (s32*)&skipConfig.driverID, &playerType);
             MarioKartFramework::BasePage_SetParts(0, (s32*)&skipConfig.bodyID, (s32*)&skipConfig.tireID, (s32*)&skipConfig.wingID, &screwID);
-            
+
             // Set cup to USERCUP
             MarioKartFramework::BasePageSetCup(USERCUPID);
             usingCustomCup = true;

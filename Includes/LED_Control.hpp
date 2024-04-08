@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: LED_Control.hpp
-Open source lines: 61/61 (100.00%)
+Open source lines: 62/62 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -33,6 +33,7 @@ namespace CTRPluginFramework {
 	
 	class LED {
 		private:
+			friend s32 PatternPlayerTaskfunc(void* arg);
 			static Result Init();
 			static Result Play(RGBLedPattern& pattern);
 			static void SetSecureTime(Time secureTime);

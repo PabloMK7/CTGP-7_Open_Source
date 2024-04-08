@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 718/718 (100.00%)
+Open source lines: 762/762 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -13,6 +13,7 @@ Open source lines: 718/718 (100.00%)
 #include "VisualControl.hpp"
 #include "DataStructures.hpp"
 #include "CTPreview.hpp"
+#include "MarioKartTimer.hpp"
 
 namespace CTRPluginFramework {
 
@@ -154,7 +155,7 @@ namespace CTRPluginFramework {
         struct GameSequenceSectionVtable { // NOTE: Return types are not correct
             void (*getDTIClassInfo)(GameSequenceSection* own);
             void (*getDTIClass)(GameSequenceSection* own);
-            u32 null0;
+            void (*_destructor)(GameSequenceSection* own);
             void (*_deallocating)(GameSequenceSection* own);
             void (*create)(GameSequenceSection* own, const void* arg);
             void (*init)(GameSequenceSection* own);
@@ -435,6 +436,9 @@ namespace CTRPluginFramework {
                 static RT_HOOK coursePageInitOmakaseTHook;
                 static RT_HOOK coursePageInitOmakaseBHook;
 
+                static void ClearBlockedCourses();
+                static void AddBlockedCourse(u32 course);
+                static bool IsBlockedCourse(u32 course);
                 static std::vector<u32> blockedCourses;
 
                 static void OnPageEnter(GameSequenceSection* own);
@@ -477,6 +481,12 @@ namespace CTRPluginFramework {
 
             private:
                 void(*buttonHandler_SelectOnbackup)(GameSequenceSection* own, int buttonID);
+        };
+
+        class MenuSingleCourseBattle {
+            public:
+                static RT_HOOK onPageEnterHook;
+                static void OnPageEnter(GameSequenceSection* own);
         };
 
         class MenuCourseVoteBase {
@@ -543,21 +553,54 @@ namespace CTRPluginFramework {
                 
         };
 
-        class MenuSingleCharaPage {
+        class MenuCharaBasePage {
             public:
-                static bool isInSingleCharaPage;
+                static EDriverID GetSelectedDriverID(GameSequenceSection* own) {
+                    return (EDriverID)(((u32*)own)[0x354/4]);
+                }
+                static EDriverID GetDriverIDFromButton(GameSequenceSection* own, int button) {
+                    SeadArray<EDriverID, 0x11>* arr = (SeadArray<EDriverID, 0x11>*)(((u32*)own) + 0x2A8/4);
+                    return (*arr)[button];
+                }
+                static VisualControl::GameVisualControl* GetButtonFromDriverID(GameSequenceSection* own, EDriverID driverID) {
+                    SeadArray<EDriverID, 0x11>* arr = (SeadArray<EDriverID, 0x11>*)(((u32*)own) + 0x2A8/4);
+                    for (int i = 0; i < arr->count; i++) {
+                        if ((*arr)[i] == driverID) {
+                            return own->GetButtonArray(0x2F8)[i];
+                        }
+                    }
+                    return nullptr;
+                }
+                static u64 GetSelectedCustomCharacterID(EDriverID driverID);
+                void UpdateEntriesString();
+                void UpdateDriverIcon(EDriverID driverID, bool forceReset = false);
 
-                static void (*initControlBackup)(GameSequenceSection* own);
-                static void (*pageEnterBackup)(GameSequenceSection* own);
-                static void (*pageExitBackup)(GameSequenceSection* own);
-                static void (*pagePreStepBackup)(GameSequenceSection* own);
+                static RT_HOOK destructorHook;
+                static RT_HOOK initControlHook;
+                static RT_HOOK pageEnterHook;
+                static RT_HOOK pageExitHook;
+                static RT_HOOK pagePreStepHook;
+                static RT_HOOK buttonHandlerSelectOnHook;
+                static RT_HOOK buttonHandlerOKHook;
+                static void (*deallocateBackup)(GameSequenceSection* own);
                 
+                static void OnDestruct(GameSequenceSection* own);
+                static void OnDeallocate(GameSequenceSection* own);
                 static void OnInitControl(GameSequenceSection* own);
                 static void OnPageEnter(GameSequenceSection* own);
                 static void OnPageExit(GameSequenceSection* own);
                 static void OnPagePreStep(GameSequenceSection* own);
+                static void OnButtonHandlerSelectOn(GameSequenceSection* own, int buttonID);
+                static void OnButtonHandlerOK(GameSequenceSection* own, int buttonID);
             private:
+                VisualControl::GameVisualControl* charCountControl = nullptr;
+                GameSequenceSection* own = nullptr;
                 static VisualControl::GameVisualControlVtable* controlVtable;
+                friend class CharacterHandler;
+                static std::array<int, EDriverID::DRIVER_SIZE> currentChoices;
+                MarioKartTimer loadAllIconsDelay;
+                MarioKartTimer coolDownScrollTimer;
+                MarioKartTimer reloadCharacterModelTimer;
         };
 
         static GameSequenceSection* LoadSingleModeMenu(ExecutableSectionClassInfo* own, void* sectionDirector);
@@ -713,6 +756,7 @@ namespace CTRPluginFramework {
         static void OnMenuEndingPageDeallocate(GameSequenceSection* own);
 
         static RT_HOOK trophyPageSelectNextSceneHook;
+        static RT_HOOK trophyPageSelectNextSceneHook2;
         static RT_HOOK thankyouPageInitControlHook;
     };
 }

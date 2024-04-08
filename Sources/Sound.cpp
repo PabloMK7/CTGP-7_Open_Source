@@ -11,7 +11,7 @@ Open source lines: 76/76 (100.00%)
 #include "CTRPluginFramework.hpp"
 #include "3ds.h"
 #include "csvc.h"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "OSDManager.hpp"
 #include "ExtraResource.hpp"
 

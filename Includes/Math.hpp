@@ -4,11 +4,12 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Math.hpp
-Open source lines: 208/208 (100.00%)
+Open source lines: 255/255 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "types.h"
+#include "CTRPluginFramework/Graphics/Color.hpp"
 #include <cmath>
 
 inline float sead_sqrtf(float a) {
@@ -25,8 +26,8 @@ struct Vector3 {
     float y;
     float z;
 
-    Vector3() : x(0), y(0), z(0) {}
-    Vector3(float x, float y, float z) {
+    constexpr Vector3() : x(0), y(0), z(0) {}
+    constexpr Vector3(float x, float y, float z) {
         this->x = x;
         this->y = y;
         this->z = z;
@@ -141,14 +142,22 @@ struct Vector3 {
             *this /= mag;
         return mag != 0.f;
     }
+
+    static Vector3 FromColor(const CTRPluginFramework::Color& color) {
+        return Vector3(color.r / 255.f, color.g / 255.f, color.b / 255.f);
+    }
+
+    static CTRPluginFramework::Color ToColor(const Vector3& vec) {
+        return CTRPluginFramework::Color(vec.x * 255, vec.y * 255, vec.z * 255);
+    }
 };
 
 struct Vector2 {
     float x;
     float y;
 
-    Vector2() : x(0), y(0) {}
-    Vector2(float x, float y) {
+    constexpr Vector2() : x(0), y(0) {}
+    constexpr Vector2(float x, float y) {
         this->x = x;
         this->y = y;
     }
@@ -165,6 +174,40 @@ extern "C" {
     void sead_crossProduct(Vector3* out, Vector3* v0, Vector3* v1);
     void sead_normalize(Vector3* v0);
 }
+
+class Vector1
+{
+public:
+    float x;
+
+    constexpr Vector1() : x(0) {}
+    constexpr Vector1(float x) {
+        this->x = x;
+    }
+
+    inline void Lerp(const Vector1& other, float amount) {
+        *this += (other - *this) * amount;
+    }
+
+    inline void operator+=(const Vector1& right)
+    {
+        this->x += right.x;
+    }
+
+    inline Vector1 operator-(const Vector1& right) const
+    {
+        Vector1 ret;
+        ret.x = this->x - right.x;
+        return ret;
+    }
+    
+    inline Vector1 operator*(const float& amount) const 
+    {
+        Vector1 ret;
+        ret.x = this->x * amount;
+        return ret;
+    }
+};
 
 class Linear
 {
@@ -187,10 +230,14 @@ public:
 };
 
 struct Color4 {
-    float R;
-    float G;
-    float B;
-    float A;
+    float R{};
+    float G{};
+    float B{};
+    float A{};
+
+    Color4() = default;
+    bool operator==(Color4 const&) const = default;
+    bool operator!=(Color4 const&) const = default;
 
     Color4(float r, float g, float b, float a) {
         R = r;

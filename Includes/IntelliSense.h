@@ -4,15 +4,11 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: IntelliSense.h
-Open source lines: 32/32 (100.00%)
+Open source lines: 28/28 (100.00%)
 *****************************************************/
 
 #pragma once
 // Define unknown GCC stuff
-#define __attribute__(x)
-#define __asm__
-#define __asm__(x)
-#define __volatile__(x)
 #define __ATOMIC_SEQ_CST 1
 #define __atomic_add_fetch(x,y,z) (*x)
 #define __atomic_sub_fetch(x,y,z) (*x)
@@ -29,4 +25,4 @@ struct _reent {
 void* memalign(size_t alignment, size_t size);
 void free(void* ptr);
 // Other definitions
-#define M_PI 3.14
+#define M_PI           3.14159265358979323846

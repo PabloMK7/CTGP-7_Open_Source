@@ -13,7 +13,7 @@ Open source lines: 219/220 (99.55%)
 #include <time.h>
 #include <algorithm>
 #include <cstdlib>
-#include "cheats.hpp"
+#include "main.hpp"
 #include "MarioKartFramework.hpp"
 #include "Lang.hpp"
 #include "SaveHandler.hpp"

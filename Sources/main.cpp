@@ -4,13 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 351/364 (96.43%)
+Open source lines: 383/396 (96.72%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
 #include "types.h"
 #include "OnionFS.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include <cstdio>
 
 #include <string>
@@ -18,7 +18,6 @@ Open source lines: 351/364 (96.43%)
 
 #include "3ds.h"
 #include "Net.hpp"
-#include "IPS.h"
 #include "csvc.h"
 #include "Lang.hpp"
 #include "rt.hpp"
@@ -31,7 +30,6 @@ Open source lines: 351/364 (96.43%)
 #include "Sound.hpp"
 #include "HookInit.hpp"
 #include "MusicSlotMngr.hpp"
-#include "CharacterManager.hpp"
 #include "CrashReport.hpp"
 #include "StatsHandler.hpp"
 #include "UserCTHandler.hpp"
@@ -40,6 +38,8 @@ Open source lines: 351/364 (96.43%)
 #include "plgldr.h"
 #include "mallocDebug.hpp"
 #include "HokakuCTR.hpp"
+#include "CharacterHandler.hpp"
+#include "BootSceneHandler.hpp"
 
 extern bool g_checkMenu;
 extern u32* g_gameSrvHandle;
@@ -69,6 +69,7 @@ namespace CTRPluginFramework
 	MenuEntry* autoAccelEntry;
 	MenuEntry* brakeDriftEntry;
 	MenuEntry* automaticDelayDriftEntry;
+	MenuEntry* achievementsEntry;
 
 	OnlineMenuEntry* ccSelOnlineEntry;
 	OnlineMenuEntry* comCodeGenOnlineEntry;
@@ -79,6 +80,7 @@ namespace CTRPluginFramework
 	void 	HandleProcessEvent(Process::Event event);
 
     // Global
+    LightEvent mainEvent0;
     LightEvent mainEvent1;
     static Handle g_event = 0;
     bool    gi_isUpdated = false;
@@ -110,25 +112,22 @@ namespace CTRPluginFramework
 		#ifdef INSTRUMENT_FUNCTIONS
 		init_instrumentation();
 		#endif
+		CrashReport::stateID = CrashReport::StateID::STATE_PATCHPROCESS;
+
+		BootSceneHandler::Initialize();
 		Process::SetProcessEventCallback(HandleProcessEvent);
 		Directory::ChangeWorkingDirectory("/CTGP-7/resources/");
 		if (!checkCompTID(Process::GetTitleID())) panic();
-
-		CrashReport::stateID = CrashReport::StateID::STATE_PATCHPROCESS;
-#ifdef RELEASE_BUILD
 		System::OnAbort = CrashReport::OnAbort;
+#ifdef RELEASE_BUILD
 		Process::exceptionCallback = CrashReport::CTGPExceptCallback;
 		Process::ThrowOldExceptionOnCallbackException = true;
 #endif
 		Process::OnPauseResume = [](bool isGoingToPause) {
 			MarioKartFramework::playMusicAlongCTRPF(isGoingToPause);
 		};
-		SaveHandler::LoadSettings();
-		renderImprovements_apply(SaveHandler::saveData.flags1.renderOptimization);
-		if (!OnionFS::initOnionFSHooks(Process::GetTextSize())) {
-			panic();
-		}
 		initPatches();
+		OnionFS::InitFSFileMapThread();
 #ifdef USE_HOKAKU
 		InitHokaku();
 #endif
@@ -143,42 +142,69 @@ namespace CTRPluginFramework
 		settings.AreN3DSButtonsAvailable = false;
 		MarioKartFramework::getLaunchInfo();
 		LightEvent_Init(&mainEvent1, RESET_ONESHOT);
+		LightEvent_Init(&mainEvent0, RESET_ONESHOT);
+		
+		// Check we are in 80MB mode (real value is 0x05000000, but some is taken by the plugin)
+		if (OS_KernelConfig->memregion_sz[0] < 0x04800000) {
+			panic(Utils::Format("Invalid MemMode: 0x%08X", OS_KernelConfig->memregion_sz[0]).c_str());
+		}
+
+		g_setCTModeVal = CTMode::OFFLINE;
+		g_updateCTMode();
+
+		Language::RegisterProgress();
+		CharacterHandler::RegisterProgress();
+		UserCTHandler::RegisterProgress();
+		Net::Initialize(); 
+		return;
+    }
+
+	// Runs on the game's main thread, do not place anything here that creates threads!
+	void InitMainClasses(void) {
+		CrashReport::stateID = CrashReport::StateID::STATE_INITIALIZE;
+		Sleep(Seconds(2));
+		BootSceneHandler::ProgressHandle mainProg = BootSceneHandler::RegisterProgress(9);
+		BootSceneHandler::Progress(mainProg);
+
+		
+		SaveHandler::LoadSettings();
+		renderImprovements_apply(SaveHandler::saveData.flags1.renderOptimization);
+		CharacterHandler::customKartsEnabled = SaveHandler::saveData.flags1.customKartsEnabled;
+
+		BootSceneHandler::Progress(mainProg);
+
+		if (!OnionFS::initOnionFSHooks(Process::GetTextSize())) {
+			panic();
+		}
+
+		BootSceneHandler::Progress(mainProg);
 
 		if (!Directory::IsExists("/CTGP-7/Screenshots"))
 			Directory::Create("/CTGP-7/Screenshots");
-		if (Directory::IsExists("/CTGP-7/savefs/replay") && !Directory::IsExists("/CTGP-7/savefs/game")) {
-			Directory::Rename("/CTGP-7/savefs", "/CTGP-7/savefstmp");
-			Directory::Create("/CTGP-7/savefs");
-			Directory::Rename("/CTGP-7/savefstmp", "/CTGP-7/savefs/game");
-		}
 		if (!Directory::IsExists("/CTGP-7/savefs"))
 			Directory::Create("/CTGP-7/savefs");
 		if (!Directory::IsExists("/CTGP-7/savefs/game"))
 			Directory::Create("/CTGP-7/savefs/game");
 		if (!Directory::IsExists("/CTGP-7/savefs/mod"))
 			Directory::Create("/CTGP-7/savefs/mod");
-		if (File::Exists("/CTGP-7/resources/moreSav.bin")) {
-			File::Rename("/CTGP-7/resources/moreSav.bin", "/CTGP-7/savefs/mod/extCupSave.sav");
-		}
-		
+
+		BootSceneHandler::Progress(mainProg);
+
 		Language::Initialize();
-		CharacterManager::Initialize();
-		Language::Import();
-		MusicSlotMngr::Initialize();
-		MarioKartFramework::InitializeLedPatterns();
-		StatsHandler::Initialize();
+		CharacterHandler::Initialize();
+		Language::Import(); BootSceneHandler::Progress(mainProg);
+		MusicSlotMngr::Initialize(); BootSceneHandler::Progress(mainProg);
+		MarioKartFramework::InitializeLedPatterns(); BootSceneHandler::Progress(mainProg);
+		StatsHandler::Initialize(); BootSceneHandler::Progress(mainProg);
 		UserCTHandler::Initialize();
-		CourseCredits::Initialize();
-		Net::Initialize();
+		CourseCredits::Initialize(); BootSceneHandler::Progress(mainProg);
 		if (checkFoolsDay()) {
 			loadJokeResources();
 			setFoolsSeed();
 		}
-		g_setCTModeVal = CTMode::OFFLINE;
-		g_updateCTMode();
-		svcFlushEntireDataCache();
-		return;
-    }
+
+		LightEvent_Signal(&mainEvent0);
+	}
 
     void InitMenu(void)
     {
@@ -238,8 +264,8 @@ namespace CTRPluginFramework
 
 		MenuFolder* settings = new MenuFolder(NAME("settings_folder"), NOTE("settings_folder"), {
 			numbRoundsEntry = new MenuEntry(NAME("chgrnd"), nullptr, changeRoundNumber, NOTE("chgrnd")),
-			customCharactersEntry = new MenuEntry(NAME("charman") , nullptr, CharacterManager::characterManagerSettings, NOTE("charman")),
-			customKartEntry = new MenuEntry(NAME("cuskart"), nullptr, CharacterManager::enableCustomKartsSettings, NOTE("cuskart")),
+			customCharactersEntry = new MenuEntry(NAME("charman") , nullptr, CharacterHandler::CustomCharacterManagerMenu, NOTE("charman")),
+			customKartEntry = new MenuEntry(NAME("cuskart"), nullptr, CharacterHandler::enableCustomKartsSettings, NOTE("cuskart")),
 			courseOrderEntry = new MenuEntry(NAME("trackorder"), nullptr, courseOrder, NOTE("trackorder")),
 			renderImproveEntry = new MenuEntry(NAME("render_optim"), nullptr, renderImprovements, NOTE("render_optim")),
 			serverEntry = new MenuEntry(NAME("servsett"), nullptr, serverEntryHandler, NOTE("servsett")),
@@ -255,9 +281,10 @@ namespace CTRPluginFramework
 		menu.Append(settings);
 		menu.Append(other);
 
+		menu.Append(achievementsEntry = new MenuEntry(NAME("achieventry"), nullptr, achievementsEntryHandler, NOTE("achieventry")));
 		menu.Append(langSettingEntry = new MenuEntry("Language", nullptr, Language::ShowLangMenu, " "));
 
-		customKartEntry->Name() = NAME("cuskart") + " (" + (CharacterManager::currSave.customKartsEnabled ? NAME("state_mode") : NOTE("state_mode")) + ")";
+		customKartEntry->Name() = NAME("cuskart") + " (" + (SaveHandler::saveData.flags1.customKartsEnabled ? NAME("state_mode") : NOTE("state_mode")) + ")";
 		langSettingEntry->Name() = "Language (" + Language::availableLang[Language::currentTranslation].Name + ")";
 		
 		ccSelOnlineEntry = new OnlineMenuEntry(ccselectorentry, nullptr, ccselectorsettings,
@@ -307,7 +334,7 @@ namespace CTRPluginFramework
 		menu.SynchronizeWithFrame(true);
 
 #ifndef RELEASE_BUILD
-		menu.ShowWelcomeMessage(true);
+		menu.ShowWelcomeMessage(false);
 #else
 		menu.ShowWelcomeMessage(false);
 		menu.SetHexEditorState(false);
@@ -320,6 +347,8 @@ namespace CTRPluginFramework
 
     int     main(void)
     {
+		LightEvent_Wait(&mainEvent0);
+
 		// Initialize menu
 		InitMenu();
 
@@ -344,6 +373,9 @@ namespace CTRPluginFramework
 			if (System::IsNew3DS() && SaveHandler::saveData.flags1.renderOptimization)
 				svcKernelSetState(10, (1 << 3));
 			svcKernelSetState(0x10080, 0);
+			#endif
+			#ifdef USE_HOKAKU
+			delete mainLogger;
 			#endif
 			Process::exceptionCallback = nullptr;
 		}

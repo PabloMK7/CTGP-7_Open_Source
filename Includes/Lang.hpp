@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.hpp
-Open source lines: 341/341 (100.00%)
+Open source lines: 346/346 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -14,6 +14,7 @@ Open source lines: 341/341 (100.00%)
 #include "TextFileParser.hpp"
 #include "MarioKartFramework.hpp"
 #include "VisualControl.hpp"
+#include "BootSceneHandler.hpp"
 
 #include <string>
 #include <vector>
@@ -27,7 +28,11 @@ namespace CTRPluginFramework
 {
     class Language
     {
+	private:
+		static BootSceneHandler::ProgressHandle progressHandle;
+		static std::vector<std::string> pendingLangfiles;
     public:
+		static void 	RegisterProgress(void);
         static void     Initialize(void);
 		static void     Import(void);
 		static void		PopulateLang();

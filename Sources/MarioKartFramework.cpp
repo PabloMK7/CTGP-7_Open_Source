@@ -4,15 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3319/3423 (96.96%)
+Open source lines: 3590/3695 (97.16%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "entrystructs.hpp"
 #include "3ds.h"
 #include "CourseManager.hpp"
-#include "CharacterManager.hpp"
 #include "OnionFS.hpp"
 #include "Sound.hpp"
 #include "rt.hpp"
@@ -34,6 +33,8 @@ Open source lines: 3319/3423 (96.96%)
 #include "MenuPage.hpp"
 #include "str16utils.hpp"
 #include "VisualControl.hpp"
+#include "CharacterHandler.hpp"
+#include "BlueCoinChallenge.hpp"
 
 extern "C" u32 g_gameModeID;
 extern "C" u32 g_altGameModeIsRaceOver;
@@ -51,7 +52,7 @@ namespace CTRPluginFramework {
 	void (*MarioKartFramework::BasePage_SetRaceMode)(MarioKartFramework::CRaceMode* mode) = nullptr;
 	MarioKartFramework::EPlayerInfo MarioKartFramework::playerInfos[8];
 	u32 MarioKartFramework::currGatheringID;
-	bool MarioKartFramework::imRoomHost = false;
+	u8 MarioKartFramework::myRoomPlayerID = -1;
 	u8* MarioKartFramework::_currgamemode = nullptr;
 	char* MarioKartFramework::replayFileName = nullptr;
 	u32 MarioKartFramework::ctgp7ver = SYSTEM_VERSION(0, 0, 0);
@@ -81,11 +82,13 @@ namespace CTRPluginFramework {
 	bool MarioKartFramework::isRaceState = false;
 	bool MarioKartFramework::isRacePaused = false;
 	bool MarioKartFramework::isRaceGoal = false;
+	bool MarioKartFramework::isLoadingAward = false;
 	u32 MarioKartFramework::origChangeMapInst = 0xE320F000;
 	u32* MarioKartFramework::changeMapCallPtr = nullptr;
 	u64 MarioKartFramework::kouraGProbability = 1;
 	u64 MarioKartFramework::kouraRProbability = 1;
 	u8 MarioKartFramework::previousCDScore = 0;
+	void* MarioKartFramework::gobjrelocptr = nullptr;
 	void (*MarioKartFramework::openDialogImpl)(DialogFlags::Mode mode, int messageID, void* args) = nullptr;
 	bool (*MarioKartFramework::isDialogClosedImpl)() = nullptr;
 	bool (*MarioKartFramework::isDialogYesImpl)() = nullptr;
@@ -98,6 +101,7 @@ namespace CTRPluginFramework {
 	bool MarioKartFramework::wasKeyInjected = false;
 	Key MarioKartFramework::injectedKey = (Key)0;
 	bool MarioKartFramework::areKeysBlocked = false;
+	bool MarioKartFramework::isPauseBlocked = false;
 	std::tuple<u32, u32*> MarioKartFramework::soundThreadsInfo[2] = { std::tuple<u32, u32*>(0xFFFFFFFF, nullptr), std::tuple<u32, u32*>(0xFFFFFFFF, nullptr) };
 	bool MarioKartFramework::forceDisableSndOnPause = false;
 	void (*MarioKartFramework::BaseMenuPageApplySetting_CPU)(int cpuAmount, int startingCPUIndex, int* playerChar) = nullptr;
@@ -139,11 +143,13 @@ namespace CTRPluginFramework {
 	u16 MarioKartFramework::itemProbabilities[EItemSlot::ITEM_SIZE] = { 0 };
 	int (*MarioKartFramework::CsvParam_getDataInt)(void*, int, int) = nullptr;
 	int MarioKartFramework::nextForcedItem = -1;
-	void (*MarioKartFramework::SndActorKArt_PlayDriverVoice)(u32 sndActorKartObj, EVoiceType voice) = nullptr;
+	void (*MarioKartFramework::SndActorKArt_PlayDriverVoice)(u32* sndActorKart, EVoiceType voice) = nullptr;
 	void (*MarioKartFramework::RacePageInitFunctions[RacePageInitID::AMOUNT])(void* baseRacePage) = {nullptr};
 	u8 MarioKartFramework::numberPlayersRace = 0;
 	std::vector<std::pair<u32, u32>> MarioKartFramework::carRouteControllerPair;
 	void (*MarioKartFramework::kartStartTwist)(u32 kartVehicleMoveObj, u32 restartBool) = nullptr;
+	MarioKartTimer MarioKartFramework::loopVoiceCooldown[8];
+	bool MarioKartFramework::loopMasterWPSoundEffectPlayed;
 	MarioKartFramework::ImprovedTrickInfo MarioKartFramework::trickInfos[8];
 	bool MarioKartFramework::improvedTricksAllowed = true;
 	bool MarioKartFramework::improvedTricksForced = false;
@@ -195,6 +201,10 @@ namespace CTRPluginFramework {
 	bool MarioKartFramework::automaticDelayDriftAllowed = true;
 	RT_HOOK MarioKartFramework::enemyAIControlRaceUpdateHook = { 0 };
 	u8 MarioKartFramework::onMasterStartKillerPosition;
+	RT_HOOK MarioKartFramework::loadResGraphicFileHook = { 0 };
+	u64 MarioKartFramework::rotateCharacterID = false;
+	u8 MarioKartFramework::characterRotateAmount[8];
+	RT_HOOK MarioKartFramework::jugemSwitchReverseUpdateHook = {0};
 
 	extern "C" u32 myPlayerIDValue;
 
@@ -235,10 +245,6 @@ namespace CTRPluginFramework {
 		if (!isDir && !g_patchedBcsar && strfind16(dst, (u16*)u".bcsar")) {
 			CrashReport::stateID = CrashReport::StateID::STATE_MAIN;
 			g_patchedBcsar = true;
-			CharacterManager::applyDirectoryPatches();
-			CharacterManager::applySoundPatches();
-			CharacterManager::currSave.needsPatching = false;
-			CharacterManager::saveSettings();
 			OnionFS::initGameFsFileMap();
 		}
 		if (strfind16(dst, (u16*)u"chive-")) {
@@ -261,7 +267,6 @@ namespace CTRPluginFramework {
 			if (UserCTHandler::IsUsingCustomCup() && CourseManager::lastLoadedCourseID != 0x26) UserCTHandler::GetCouseSZSPath(dst, strfind16(dst + ((coursePos >= 0) ? coursePos : 0), (u16*)u"-"));
 			else if (CourseManager::lastLoadedCourseID < BATTLETRACKLOWER) {dst[0] = '\0'; return;}
 		}
-		if (CharacterManager::thankYouFilterCharacterFiles && CharacterManager::filterChararacterFileThankYou(dst)) {return;}
 
 		if (isDir) return;
 		
@@ -278,6 +283,13 @@ namespace CTRPluginFramework {
 				strcpy16(dst, (u8*)"ram:/CTGP-7/gamefs/Sound/stream/STRM_TITLE_ALT.bcstm"); return;
 			}
 		}
+		if (CharacterHandler::customKartsEnabled && strfind16(dst, (u16*)u"fs/Ka")) {
+			string16 file(dst);
+			file = (const u16*)u"ram:/CTGP-7/MyStuff/Karts/" + file.substr(19);
+			strcpy16(dst, file.c_str());
+			return;
+		}
+
 		if (!strfind16(dst, (u16*)u"RM_C")) return;
 		// Only music files at this point.
 		bool lastLap = strfind16(dst, (u16*)u"F.");
@@ -338,6 +350,7 @@ namespace CTRPluginFramework {
 			isRaceGoal = true;
 			MissionHandler::OnRaceFinish();
 			if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
+			if (BlueCoinChallenge::coinSpawned) BlueCoinChallenge::DespawnCoin();
 		}
 		else if (raceEventID == 4 && g_isFoolActive)
 		{
@@ -501,6 +514,10 @@ namespace CTRPluginFramework {
 		return (FixedStringBase<u16, 0x20>*)(getMenuData() + 0x3C0);
 	}
 
+	int MarioKartFramework::getCurrentRaceNumber() {
+		return *(int*)(getMenuData() + 0x670);
+	}
+
 	KartLapInfo* MarioKartFramework::getKartLapInfo(u32 playerID) {
 		u32 modeManagerBase = getModeManagerBase();
 		KartLapInfo** infos = (KartLapInfo**)(((u32*)modeManagerBase)[0x4CC/4]);
@@ -530,7 +547,7 @@ namespace CTRPluginFramework {
 	
 	bool MarioKartFramework::allowOpenCTRPFMenu()
 	{
-		if (!g_hasGameReachedTitle || MenuPageHandler::MenuSingleCharaPage::isInSingleCharaPage)
+		if (!g_hasGameReachedTitle)
 			return false;
 		if (isGameInRace() || (ISGAMEONLINE && lastLoadedMenu != 0x1A) || (ISGAMEONLINE && !g_isUserInControlWW) || MenuPageHandler::MenuEndingPage::IsLoaded()) {
 			if (g_InvalidSoundTimer.HasTimePassed(Seconds(0.5))) {
@@ -819,6 +836,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::handleBackwardsCamera(u32 pad)
 	{
 		if (areKeysBlocked) pad = 0;
+		if (isPauseBlocked) pad &= ~(Key::Start | Key::Select);
 		if (wasKeyInjected) {
 			pad |= (u32)injectedKey;
 			injectedKey = (Key)0;
@@ -1010,6 +1028,48 @@ namespace CTRPluginFramework {
 		*/
 	}
 
+	void MarioKartFramework::patchKMP(void* kmp) {
+		auto getAdditionalGOBJ = []() -> u32 {
+			return BlueCoinChallenge::HasChallenge() ? 1 : 0;
+		};
+		auto addGBOJEntries = [](GOBJEntryList* objlist) -> void {
+			if (BlueCoinChallenge::coinSpawned) {
+				for (int i = 0; i < objlist->count; i++) {
+					if (objlist->entries[i].objID == 0x7D) {
+						panic("IceBoundStar is not allowed in CTs");
+					}
+				}
+				objlist->entries[objlist->count++] = BlueCoinChallenge::GetBlueCoinGOBJ();
+			}
+			return;
+		};
+
+		struct KMPHeader {
+			u32 signature;
+			u32 filesize;
+			u16 sectionCount;
+			u16 headerSize;
+			u32 version;
+			u32 sectionOffsets[];
+		};
+		KMPHeader* header = (KMPHeader*)kmp;
+		u8* sections = (u8*)kmp + header->headerSize;
+		
+		// GOBJ patches
+		u32 gobjOffset = header->sectionOffsets[0x7];
+		GOBJEntryList* objlist = (GOBJEntryList*)(sections + gobjOffset);
+		if (!((u32)objlist > 0x06000000 && (u32)objlist < 0x07000000)) { // Prevent repatching
+			if (objlist->signature != 0x474F424A)
+				panic();
+			if (gobjrelocptr) operator delete(gobjrelocptr);
+			u32 objrelocptrsz = 0x8 + (objlist->count + getAdditionalGOBJ()) * sizeof(GOBJEntry);
+			gobjrelocptr = operator new(objrelocptrsz);
+			memcpy(gobjrelocptr, objlist, objrelocptrsz);
+			addGBOJEntries((GOBJEntryList*)gobjrelocptr);
+			header->sectionOffsets[0x7] += (u32)gobjrelocptr - (u32)objlist;
+		}
+	}
+
 	u16 MarioKartFramework::getSTGIEntryCount(STGIEntry** s) {
 		if (!s) return 0;
 		return *((u16*)((u32*)(*s) - 1));
@@ -1042,12 +1102,15 @@ namespace CTRPluginFramework {
 
 		MissionHandler::OnKMPConstruct();
 
+		isLoadingAward = CourseManager::lastLoadedCourseID == 0x26;
+		CharacterHandler::ConfirmCharacters();
+
 		rubberBandingMultiplier = 1.0f;
 		rubberBandingOffset = 0.0f;
-		if (g_getCTModeVal == ONLINE_CTWW || g_getCTModeVal == ONLINE_CTWW_CD) {
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 			rubberBandingMultiplier = Net::ctwwCPURubberBandMultiplier;
 			rubberBandingOffset = Net::ctwwCPURubberBandOffset;
-		} else if (g_getCTModeVal == OFFLINE && VersusHandler::IsVersusMode) {
+		} else if (g_getCTModeVal == CTMode::OFFLINE && VersusHandler::IsVersusMode) {
 			if (SaveHandler::saveData.vsSettings.cpuOption == VersusHandler::VSCPUDifficulty::VERY_HARD) {
 				rubberBandingMultiplier = 1.0f;
 				rubberBandingOffset = 0.175f;
@@ -1111,6 +1174,7 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::OnRaceExit(u32 mode) {
 		isRaceState = false;
 		isRacePaused = false;
+		isLoadingAward = false;
 		MissionHandler::OnRaceExit();
 		//0 -> next race, 1->replay, 2->quit, 3->view results, 4->Other (Demo/WinningRun)
 		if (mode == 0 && VersusHandler::IsVersusMode) {
@@ -1129,7 +1193,7 @@ namespace CTRPluginFramework {
 				dokanWarps.push_back(&currEntry);
 				break;
 			case 0xCB: // Thwomp
-				if (currEntry.settings[2] == 1 && currentRaceMode.mode != 1) { //If not in time trials and settings3 = 1
+				if ((currEntry.settings[2] == 1 && currentRaceMode.mode != 1) || currEntry.settings[2] == 2) { //If not in time trials and settings3 = 1
 					currEntry.settings[0] = 65535;
 					currEntry.settings[1] = 65535;
 					currEntry.position.y -= 100.f;
@@ -1323,7 +1387,10 @@ namespace CTRPluginFramework {
 			if (g_firstTimeInPage) {
 				g_setCTModeVal = CTMode::ONLINE_NOCTWW;
 				g_updateCTMode();
+				CharacterHandler::ResetCharacters();
+				CharacterHandler::DisableOnlineLock();
 				resetdriverchoices();
+				MarioKartFramework::SetWatchRaceMode(false);
 				currCommNumberTracksPtr = nullptr;
 				g_firstTimeInPage = false;
 				g_needsToCheckUpdate = true;
@@ -1348,7 +1415,7 @@ namespace CTRPluginFramework {
 #ifndef DISABLE_ONLINE_ACCESS
 						openDialog(DialogFlags::Mode::OK, NOTE("update_check"));
 #else
-						openDialog(DialogFlags::Async::YES | DialogFlags::Mode::OK, "Online access has\nbeen disabled for\nthis build.");
+						openDialog(DialogFlags::Mode::OK, "Online access has\nbeen disabled for\nthis build.");
 #endif
 					else if (loginStat == Net::CTWWLoginStatus::FAILED)
 						openDialog(DialogFlags::Mode::OK, Utils::Format("%s\nErr: 0x%08X", NAME("fail_conn").c_str(), Net::GetLastErrorCode()));
@@ -1466,6 +1533,10 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::handleTitleEnterCallback() { // Called every time the game enters the title screen
 		isRaceState = false;
 		isRacePaused = false;
+		isLoadingAward = false;
+		SetWatchRaceMode(false);
+		CharacterHandler::ResetCharacters();
+		CharacterHandler::DisableOnlineLock();
 		Net::customAuthData.populated = false;
 		Net::customAuthData.result = 0;
 		Net::temporaryRedirectCTGP7 = false;
@@ -1585,6 +1656,9 @@ namespace CTRPluginFramework {
 			return 0;
 		if (g_isFoolActive)
 			return 0;
+#ifdef STRESS_TEST_DEMO_TITLE
+		return 10000;
+#endif
 #ifdef RELEASE_BUILD
 		return timerVal;
 #else
@@ -1737,8 +1811,9 @@ namespace CTRPluginFramework {
 			return track == SaveHandler::saveData.vsSettings.roundAmount - 1;
 		else if (UserCTHandler::IsUsingCustomCup())
 			return UserCTHandler::IsLastRace(track);
-		else return
-			track == 3;
+		else {
+			return track == 3;
+		}
 	}
 
 	void MarioKartFramework::OnGPKartFinishRace(u32* finishPosition, u32* halfDriverAmount, u32 playerID) {
@@ -1784,6 +1859,11 @@ namespace CTRPluginFramework {
 			}
 		}
 		
+	}
+
+	void MarioKartFramework::SetWatchRaceMode(bool setMode) {
+		isWatchRaceMode = setMode;
+		CharacterHandler::OnWatchRaceEnabled(isWatchRaceMode);
 	}
 
 	u32 MarioKartFramework::getNumberOfRacers(u32 players, bool isFake)
@@ -1906,12 +1986,15 @@ namespace CTRPluginFramework {
 			}
 		}
 		onlineBotPlayerIDs.clear();
+		CharacterHandler::UpdateRaceCharaText();
 		RacePageInitFunctions[RacePageInitID::TEXTURE](racePage);
 		RacePageInitFunctions[RacePageInitID::EFFECT](racePage);
 		u8 unkFlag = ((u8*)((u32)racePage + 0x3100))[0xF8];
 		if (unkFlag == 0 && ((u32*)racePage)[0x26C/4] != 4) {
 			RacePageInitFunctions[RacePageInitID::ITEM_SLOT](racePage);
+			#ifndef NO_HUD_RACE
 			RacePageInitFunctions[RacePageInitID::RANK](racePage);
+			#endif
 		}
 		if (unkFlag == 0) SpeedometerController::Load();
 		RacePageInitFunctions[RacePageInitID::MAP](racePage);
@@ -1927,7 +2010,9 @@ namespace CTRPluginFramework {
 		RacePageInitFunctions[RacePageInitID::TEXT](racePage);
 		RacePageInitFunctions[RacePageInitID::CAPTION](racePage);
 		// Custom
+		#ifndef NO_HUD_RACE
 		RacePageInitFunctions[RacePageInitID::TIMER](racePage);
+		#endif
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD) RacePageInitFunctions[RacePageInitID::POINT](racePage);
 	}
 
@@ -1938,6 +2023,7 @@ namespace CTRPluginFramework {
 			if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::initAutoAccelIcon();
 			MusicCreditsController::Init();
 		}
+		CharacterHandler::UpdateRaceCharaText();
 	}
 
 	void MarioKartFramework::OnRacePageGenBBT(void* racePage) {
@@ -1947,6 +2033,7 @@ namespace CTRPluginFramework {
 			if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::initAutoAccelIcon();
 			MusicCreditsController::Init();
 		}
+		CharacterHandler::UpdateRaceCharaText();
 	}
 	
 	void MarioKartFramework::OnRacePageGenCBT(void* racePage) {
@@ -1956,6 +2043,7 @@ namespace CTRPluginFramework {
 			if (SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::initAutoAccelIcon();
 			MusicCreditsController::Init();
 		}
+		CharacterHandler::UpdateRaceCharaText();
 	}
 
 	bool MarioKartFramework::userCanControlKart()
@@ -2057,6 +2145,11 @@ namespace CTRPluginFramework {
 		{
 			if (trickInfos[i].trickCooldown > MarioKartTimer(0)) {
 				--trickInfos[i].trickCooldown;
+			}
+			if (loopVoiceCooldown[i] > MarioKartTimer(0)) {
+				--loopVoiceCooldown[i];
+				if (loopVoiceCooldown[i] == 0 && i == masterPlayerID)
+					loopMasterWPSoundEffectPlayed = false;
 			}
 		}
 		if (speedupMusicOnLap && !isAltGameMode) {
@@ -2215,6 +2308,12 @@ namespace CTRPluginFramework {
 			}
 		}
 
+		if (objID == 0x7D && BlueCoinChallenge::coinWasSpawned) {
+			if (BlueCoinChallenge::coinSpawned && playerID == MarioKartFramework::masterPlayerID) 
+				BlueCoinChallenge::OnKartHitCoin(vehicleReactObject);
+			return EGHTREACT_NONE;
+		}
+
 		// Special handling for some objects...
 		// (keep in mind for mission mode)
 		if (objID == 0xDC) { // Piranha plant
@@ -2260,6 +2359,22 @@ namespace CTRPluginFramework {
 		bool isBullet = vehicleReact[(0xC30) / 4] & 0x400000;
 		bool isHangingLakitu = vehicleReact[(0xC30) / 4] & 0x800000;
 		return !starTimer && !unknownTimer && !isBullet && !isHangingLakitu;
+	}
+
+	void MarioKartFramework::OnSndActorKartPlayDriverVoice(u32* sndActorKart, EVoiceType voice) {
+		if (voice == EVoiceType::DASH_BOOST) {
+			u32* vehicle = (u32*)sndActorKart[0x1E0/4];
+			int playerID = vehicle[0x21];
+			if (vehicleIsInLoopKCL((u32)vehicle)) {
+				if (loopVoiceCooldown[playerID] == 0) {
+					SndActorKArt_PlayDriverVoice(sndActorKart, EVoiceType::GLIDER_CANNON);
+				}
+				loopVoiceCooldown[playerID] = MarioKartTimer(0, 3, 0);
+				return;
+			} else if (loopVoiceCooldown[playerID] >= MarioKartTimer(0, 2, 800))
+				return;
+		}
+		SndActorKArt_PlayDriverVoice(sndActorKart, voice);
 	}
 
 	void MarioKartFramework::resetTrickInfos(int playerID, u32 kartUnitObj)
@@ -2643,7 +2758,7 @@ namespace CTRPluginFramework {
 		if (inkTimer > 30 && g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
 			out[0] = 5; // Off-road
 			out[1] = 6; // Mud
-		} else if (mainType == 8 && subType == 2) { // Loop kcl
+		} else if (mainType == 8 && (subType == 1 || subType == 2)) { // Loop kcl
 			out[0] = 8;
 			out[1] = 0;
 		} else {
@@ -2698,6 +2813,95 @@ namespace CTRPluginFramework {
 		ObjModelBaseChangeAnimationImpl(objModelBase, anim, (u32)DrawMdl_changeMatAnimation, value);
 	}
 
+	static void NAKED __attribute__((no_instrument_function)) ObjModelBaseRotateImpl(u32 objModelBase, u32 sincosidxfunc, u32 amount) {
+		__asm__ __volatile__(
+			"STMFD           SP!, {R4,R5,LR}\n"
+			"MOV             R4, R0\n"
+			"MOV			 R5, R1\n"
+			"VPUSH           {D8-D9}\n"
+			"SUB             SP, SP, #0x30\n"
+			"ADD             R1, SP, #0x28\n"
+			"ADD             R0, SP, #0x24\n"
+			"BLX             R5\n"
+			"LDR             R0, [R4,#8]\n"
+			"VLDR            S1, [SP,#0x28]\n"
+			"VLDR            S5, [SP,#0x24]\n"
+			"VLDR            S0, zero_ombri\n"
+			"VLDR            S9, [R0,#8]\n"
+			"VLDR            S10, [R0,#0x14]\n"
+			"VLDR            S11, [R0,#0x20]\n"
+			"VMUL.F32        S2, S9, S1\n"
+			"VMUL.F32        S17, S9, S5\n"
+			"VMUL.F32        S18, S9, S0\n"
+			"VNEG.F32        S6, S5\n"
+			"VMUL.F32        S9, S10, S5\n"
+			"VMUL.F32        S3, S10, S1\n"
+			"VMUL.F32        S4, S11, S1\n"
+			"VMUL.F32        S5, S11, S5\n"
+			"VMUL.F32        S11, S11, S0\n"
+			"VLDR            S8, [R0,#0xC]\n"
+			"VMUL.F32        S10, S10, S0\n"
+			"VLDR            S12, [R0,#0x18]\n"
+			"VLDR            S13, [R0,#0x24]\n"
+			"VMLA.F32        S2, S8, S6\n"
+			"VLDR            S14, [R0,#0x10]\n"
+			"VMLA.F32        S3, S12, S6\n"
+			"VMLA.F32        S4, S13, S6\n"
+			"VMLA.F32        S5, S13, S1\n"
+			"VMLA.F32        S11, S13, S0\n"
+			"VLDR            S15, [R0,#0x1C]\n"
+			"VMLA.F32        S10, S12, S0\n"
+			"VMLA.F32        S9, S12, S1\n"
+			"VLDR            S7, one_ombri\n"
+			"VLDR            S16, [R0,#0x28]\n"
+			"VMLA.F32        S18, S8, S0\n"
+			"VMLA.F32        S2, S14, S0\n"
+			"VMLA.F32        S17, S8, S1\n"
+			"VMLA.F32        S3, S15, S0\n"
+			"VMLA.F32        S11, S16, S7\n"
+			"VMLA.F32        S5, S16, S0\n"
+			"VMLA.F32        S4, S16, S0\n"
+			"VMLA.F32        S10, S15, S7\n"
+			"VMLA.F32        S9, S15, S0\n"
+			"ADD             R0, R4, #0x38\n"
+			"VSTR            S2, [R4,#0x18]\n"
+			"VMLA.F32        S18, S14, S7\n"
+			"VSTR            S3, [R4,#0x28]\n"
+			"VMLA.F32        S17, S14, S0\n"
+			"VSTR            S11, [R4,#0x40]\n"
+			"ADD             R2, SP, #0xC\n"
+			"VSTMIA          R0, {S4-S5}\n"
+			"ADD             R0, R4, #0x2C\n"
+			"MOV             R1, SP\n"
+			"VSTMIA          R0, {S9-S10}\n"
+			"ADD             R0, R4, #0x1C\n"
+			"VSTMIA          R0, {S17-S18}\n"
+			"LDR             R0, [R4,#0x6C]\n"
+			"ORR             R0, R0, #2\n"
+			"STR             R0, [R4,#0x6C]\n"
+			"VSTMIA          SP, {S2-S4}\n"
+			"VLDR            S0, [R4,#0x1C]\n"
+			"VLDR            S1, [R4,#0x2C]\n"
+			"VLDR            S2, [R4,#0x3C]\n"
+			"VSTMIA          R2, {S0-S2}\n"
+			"ADD             R2, SP, #0x18\n"
+			"VLDR            S0, [R4,#0x20]\n"
+			"VLDR            S1, [R4,#0x30]\n"
+			"VLDR            S2, [R4,#0x40]\n"
+			"VSTMIA          R2, {S0-S2}\n"
+			"ADD             SP, SP, #0x30\n"
+			"VPOP            {D8-D9}\n"
+			"LDMFD           SP!, {R4,R5,PC}\n"
+
+			"one_ombri: .float 1.0\n"
+			"zero_ombri: .float 0.0\n"
+		);
+	}
+
+	void MarioKartFramework::ObjModelBaseRotate(u32 objModelBase, u32 amount) {
+		ObjModelBaseRotateImpl(objModelBase, 0x001151A4, amount);
+	}
+
 	void MarioKartFramework::OnRaceNextMenuLoadCallback() {
 	}
 
@@ -2740,21 +2944,26 @@ namespace CTRPluginFramework {
 
 			// When the page is generating, the msbt is not available, so we need an intermediate step...
 			onlineBotPlayerIDs.push_back(std::make_pair(playerID, FixedStringBase<u16,0x20>()));
-			const u16* driverName = Language::MsbtHandler::GetText(1050 + CharacterManager::msbtOrder[CharacterManager::driverIDOrder[driverID]]);
+			const u16* driverName = Language::MsbtHandler::GetText(1050 + CharacterHandler::msbtOrder[(int)driverID]);
 			strcpy16(onlineBotPlayerIDs.back().second.strData, (u16*)u"*");
 			strcpy16n(onlineBotPlayerIDs.back().second.strData + 1, driverName, 0x1F * sizeof(u16));
 		}
 	}
 
+	static u32 g_courseVotePagePreStep_prevState = 0;
 	void MarioKartFramework::OnCourseVotePagePreStep(u32 courseVotePage) {
 		u32 state = ((u32*)courseVotePage)[0x2BC / 4];
 		if (state == 6 && neededCPU) {
-			if (imRoomHost) {
+			if (myRoomPlayerID == 0) {
 				if (neededCPU > neededCPUCurrentPlayers)
 					AddBotPlayerOnline(neededCPU - neededCPUCurrentPlayers);
 			}
 			neededCPU = 0;
 		}
+		if (state == 6 && g_courseVotePagePreStep_prevState != 6 && (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD)) {
+			CharacterHandler::StartFetchOnlineSelectedCharacters();
+		}
+		g_courseVotePagePreStep_prevState = state;
 	}
 
 	bool MarioKartFramework::OnWifiLoadDriverShouldForceDefault(int playerID) {
@@ -2937,7 +3146,7 @@ namespace CTRPluginFramework {
 
 		if (isStar || isMega || starTimer || megaTimer) {
 			SndActorBase_SetCullingSafeDistVolRatio(sndActorKart, 0.8f);
-			if (isStar) SndActorKArt_PlayDriverVoice((u32)sndActorKart, EVoiceType::STAR_START);
+			if (isStar) SndActorKArt_PlayDriverVoice(sndActorKart, EVoiceType::STAR_START);
 			((u8*)sndActorKart)[0x1FF] = true;
 		} else if (!isStar && !isMega && !starTimer && !megaTimer) {
 			SndActorBase_SetCullingSafeDistVolRatio(sndActorKart, 0.5f);
@@ -2965,8 +3174,11 @@ namespace CTRPluginFramework {
 		CamParams& srcParams = *(CamParams*)(cameraparams + 0x8/4);
 		dstParams = srcParams;
 		if (playerMegaCustomFov && playerMegaCustomFov != 52.f) dstParams.fov = playerMegaCustomFov;
-		bool isInLoop = vehicleIsInLoopKCL(((u32**)kartCamera)[0xD8/4][0]);
-		if (isInLoop) {
+		int isInLoop = vehicleIsInLoopKCL(((u32**)kartCamera)[0xD8/4][0]);
+		if (isInLoop == 1) {
+			dstParams.fov *= 1.15f;
+			dstParams.yOffsetCamera -= 5.f;
+		} else if (isInLoop == 2) {
 			dstParams.yOffsetLookAt = 24.f;
 			dstParams.yOffsetCamera = -15.f;
 			dstParams.fov *= 1.5f;
@@ -2991,23 +3203,23 @@ namespace CTRPluginFramework {
 	}
 
 	u32 MarioKartFramework::OnSimpleModelManager(u32 own) {
-		CharacterManager::OnThankYouLoad(true);
+		CharacterHandler::OnThankYouScreen(true);
 		u32 ret = ((u32(*)(u32))OnSimpleModelManagerHook.callCode)(own);
-		CharacterManager::OnThankYouLoad(false);
+		CharacterHandler::OnThankYouScreen(false);
 		return ret;
 	}
 
 	bool MarioKartFramework::vehicleForceAntigravityCamera(u32 vehicle) {
-		return vehicleIsInLoopKCL(vehicle);
+		return vehicleIsInLoopKCL(vehicle) != 0;
 	}
 
 	bool MarioKartFramework::vehicleDisableSteepWallPushback(u32 vehicle) {
-		return vehicleIsInLoopKCL(vehicle);
+		return vehicleIsInLoopKCL(vehicle) != 0;
 	}
 
 	bool MarioKartFramework::vehicleDisableUpsideDownFloorUnstick(u32 vehicle, float* gravityAttenuator) {
 		// gravityAttenuator = 0 -> No change in gravity, gravityAttenuator = 1 -> Zero gravity 
-		bool isInLoop = vehicleIsInLoopKCL(vehicle);
+		int isInLoop = vehicleIsInLoopKCL(vehicle);
 		bool res = false;
 		if (isInLoop) {
 			constexpr float loopStickThreshold = 0.75f;
@@ -3018,7 +3230,7 @@ namespace CTRPluginFramework {
 	}
 
 	void MarioKartFramework::OnKartGravityApply(u32 vehicle, Vector3& gravityForce) {
-		bool isInLoop = vehicleIsInLoopKCL(vehicle);
+		int isInLoop = vehicleIsInLoopKCL(vehicle);
 		if (isInLoop) {
 			float speedFactor = *(float*)(vehicle + 0x330 + 0xC00);
 			constexpr float invertedGravityFactor = 0.95f;
@@ -3065,6 +3277,65 @@ namespace CTRPluginFramework {
 			float thirdPartProgress = std::clamp(isStopping ? ((60.f - currentStateTimer) / 60.f) : 1.f, 0.f, 1.f) * 0.15f;
 			ExtendedItemBoxController::killerProgress = isStopping ? thirdPartProgress : (firstPartProgress + secondPartProgress + thirdPartProgress);
 		}
+	}
+
+	void* MarioKartFramework::OnLoadResGraphicFile(u32 resourceLoader, SafeStringBase* path, ResourceLoaderLoadArg* loadArgs) {
+		void* buffer = CharacterHandler::OnLoadResGraphicsFile(resourceLoader, path, loadArgs);
+		if (!buffer)
+			buffer = ((void*(*)(u32, SafeStringBase*, ResourceLoaderLoadArg*))loadResGraphicFileHook.callCode)(resourceLoader, path, loadArgs);
+		return CryptoResource::ProcessCryptoFile(buffer);
+	}
+
+	void MarioKartFramework::OnKartUnitCalcDrawKartOn(u32 kartUnit, float* transformMatrix) {
+		using Matrix3x4 = std::array<std::array<float, 4>, 3>;
+		u32 vehicle = ((u32*)kartUnit)[0x2C/4];
+        int playerID = ((u32*)vehicle)[0x84/4];
+		if (!rotateCharacterID || CharacterHandler::GetSelectedCharacter(playerID) != rotateCharacterID) {
+			*(Matrix3x4*)(((u32*)kartUnit)[0x1E4/4] + 0x14) = *(Matrix3x4*)transformMatrix;
+			return;
+		}
+		auto rotateMatrixY = [](const Matrix3x4& matrix, float angle) -> Matrix3x4 {
+			float cosAngle = cosf(angle);
+			float sinAngle = sinf(angle);
+
+			Matrix3x4 rotatedMatrix = matrix;
+
+			for (int i = 0; i < 3; ++i) {
+				float x = matrix[i][0];
+				float z = matrix[i][2];
+
+				rotatedMatrix[i][0] = x * cosAngle + z * sinAngle;
+				rotatedMatrix[i][2] = -x * sinAngle + z * cosAngle;
+			}
+
+			return rotatedMatrix;
+		};
+		characterRotateAmount[playerID] += 2;
+		*(Matrix3x4*)(((u32*)kartUnit)[0x1E4/4] + 0x14) = rotateMatrixY(*(Matrix3x4*)transformMatrix, (characterRotateAmount[playerID] / 256.f) * 2 * M_PI);
+	}
+
+	void MarioKartFramework::OnJugemSwitchReverseUpdate(u32 switchreverse) {
+		u32 vehicle = ((u32***)switchreverse)[0x4/4][0x78/4][0];
+		if (!MissionHandler::isLakituVisible() || vehicleIsInLoopKCL(vehicle))
+			return;
+		((void(*)(u32))jugemSwitchReverseUpdateHook.callCode)(switchreverse);
+	}
+
+	u32 MarioKartFramework::SndActorKartDecideBoostSndID(u32 sndActorKart, u32 courseID) {
+		if (courseID != 0x17) // Waluigi Pinball
+			return Snd::SoundID::KART_DASH;
+		
+		u32 vehicle = ((u32*)sndActorKart)[0x1E0/4];
+        int playerID = ((u32*)vehicle)[0x84/4];
+		if (playerID == masterPlayerID && vehicleIsInLoopKCL(vehicle)) {
+			if (!loopMasterWPSoundEffectPlayed) {
+				u32*(*sndactorkart_startsound)(u32 soundPlayer, u32 soundID, u32* soundHandle) = (decltype(sndactorkart_startsound))(((u32**)sndActorKart)[0][0x70/4]);
+				sndactorkart_startsound(sndActorKart, Snd::SoundID::CANNON_START_WALUIGI_PINBALL, nullptr);
+				loopMasterWPSoundEffectPlayed = true;
+			}
+			return Snd::SoundID::KART_DASH;
+		}
+		return Snd::SoundID::KART_DASH_WALUIGI_PINBALL;
 	}
 
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {
@@ -3221,13 +3492,13 @@ namespace CTRPluginFramework {
 
 namespace CTRPluginFramework {
 	void g_updateCTModeImpl() {
-		if (g_setCTModeVal == CTMode::MAXVAL) return;
+		if (g_setCTModeVal == CTMode::INVALID) return;
 		g_getCTModeVal = g_setCTModeVal;
-		g_setCTModeVal = CTMode::MAXVAL;
+		g_setCTModeVal = CTMode::INVALID;
 
 		switch (g_getCTModeVal)
 		{
-		case OFFLINE:
+		case CTMode::OFFLINE:
 			CourseManager::setCustomTracksAllowed(true);
 			CourseManager::setOriginalTracksAllowed(true);
 			MarioKartFramework::improvedTricksAllowed = true;
@@ -3237,11 +3508,11 @@ namespace CTRPluginFramework {
 			MarioKartFramework::nexNetworkInstance = 0;
 			MarioKartFramework::automaticDelayDriftAllowed = true;
 			ItemHandler::allowFasterItemDisappear = true;
-			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
+			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			isCTWW = 0;
 			isAltGameMode = 0;
 			break;
-		case ONLINE_NOCTWW:
+		case CTMode::ONLINE_NOCTWW:
 			CourseManager::setCustomTracksAllowed(false);
 			CourseManager::setOriginalTracksAllowed(true);
 			MarioKartFramework::improvedTricksAllowed = false;
@@ -3257,11 +3528,11 @@ namespace CTRPluginFramework {
 			CourseManager::isRandomTracksForcedComm = false;
 			MarioKartFramework::automaticDelayDriftAllowed = false;
 			ItemHandler::allowFasterItemDisappear = false;
-			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
+			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			isCTWW = 0;
 			isAltGameMode = 0;
 			break;
-		case ONLINE_COM:
+		case CTMode::ONLINE_COM:
 			isCTWW = 0;
 			isAltGameMode = 0;
 			MarioKartFramework::improvedTricksAllowed = false;
@@ -3269,9 +3540,9 @@ namespace CTRPluginFramework {
 			MarioKartFramework::brakeDriftAllowed = false;
 			MarioKartFramework::brakeDriftForced = false;
 			ItemHandler::allowFasterItemDisappear = false;
-			MenuPageHandler::MenuSingleCourseBasePage::blockedCourses.clear();
+			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			break;
-		case ONLINE_CTWW:
+		case CTMode::ONLINE_CTWW:
 			CourseManager::setCustomTracksAllowed(true);
 			CourseManager::setOriginalTracksAllowed(false);
 			MarioKartFramework::improvedTricksAllowed = true;
@@ -3286,7 +3557,7 @@ namespace CTRPluginFramework {
 			isCTWW = 1;
 			isAltGameMode = 0;
 			break;
-		case ONLINE_CTWW_CD:
+		case CTMode::ONLINE_CTWW_CD:
 			CourseManager::setCustomTracksAllowed(true);
 			#if CITRA_MODE == 0
 			CourseManager::setOriginalTracksAllowed(true);
@@ -3305,15 +3576,15 @@ namespace CTRPluginFramework {
 			isCTWW = 1;
 			isAltGameMode = 1;
 			break;
-		case MAXVAL:
+		case CTMode::INVALID:
 		default:
 			break;
 		}
 	}
 }
 
-CTMode g_setCTModeVal = CTMode::MAXVAL;
-CTMode g_getCTModeVal = CTMode::MAXVAL;
+CTMode g_setCTModeVal = CTMode::INVALID;
+CTMode g_getCTModeVal = CTMode::INVALID;
 void g_updateCTMode() {
 	CTRPluginFramework::g_updateCTModeImpl();
 }

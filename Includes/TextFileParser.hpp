@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.hpp
-Open source lines: 57/57 (100.00%)
+Open source lines: 58/58 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -26,6 +26,7 @@ namespace CTRPluginFramework {
 		TextFileParser();
 		bool Parse(const std::string& filename, const std::string& separator = "::");
 		bool ParseLine(const std::string& line, const std::string& separator = "::");
+		bool ParseLines(const std::string& lines, const std::string& separator = "::");
 		const std::vector<std::string>& getEntries(const std::string& key);
 		const std::string& getEntry(const std::string& key, u32 element = 0);
 		TextMapIter begin();

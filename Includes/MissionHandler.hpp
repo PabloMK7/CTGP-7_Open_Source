@@ -310,7 +310,7 @@ namespace CTRPluginFramework {
 
 			static void SetFullGradeFlag(u32 world, u32 level);
 			static bool GetFullGradeFlag(u32 world, u32 level);
-			static bool GetAllFullGradeFlag();
+			static std::pair<int, int> GetAllFullGradeFlag();
 
 		private:
 			static minibson::encdocument save;

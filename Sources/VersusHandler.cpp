@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.cpp
-Open source lines: 706/706 (100.00%)
+Open source lines: 720/720 (100.00%)
 *****************************************************/
 
 #include "VersusHandler.hpp"
@@ -15,9 +15,10 @@ Open source lines: 706/706 (100.00%)
 #include "3ds.h"
 #include "csvc.h"
 #include "Sound.hpp"
-#include "cheats.hpp"
+#include "main.hpp"
 #include "SaveHandler.hpp"
 #include "UserCTHandler.hpp"
+#include "CharacterHandler.hpp"
 #include "MenuPage.hpp"
 #include "str16utils.hpp"
 #include <algorithm>
@@ -54,7 +55,9 @@ namespace CTRPluginFramework {
 		"cup_propeller",
 		"cup_pow",
 		"cup_rock",
-		"cup_moon"
+		"cup_moon",
+		"cup_hammer",
+		"cup_wonder"
 	};
 
 	std::vector<CustomIcon> VersusHandler::cupIcons;
@@ -228,16 +231,20 @@ namespace CTRPluginFramework {
 			courses.push_back(s);
 		}
 		courseKbd.Populate(courses);
-		int val = courseKbd.Open();
-		if (val == -2) {
-			int lastVal = courseKbd.GetLastSelectedEntry();
-			if (lastVal >= 0 && lastVal <= 3)
-				val = lastVal;
-			else
-				val = 0;
+		while (true) {
+			int val = courseKbd.Open();
+			if (val == -2) {
+				int lastVal = courseKbd.GetLastSelectedEntry();
+				if (lastVal >= 0 && lastVal <= 3)
+					val = lastVal;
+				else
+					val = 0;
+			}
+			if (val == -1) return INVALIDTRACK;
+			u32 courseID = globalCupData[FROMBUTTONTOCUP(cupId)][val];
+			if (!MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(courseID))
+				return courseID;
 		}
-		if (val == -1) return INVALIDTRACK;
-		return globalCupData[FROMBUTTONTOCUP(cupId)][val];
 	}
 
 	u32 VersusHandler::OpenCupCourseKeyboard(int* startingCupButton, int* selectedCupButton, bool canAbort, std::string& topText)
@@ -523,6 +530,10 @@ namespace CTRPluginFramework {
 			});
 			for (int i = 0; i < SaveHandler::saveData.vsSettings.roundAmount; i++) {
 				versusCupTable[i] = courseList[i];
+				if (MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(courseList[i])) {
+					courseList.erase(std::next(courseList.begin(), i));
+					i--;
+				}
 			}
 		}
 		else {
@@ -536,6 +547,7 @@ namespace CTRPluginFramework {
 				for (; index < SaveHandler::saveData.vsSettings.roundAmount; startingCupIndex = (startingCupIndex + 1) % cupTransSize) {
 					for (; index < SaveHandler::saveData.vsSettings.roundAmount && startingTrackIndex < 4; startingTrackIndex++) {
 						versusCupTable[index++] = globalCupData[FROMBUTTONTOCUP(cupTransTable[startingCupIndex])][startingTrackIndex];
+						if (MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(versusCupTable[index-1])) index--;
 					}
 					startingTrackIndex = 0;
 				}
@@ -544,6 +556,7 @@ namespace CTRPluginFramework {
 				for (; index < SaveHandler::saveData.vsSettings.roundAmount; startingCupIndex = (startingCupIndex + (cupTransSize / 2) + (startingCupIndex >= (cupTransSize / 2) ? 1 : 0)) % cupTransSize) {
 					for (; index < SaveHandler::saveData.vsSettings.roundAmount && startingTrackIndex < 4; startingTrackIndex++) {
 						versusCupTable[index++] = globalCupData[FROMBUTTONTOCUP(cupTransTable[startingCupIndex])][startingTrackIndex];
+						if (MenuPageHandler::MenuSingleCourseBasePage::IsBlockedCourse(versusCupTable[index-1])) index--;
 					}
 					startingTrackIndex = 0;
 				}
@@ -609,6 +622,7 @@ namespace CTRPluginFramework {
 		IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		UserCTHandler::UpdateCurrentCustomCup(0);
+		CharacterHandler::ResetCharacters();
 	}
 
 	void VersusHandler::OnMenuSingleOKCallback(u32 val) {
@@ -621,7 +635,7 @@ namespace CTRPluginFramework {
 	void VersusHandler::OpenItemSelectorMenu(bool isRandom) {
 		Keyboard kbd("dummy");
 
-		StringVector options;
+		std::vector<std::string> options;
 		options.push_back(settingsOpts[0]);
 		options.insert(options.end(), itemNames.begin(), itemNames.end());
 		kbd.Populate(options);
