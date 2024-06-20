@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: entrystructs.hpp
-Open source lines: 68/68 (100.00%)
+Open source lines: 67/67 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -47,7 +47,6 @@ namespace CTRPluginFramework {
     extern MenuEntry *speedometerentry;
     extern MenuEntry *backcamentry;
     extern MenuEntry *warnitementry;
-    extern MenuEntry *comcodegenentry;
 	extern MenuEntry *courmanentry;
 	extern MenuEntry *numbRoundsEntry;
 	extern MenuEntry *courseOrderEntry;
@@ -59,9 +58,9 @@ namespace CTRPluginFramework {
     extern MenuEntry* brakeDriftEntry;
     extern MenuEntry* automaticDelayDriftEntry;
     extern MenuEntry* achievementsEntry;
+    extern MenuEntry* blueCoinsEntry;
 
 	extern OnlineMenuEntry* ccSelOnlineEntry;
-	extern OnlineMenuEntry* comCodeGenOnlineEntry;
 	extern OnlineMenuEntry* numbRoundsOnlineEntry;
     extern OnlineMenuEntry* serverOnlineEntry;
     extern OnlineMenuEntry* improvedTricksOnlineEntry;

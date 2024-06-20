@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.hpp
-Open source lines: 346/346 (100.00%)
+Open source lines: 349/349 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -59,7 +59,10 @@ namespace CTRPluginFramework
 		};
 
 		static void GetLangSpecificFile(u16* filename, SZSID id, bool isPatch);
+		static bool IsLangSpecificFile(const char* file);
 		static void FixRegionSpecificFile(u16* filename);
+		static RT_HOOK fileDeviceDoIsExistFileHook;
+		static bool OnFileDeviceDoIsExistFile(u32 own, bool* exists, SafeStringBase* file);
 
 		struct TranslationInfo
 		{

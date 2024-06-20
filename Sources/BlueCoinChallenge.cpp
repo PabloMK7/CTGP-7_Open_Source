@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.cpp
-Open source lines: 250/371 (67.39%)
+Open source lines: 252/373 (67.56%)
 *****************************************************/
 
 #include "BlueCoinChallenge.hpp"
@@ -121,7 +121,9 @@ namespace CTRPluginFramework {
         coinSpawned = false;
         // If...
         if (
-            // it's not SP GP or SP TT...
+            // blue coins disabled
+            !SaveHandler::saveData.flags1.blueCoinsEnabled ||
+            // or it's not SP GP or SP TT...
             (raceInfo->raceMode.type != 0 || raceInfo->raceMode.mode > 2) ||
             // or is mission mode...
             MissionHandler::isMissionMode ||

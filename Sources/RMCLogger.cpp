@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: RMCLogger.cpp
-Open source lines: 100/100 (100.00%)
+Open source lines: 103/103 (100.00%)
 *****************************************************/
 
 #include "RMCLogger.hpp"
@@ -52,6 +52,7 @@ namespace CTRPluginFramework {
     }
 
     Mutex logMutex;
+    static u64 g_packetTID = 0;
     void RMCLogger::LogRMCPacket(const u8* data, u32 packetSize, bool isRecieved) {
         #ifndef LOG_RAW_PACKETS
         if (packetSize < 4 || ((u32*)data)[0] != packetSize - 4)
@@ -70,8 +71,10 @@ namespace CTRPluginFramework {
         pHdr->timestamp = startTime + elapsedSec;
         pHdr->microsecondoffset = elapsedMsec;
 
-        PacketMetadata metadata;
-        metadata.flags.isRecievedPacked = isRecieved;
+        PacketMetadata metadata{};
+        if (g_packetTID == 0) g_packetTID = Process::GetTitleID();
+        metadata.titleID = g_packetTID;
+        metadata.flags.isRecievedPacket = isRecieved;
         memcpy(writeBuffer + sizeof(PcapPacketHeader), &metadata, sizeof(PacketMetadata));
         
         memcpy(writeBuffer + sizeof(PcapPacketHeader) + sizeof(PacketMetadata), data, packetSize);

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 1023/1160 (88.19%)
+Open source lines: 1022/1159 (88.18%)
 *****************************************************/
 
 #include <locale>
@@ -42,7 +42,6 @@ namespace CTRPluginFramework
 	void (*CourseManager::MenuSingle_CupBase_buttonHandler_OK)(u32 menuObject, u32 cupID) = NULL;
 	u32  (*CourseManager::Sequence_GetGPCourseNameID)(u32 cup, u32 track) = NULL;
 	bool CourseManager::hadToDisableSpeed = false;
-	bool CourseManager::isRandomTracksForcedComm = false;
 	int CourseManager::multiCupButtonsIDs[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 	u32* CourseManager::finalGlobalCupTranslateTable = nullptr;
 	u32 CourseManager::finalGlobalCupTranslateTableSize = 0;
@@ -838,7 +837,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ggba_ShyGuyBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x5C
 			{&globalNameData.f, "Ctgp_BingoPartyyyy", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x5D
 			{&globalNameData.f, "Ctgp_DogeDesert", 0x00, 0x02, MarioKartTimer::ToFrames(3, 0)},				//0x5E
-			{&globalNameData.f, "Gn64_BansheeBoard", 0x14, 0x03, MarioKartTimer::ToFrames(3,0)},				//0x5F
+			{&globalNameData.f, "Ctgp_N64BansheeBoard", 0x14, 0x03, MarioKartTimer::ToFrames(3,0)},			//0x5F
 			{&globalNameData.f, "Ctgp_GCNMarioCirc", 0x00, 0x03, MarioKartTimer::ToFrames(2,0)},  			//0X60
 			{&globalNameData.f, "Ctgp_RainbowRdDX", 0x0D, 0x01, MarioKartTimer::ToFrames(2, 30)},				//0X61
 			{&globalNameData.f, "Ctgp_StarGSumm", 0x0A, 0x03, MarioKartTimer::ToFrames(1, 45)},				//0x62

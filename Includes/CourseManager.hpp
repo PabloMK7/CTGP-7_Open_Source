@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.hpp
-Open source lines: 127/131 (96.95%)
+Open source lines: 126/130 (96.92%)
 *****************************************************/
 
 #pragma once
@@ -74,7 +74,6 @@ namespace CTRPluginFramework
         public:
 			static u32 lastLoadedCourseID;
 			static bool hadToDisableSpeed;
-			static bool isRandomTracksForcedComm;
 			static u8 customTracksAllowedFlag;
 			static u8 originalTracksAllowedFlag;
 			static bool getBGMFromNormalLap;

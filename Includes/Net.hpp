@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 180/184 (97.83%)
+Open source lines: 190/194 (97.94%)
 *****************************************************/
 
 #pragma once
@@ -70,13 +70,17 @@ namespace CTRPluginFramework {
 			RACING = 5,
 			RACE_FINISHED = 6,
 		};
+		static Clock heartBeatClock;
+		static void HeartBeat();
 
 		static void UpdateOnlineStateMahine(OnlineStateMachine mode, bool titleScreenLogin = false);
 		static void WaitOnlineStateMachine();
 		static void Initialize();
 
-		static bool IsRunningPretendo();
 		static bool IsOnCTGP7Network();
+		static bool IsPrivateNetwork() {
+			return privateRoomID != 0;
+		}
 
 		struct GameAuthenticationData {
 			s32 result{};
@@ -107,6 +111,7 @@ namespace CTRPluginFramework {
 		};
 		static bool temporaryRedirectCTGP7;
 		static bool friendsLoggedInCTGP7;
+		static u64 privateRoomID;
 		static CustomGameAuthentication customAuthData;
 		static RT_HOOK friendsLoginHook;
 		static int OnFriendsLogin(Handle handle);
@@ -132,6 +137,11 @@ namespace CTRPluginFramework {
 		static void OnSetPrimaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort);
 		static RT_HOOK setSecondaryNATCheckServerHook;
 		static void OnSetSecondaryNATCheckServer(u32 rootTransport, const char16_t* server, u16 startPort, u16 endPort);
+		static RT_HOOK onProcessNotificationEventHook;
+		static void OnProcessNotificationEvent(u32 own, u32* notificationEvent);
+
+		static Task checkMessageAndKickTask;
+		static s32 checkMessageAndKickTaskfunc(void* arg);
 
 		class DiscordInfo
 		{

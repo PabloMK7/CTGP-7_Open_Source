@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.hpp
-Open source lines: 209/228 (91.67%)
+Open source lines: 210/229 (91.70%)
 *****************************************************/
 
 #pragma once
@@ -205,5 +205,6 @@ namespace CTRPluginFramework {
 			static u32* latestMenuSzsArchive;
 			static bool isValidMenuSzsArchive();
 		private:
+			static constexpr u32 SARCVER = 0xFABA0000;
 	};
 }

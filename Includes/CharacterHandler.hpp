@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.hpp
-Open source lines: 300/300 (100.00%)
+Open source lines: 301/301 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -79,6 +79,7 @@ namespace CTRPluginFramework {
         static std::unordered_map<u64, CharacterEntry>& GetCharEntries() {
             return charEntries;
         }
+        static u64 SelectRandomCharacter(EDriverID driverID, bool includeVanilla);
         static void ConfirmCharacters();
         static void ResetCharacters();
 

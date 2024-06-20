@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HokakuCTR.cpp
-Open source lines: 226/227 (99.56%)
+Open source lines: 231/232 (99.57%)
 *****************************************************/
 
 #include "HokakuCTR.hpp"
@@ -141,8 +141,13 @@ namespace CTRPluginFramework
     bool g_HokakuSendBlock = false;
     bool g_HokakuRecvBlock = false;
 
+    struct InetAddr {
+        u32 ip; // Stored in LE
+        u16 port; // Stored in BE
+    };
+
     static bool g_sentOSDNotif = false;
-    Result sendToRawCallback(void* obj, u8* buffer, u32 size, void* arg2, void* arg3) {
+    Result sendToRawCallback(void* obj, u8* buffer, u32 size, InetAddr* arg2, void* arg3) {
         if (g_HokakuSendBlock) {
             return 0;
         }
@@ -151,7 +156,7 @@ namespace CTRPluginFramework
             g_sentOSDNotif = true;
         }
         mainLogger->LogRMCPacket(buffer, size, false);
-        return ((Result(*)(void*, u8*, u32, void*, void*))sendToHook.callCode)(obj, buffer, size, arg2, arg3);
+        return ((Result(*)(void*, u8*, u32, InetAddr*, void*))sendToHook.callCode)(obj, buffer, size, arg2, arg3);
     }
 
     bool installSendToRaw(u32 addr) {
@@ -161,12 +166,12 @@ namespace CTRPluginFramework
         return true;
     }
 
-    Result recvFromRawCallback(void* obj, u8* buffer, u32 size, void* arg2, u32* arg3) {
+    Result recvFromRawCallback(void* obj, u8* buffer, u32 size, InetAddr* arg2, u32* arg3) {
         if (g_HokakuRecvBlock) {
             *arg3 = 0;
             return 0; 
         }
-        Result res = ((Result(*)(void*, u8*, u32, void*, void*))recvFromHook.callCode)(obj, buffer, size, arg2, arg3);
+        Result res = ((Result(*)(void*, u8*, u32, InetAddr*, void*))recvFromHook.callCode)(obj, buffer, size, arg2, arg3);
         if (res == 0 && *arg3 != 0)
             mainLogger->LogRMCPacket(buffer, *arg3, true);
         return res;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3590/3695 (97.16%)
+Open source lines: 3415/3521 (96.99%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -58,11 +58,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::ctgp7ver = SYSTEM_VERSION(0, 0, 0);
 	u32 MarioKartFramework::region = 0;
 	u32 MarioKartFramework::revision = 0;
-	std::string MarioKartFramework::onlineCode = "miHwotFrqehybxGvaAunYdzsfBkjpQgc";
-	u16* MarioKartFramework::commDisplayText = nullptr;
 	u32 MarioKartFramework::lastLoadedMenu = 0;
-	u32* MarioKartFramework::oldStrloc = nullptr;
-	u32 MarioKartFramework::oldStrptr = 0;
 	u8* MarioKartFramework::cameraKartMode = 0;
 	u32* MarioKartFramework::currNumberTracksPtr = nullptr;
 	u32* MarioKartFramework::currCommNumberTracksPtr = nullptr;
@@ -107,10 +103,6 @@ namespace CTRPluginFramework {
 	void (*MarioKartFramework::BaseMenuPageApplySetting_CPU)(int cpuAmount, int startingCPUIndex, int* playerChar) = nullptr;
 	void (*MarioKartFramework::SequenceCorrectAIInfo)() = nullptr;
 	bool MarioKartFramework::isWatchRaceMode = false;
-	bool MarioKartFramework::isBackCamBlockedComm = false;
-	bool MarioKartFramework::isWarnItemBlockedComm = false;
-	bool MarioKartFramework::allowCPURacersComm = false;
-	bool MarioKartFramework::allowCustomItemsComm = true;
 	u32 MarioKartFramework::cpuRandomSeed = 1;
 	u32 MarioKartFramework::neededCPU = 0;
 	u32 MarioKartFramework::neededCPUCurrentPlayers = 0;
@@ -358,10 +350,6 @@ namespace CTRPluginFramework {
 		}
 	}
 
-	bool MarioKartFramework::isGameInRace() {
-		return isRaceState;
-	}
-
 	static bool g_isRosalinaMenuBlocked = 0;
 	void MarioKartFramework::setRosalinaMenuBlock(bool blocked)
 	{
@@ -566,189 +554,7 @@ namespace CTRPluginFramework {
 		}
 		return ret;
 	}
-	// Code: miHwotFrqehybxGvaAunYdzsfBkjpQgc
-	void MarioKartFramework::restoreComTextPtr(u32* strptr) {
-		if (oldStrloc != nullptr) {
-			*oldStrloc = oldStrptr;
-		}
-		oldStrloc = nullptr;
-		if (strptr != nullptr) {
-			oldStrloc = strptr;
-			oldStrptr = *oldStrloc;
-		}
-	}
-	int MarioKartFramework::getCodeByChar(char c, u8 pos) {
-		for (int i = 0; i < onlineCode.size(); i++) {
-			if (c == onlineCode[i]) {
-				u8 index = (32 + i - pos) % 32;
-				return index;
-			}
-		}
-		return 31;
-	}
-	u64 MarioKartFramework::decodeFromStr(std::u16string &s) {
-		u64 retval = 0;
-		for (int i = 0; i < 13; i++) {
-			retval = (retval << 5) | getCodeByChar((char)s[i], i);
-		}
-		return retval;
-	}
-	char MarioKartFramework::getCharByCode(u8 num, u8 pos) {
-		u8 index = (32 + num + pos) % 32;
-		return onlineCode[index];
-	}
-	
-	void MarioKartFramework::encodeFromVal(char out[14], u64 in) {
-		out[13] = 0;
-		for (int i = 12, j = 0; i >= 0; i--) {
-			out[i] = getCharByCode((in >> (5 * j)) & 0x1F, i);
-			j++;
-		}
-	}
-	u8 MarioKartFramework::getOnlinechecksum(OnlineSettingsv2* onlineset) {
-	}
-	void MarioKartFramework::loadCustomSetOnline(OnlineSettings& onlineset) {
-		g_setCTModeVal = CTMode::ONLINE_COM;
-		g_updateCTMode();
 
-		CCSettings   *settings = static_cast<CCSettings *>(ccselectorentry->GetArg());
-		int speed;
-		int trackamount;
-		if (onlineset.ver >= 4 && onlineset.ver <= 7) {
-			OnlineSettingsv2& setv2 = *(OnlineSettingsv2*)&onlineset;
-			speed = setv2.speed;
-			trackamount = setv2.rounds;
-			if (speed != 0) {
-				settings->value = speed;
-				settings->enabled = true;
-				ccselector_apply(ccselectorentry);
-			}
-			else {
-				settings->enabled = false;
-				ccselector_apply(ccselectorentry);
-			}
-			changeNumberRounds(1 << (setv2.rounds + 1));
-			CourseManager::setCustomTracksAllowed(setv2.areCustomTracksAllowed);
-			CourseManager::setOriginalTracksAllowed(setv2.areOrigTracksAllowed);
-			isBackCamBlockedComm = !setv2.isBackcamAllowed;
-			isWarnItemBlockedComm = !setv2.isLEDItemsAllowed;
-			allowCPURacersComm = setv2.cpuRacers;
-			CourseManager::isRandomTracksForcedComm = setv2.areRandomTracksForced;
-			bool hasImprTricks = false;
-			if (onlineset.ver >= 5) hasImprTricks = setv2.improvedTricksAllowed;
-			improvedTricksAllowed = hasImprTricks;
-			improvedTricksForced = hasImprTricks;
-			bool allowCustomItems = true;
-			if (onlineset.ver >= 6) allowCustomItems = setv2.customItemsAllowed;
-			allowCustomItemsComm = allowCustomItems;
-			ItemHandler::allowFasterItemDisappear = allowCustomItems;
-			bool automaticDelayDrift = true;
-			if (onlineset.ver >= 7) automaticDelayDrift = setv2.automaticDelayDriftAllowed;
-			automaticDelayDriftAllowed = automaticDelayDrift;
-		} else {
-			if (onlineset.ver == 1) {
-				speed = onlineset.speedandcount;
-				trackamount = 0;
-			}
-			else if (onlineset.ver == 2 || onlineset.ver == 3) {
-				speed = onlineset.speedandcount & 0x3FFF;
-				trackamount = onlineset.speedandcount >> 14;
-			}
-			if (speed != 0) {
-				settings->value = speed;
-				settings->enabled = true;
-				ccselector_apply(ccselectorentry);
-			}
-			else {
-				settings->enabled = false;
-				ccselector_apply(ccselectorentry);
-			}
-			changeNumberRounds(1 << (trackamount + 2));
-			if (onlineset.enabledTracks == 0xFFFFFFFF) {
-				CourseManager::setCustomTracksAllowed(true);
-				CourseManager::setOriginalTracksAllowed(true);
-			}
-			else if (onlineset.enabledTracks == 0x7FFFFFFF) {
-				CourseManager::setCustomTracksAllowed(true);
-				CourseManager::setOriginalTracksAllowed(false);
-			}
-			else {
-				CourseManager::setCustomTracksAllowed(false);
-				CourseManager::setOriginalTracksAllowed(false);
-			}
-		}
-	}
-	void MarioKartFramework::applycommsettings(u32* commdescptr) {
-		restoreComTextPtr();
-		if (commDisplayText != nullptr) {
-			delete commDisplayText;
-			commDisplayText = nullptr;
-		}
-		std::u16string commdesc((char16_t*)(*(commdescptr+1)));
-		if (commdesc.size() < 13) {
-			g_setCTModeVal = CTMode::ONLINE_NOCTWW;
-			g_updateCTMode();
-			return;
-		}
-		u64 settings = decodeFromStr(commdesc);
-		OnlineSettings* onlineset = (OnlineSettings*)&settings;
-		if (onlineset->ver > COMMUSETVER  || onlineset->ver < 1 || getOnlinechecksum((OnlineSettingsv2*)onlineset) != onlineset->checksum) {
-			g_setCTModeVal = CTMode::ONLINE_NOCTWW;
-			g_updateCTMode();
-			return;
-		}
-
-		u32 speed;
-		u32 trackamount;
-		std::string trackstate = "";
-		u32 realRoundAmount;
-		if (onlineset->ver >= 4 && onlineset->ver <= 7) {
-			OnlineSettingsv2* setver2 = (OnlineSettingsv2*)onlineset;
-
-			if (setver2->areCustomTracksAllowed && setver2->areOrigTracksAllowed) trackstate.append("CT,OT ");
-			else if (setver2->areCustomTracksAllowed) trackstate.append("CT ");
-			else trackstate.append("OT ");
-
-			speed = setver2->speed;
-			trackamount = setver2->rounds;
-
-			realRoundAmount = 1 << (setver2->rounds + 1);
-		}
-		else if (onlineset->ver <= 3) {
-			if (onlineset->enabledTracks == 0xFFFFFFFF) trackstate.append("CT,OT ");
-			else if (onlineset->enabledTracks == 0x7FFFFFFF) trackstate.append("CT ");
-			else trackstate.append("OT ");
-
-			if (onlineset->ver == 1) {
-				speed = onlineset->speedandcount;
-				trackamount = 0;
-			}
-			else if (onlineset->ver == 2 || onlineset->ver == 3) {
-				speed = onlineset->speedandcount & 0x3FFF;
-				trackamount = onlineset->speedandcount >> 14;
-			}
-			realRoundAmount = 1 << (trackamount + 2);
-		}
-
-		if (speed > 9999) speed = 9999;
-
-		if (speed != 0) trackstate.append(std::to_string(speed) + "cc,");
-
-		trackstate.append(std::to_string(realRoundAmount) + "r");
-
-		if (commDisplayText != nullptr) delete commDisplayText;
-
-		Snd::PlayMenu(Snd::SLOT_OK);
-
-		commDisplayText = new u16[0x30];
-		memset(commDisplayText, 0, sizeof(u16) * 0x30);
-		utf8_to_utf16(commDisplayText, (u8*)trackstate.c_str(), sizeof(u16) * 0x30);
-		restoreComTextPtr(commdescptr+1);
-		*(commdescptr+1) = (u32)commDisplayText;
-
-		if (lastLoadedMenu == 0x27 || lastLoadedMenu == 0x2C) loadCustomSetOnline(*onlineset);
-		if (lastLoadedMenu == 0x2C) g_ComForcePtrRestore = true;
-	}
 	void MarioKartFramework::changeNumberRounds(u32 newval) {
 		if (newval < 0 || newval > 32) return;
 		SaveHandler::saveData.numberOfRounds = newval;
@@ -852,7 +658,7 @@ namespace CTRPluginFramework {
 		u32 pressedpad = (pad ^ g_prevPad) & pad;
 		bool missionForceBackwards = MissionHandler::forceBackwards();
 		bool autoaccelenabled = !MissionHandler::isMissionMode && SaveHandler::saveData.flags1.autoacceleration;
-		if (((bool)SaveHandler::saveData.flags1.backCamEnabled) && !isRaceGoal && !isRacePaused && !missionForceBackwards && !playCountDownCameraAnim && (g_getCTModeVal != CTMode::ONLINE_COM || !isBackCamBlockedComm)) {
+		if (((bool)SaveHandler::saveData.flags1.backCamEnabled) && !isRaceGoal && !isRacePaused && !missionForceBackwards && !playCountDownCameraAnim) {
 			if (allowBackwardsCamera() && ((pad & Key::X))) {
 				pad &= ~Key::X;
 				g_backCamEnabled = true;
@@ -1215,7 +1021,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::getKouraGModelName()
 	{
 		u32 ret;
-		if (((kouraGProbability & 1) && (Utils::Random() & 1)) && g_getCTModeVal != CTMode::ONLINE_COM) ret = (u32)eggKouraG;
+		if ((kouraGProbability & 1) && (Utils::Random() & 1)) ret = (u32)eggKouraG;
 		else ret = (u32)origKouraG;
 		kouraGProbability = rol<u64>(kouraGProbability, 1);
 		return ret;
@@ -1223,7 +1029,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::getKouraRModelName()
 	{
 		u32 ret;
-		if (((kouraRProbability & 1) && (Utils::Random() & 1)) && g_getCTModeVal != CTMode::ONLINE_COM) ret = (u32)eggKouraR;
+		if ((kouraRProbability & 1) && (Utils::Random() & 1)) ret = (u32)eggKouraR;
 		else ret = (u32)origKouraR;
 		kouraRProbability = rol<u64>(kouraRProbability, 1);
 		return ret;
@@ -1491,7 +1297,6 @@ namespace CTRPluginFramework {
 		Lock lock(g_internetConnectionMutex);         // including online multiplayer and mario kart channel
 		if (!needsOnlineCleanup) {
 			ccSelOnlineEntry->setOnlineMode(true);
-			comCodeGenOnlineEntry->setOnlineMode(true);
 			numbRoundsOnlineEntry->setOnlineMode(true);
 			serverOnlineEntry->setOnlineMode(true);
 			improvedTricksOnlineEntry->setOnlineMode(true);
@@ -1510,18 +1315,12 @@ namespace CTRPluginFramework {
 		Lock lock(g_internetConnectionMutex);
 		if (needsOnlineCleanup) { // This variable is set to true if the online 
 			ccSelOnlineEntry->setOnlineMode(false);
-			comCodeGenOnlineEntry->setOnlineMode(false);
 			numbRoundsOnlineEntry->setOnlineMode(false);
 			serverOnlineEntry->setOnlineMode(false);
 			improvedTricksOnlineEntry->setOnlineMode(false);
 			ccselectorentry->SetArg(&ccsettings[0]);
 			ccselector_apply(ccselectorentry);
 			MarioKartFramework::changeNumberRounds(SaveHandler::saveData.numberOfRounds);
-			MarioKartFramework::restoreComTextPtr();
-			if (MarioKartFramework::commDisplayText != nullptr) {
-				delete MarioKartFramework::commDisplayText;
-				MarioKartFramework::commDisplayText = nullptr;
-			}
 			g_setCTModeVal = CTMode::OFFLINE;
 			g_updateCTMode();
 			while (ISGAMEONLINE) g_isOnlineMode = rol<u8>(g_isOnlineMode, 1);
@@ -1540,6 +1339,7 @@ namespace CTRPluginFramework {
 		Net::customAuthData.populated = false;
 		Net::customAuthData.result = 0;
 		Net::temporaryRedirectCTGP7 = false;
+		Net::privateRoomID = 0;
 		VersusHandler::IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		MarioKartFramework::setSkipGPCoursePreview(false);
@@ -1559,7 +1359,7 @@ namespace CTRPluginFramework {
 
 	static void OnTitleOnlineButtonPressed() {
 		*(PluginMenu::GetRunningInstance()) -= OnTitleOnlineButtonPressed;
-		#if CITRA_MODE == 0
+		#if false
 		Keyboard keyboard("dummy");
 		std::string ctgp7Network = NOTE("server_name");
 		std::string nintendoNetwork = NAME("server_name");
@@ -1583,7 +1383,43 @@ namespace CTRPluginFramework {
 		}
 		Process::Play();
 		#else
+		// Remove this line when the if false is removed!
+		SaveHandler::saveData.flags1.useCTGP7Server = true;
 		useCTGP7server_apply(true);
+		Net::privateRoomID = 0;
+
+		Keyboard keyboard(NAME("choose_lobby"));
+		keyboard.Populate({NAME("lobby_type"), std::string(NOTE("lobby_type"))});
+		Process::Pause();
+		int res = keyboard.Open();
+		switch (res)
+		{
+		case 1:
+		{
+			Keyboard privkbd(NAME("enter_lobby_code"));
+			std::string name;
+			privkbd.SetCompareCallback([](const void * buf, std::string& err) -> bool{
+				const std::string* in = reinterpret_cast<const std::string*>(buf);
+				if (in->size() <= 6) {
+					if (in->size() != 0)
+						err = "\n\n" + NOTE("enter_lobby_code");
+					else
+						err = "";
+					return false;
+				}
+				err = "";
+				return true;
+			});
+			int res2 = privkbd.Open(name);
+			if (res >= 0) {
+				// Generate the secret private room ID and store it to Net::privateRoomID
+			}
+		}
+		default:
+			break;
+		}
+		Process::Play();
+
 		#endif
 		Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::IDLE, true);
 	}
@@ -1685,7 +1521,7 @@ namespace CTRPluginFramework {
 	
 	void MarioKartFramework::warnLedItem(u32 vehicle, u32 item)
 	{
-		if (SaveHandler::saveData.flags1.warnItemEnabled && (g_getCTModeVal != CTMode::ONLINE_COM || !isWarnItemBlockedComm) && !g_isFoolActive) {
+		if (SaveHandler::saveData.flags1.warnItemEnabled && !g_isFoolActive) {
         	int playerID = ((u32*)vehicle)[0x84/4];
 			int playerPosition = getModeManagerData()->driverPositions[playerID];
 			int myPosition = getModeManagerData()->driverPositions[masterPlayerID];
@@ -1824,7 +1660,7 @@ namespace CTRPluginFramework {
 	{
 		static u32 chosenValue = 0;
 		if (ISGAMEONLINE) {
-			if (g_getCTModeVal != CTMode::ONLINE_COM || !allowCPURacersComm || isWatchRaceMode) {
+			if (true || isWatchRaceMode) {
 				modeData->isMultiCPUEnabled = false;
 				modeData->multiCPUCount = 0;
 				return;
@@ -1938,7 +1774,7 @@ namespace CTRPluginFramework {
 	}
 
 	EDriverID MarioKartFramework::GetVoteBarDriver(EDriverID original) {
-		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || g_getCTModeVal == CTMode::ONLINE_COM)
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
 			return EDriverID::DRIVER_MIIM;
 		else
 			return original;
@@ -2107,8 +1943,7 @@ namespace CTRPluginFramework {
 	const char* MarioKartFramework::getOnlineItemTable(bool isAI) {
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
 			return isAI ? "ItemSlotTable_WiFi_AI" : "ItemSlotTable_CD";
-		else if ((g_getCTModeVal == CTMode::ONLINE_CTWW || (currentRaceMode.type == 1 && (currentRaceMode.mode == 2 || currentRaceMode.mode == 0))) || 
-				(g_getCTModeVal == CTMode::ONLINE_COM && allowCustomItemsComm))
+		else if ((g_getCTModeVal == CTMode::ONLINE_CTWW || (currentRaceMode.type == 1 && (currentRaceMode.mode == 2 || currentRaceMode.mode == 0))))
 			return isAI ? "ItemSlotTable_CTWW_AI" : "ItemSlotTable_CTWW";
 		else 
 			return isAI ? "ItemSlotTable_WiFi_AI" : "ItemSlotTable_WiFi";
@@ -2551,11 +2386,11 @@ namespace CTRPluginFramework {
 
 	void MarioKartFramework::OnNetLoadPlayerSave(SavePlayerData* sv)
 	{
-		if (g_getCTModeVal == CTMode::ONLINE_CTWW)
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW && !Net::IsPrivateNetwork())
 		{
 			sv->vr = SaveHandler::saveData.ctVR;
 		}
-		else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
+		else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD && !Net::IsPrivateNetwork())
 		{
 			sv->vr = SaveHandler::saveData.cdVR;
 		}
@@ -2563,12 +2398,12 @@ namespace CTRPluginFramework {
 
 	bool MarioKartFramework::OnNetSavePlayerSave(u32 newVR)
 	{
-		if (g_getCTModeVal == CTMode::ONLINE_CTWW)
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW && !Net::IsPrivateNetwork())
 		{
 			SaveHandler::saveData.ctVR = newVR;
 			return false;
 		}
-		else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
+		else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD && !Net::IsPrivateNetwork())
 		{
 			SaveHandler::saveData.cdVR = newVR;
 			return false;
@@ -2735,7 +2570,7 @@ namespace CTRPluginFramework {
 		KCLTerrainInfo* currTerrainInfo = ((KCLTerrainInfo**)(vehicleMove + 0x10A8))[kclID];
 		KCLTerrainInfo* vehicleTerrainInfo = (KCLTerrainInfo*)(vehicleMove + 0xD3C);
 		u32 inkTimer = *(u32*)(vehicleMove + 0xFF8);
-		if (inkTimer && ((g_getCTModeVal != CTMode::ONLINE_NOCTWW && g_getCTModeVal != CTMode::ONLINE_COM) || (g_getCTModeVal == CTMode::ONLINE_COM && allowCustomItemsComm))) {
+		if (inkTimer && (g_getCTModeVal != CTMode::ONLINE_NOCTWW )) {
 			float progress = (inkTimer / 250.f);
 			if (progress > 1.f) progress = 1.f;
 			vehicleTerrainInfo->speedLoss = std::min(currTerrainInfo->speedLoss, (1 - progress) * 0.00075f + 0.99925f);
@@ -3370,7 +3205,7 @@ namespace CTRPluginFramework {
 		onlinePlayersStarGrade[masterPlayerID] = Net::myGrade;
 		for (int i = 0; i < raceInfo->playerAmount; i++) {
 			if (onlinePlayersStarGrade[i] != StarGrade::INVALID) {
-				if ((g_getCTModeVal == CTMode::ONLINE_NOCTWW || g_getCTModeVal == CTMode::ONLINE_COM) && i != masterPlayerID) BaseResultBar_SetCTGPOnline(resultBarArray[i]);
+				if ((g_getCTModeVal == CTMode::ONLINE_NOCTWW) && i != masterPlayerID) BaseResultBar_SetCTGPOnline(resultBarArray[i]);
 				if (onlinePlayersStarGrade[i] >= StarGrade::CUSTOM_PLAYER && onlinePlayersStarGrade[i] <= StarGrade::CUSTOM_RAINBOW) {
 					u32 temp = (u32)onlinePlayersStarGrade[i];
 					BaseResultBar_SetGrade(resultBarArray[i], &temp);
@@ -3522,29 +3357,19 @@ namespace CTRPluginFramework {
 			MarioKartFramework::changeNumberRounds(4);
 			ccsettings[1].enabled = false;
 			ccselector_apply(ccselectorentry);
-			MarioKartFramework::isBackCamBlockedComm = false;
-			MarioKartFramework::isWarnItemBlockedComm = false;
-			MarioKartFramework::allowCPURacersComm = false;
-			CourseManager::isRandomTracksForcedComm = false;
 			MarioKartFramework::automaticDelayDriftAllowed = false;
 			ItemHandler::allowFasterItemDisappear = false;
 			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			isCTWW = 0;
 			isAltGameMode = 0;
 			break;
-		case CTMode::ONLINE_COM:
-			isCTWW = 0;
-			isAltGameMode = 0;
-			MarioKartFramework::improvedTricksAllowed = false;
-			MarioKartFramework::improvedTricksForced = false;
-			MarioKartFramework::brakeDriftAllowed = false;
-			MarioKartFramework::brakeDriftForced = false;
-			ItemHandler::allowFasterItemDisappear = false;
-			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
-			break;
 		case CTMode::ONLINE_CTWW:
 			CourseManager::setCustomTracksAllowed(true);
+			#if CITRA_MODE == 0
+			CourseManager::setOriginalTracksAllowed(true);
+			#else
 			CourseManager::setOriginalTracksAllowed(false);
+			#endif
 			MarioKartFramework::improvedTricksAllowed = true;
 			MarioKartFramework::improvedTricksForced = false;
 			MarioKartFramework::brakeDriftAllowed = true;

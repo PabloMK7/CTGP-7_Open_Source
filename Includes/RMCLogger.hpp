@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: RMCLogger.hpp
-Open source lines: 69/69 (100.00%)
+Open source lines: 72/72 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -40,12 +40,15 @@ namespace CTRPluginFramework {
             u32 savedBytes;
             u32 packetBytes;
         };
-        struct PacketMetadata
+        struct PACKED PacketMetadata
         {
+            u8 revision = 1;
+            u64 titleID{};
             struct {
-                u8 isRecievedPacked : 1;
+                u8 isRecievedPacket : 1;
                 u8 userPacketNote : 1;
-            } flags;
+                u8 unused : 6;
+            } flags{};
         };
         
         File* pcapFile;

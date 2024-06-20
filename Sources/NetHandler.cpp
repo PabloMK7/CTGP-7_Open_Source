@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 441/526 (83.84%)
+Open source lines: 446/531 (83.99%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -36,14 +36,14 @@ namespace CTRPluginFramework {
 		"put_onlrace",
 		"put_onlwatch",
 		"put_onlleaveroom",
-		"req_login", // Intended, do relogin
 		"put_hrtbt",
 		"put_onlracefinish",
 		"req_discordinfo",
 		"put_miiicon",
 		"req_onlinetoken",
 		"req_uniquepid",
-		"req_roomcharids"
+		"req_roomcharids",
+		"req_message",
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)
@@ -324,6 +324,7 @@ namespace CTRPluginFramework {
 	template<class Tin>
 	void NetHandler::RequestHandler::AddRequest(RequestType type, const Tin& value)
 	{
+		Lock l(requestMutex);
 		minibson::document reqDoc;
 		reqDoc.set<Tin>("value", value);
 
@@ -334,6 +335,7 @@ namespace CTRPluginFramework {
 
 	void NetHandler::RequestHandler::AddRequest(RequestType type, const minibson::document& value)
 	{
+		Lock l(requestMutex);
 		minibson::document reqDoc;
 		reqDoc.set("value", value);
 
@@ -343,6 +345,7 @@ namespace CTRPluginFramework {
 
 	void NetHandler::RequestHandler::Cleanup()
 	{
+		Lock l(requestMutex);
 		session.Cleanup();
 		doc.clear();
 		addedRequests.clear();
@@ -350,7 +353,9 @@ namespace CTRPluginFramework {
 
 	void NetHandler::RequestHandler::Start(bool startSession)
 	{
+		Lock l(requestMutex);
 		session.SetData(doc);
+		doc.clear();
 		if (startSession) session.Start();
 	}
 

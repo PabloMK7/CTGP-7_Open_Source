@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2113/2116 (99.86%)
+Open source lines: 2129/2132 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -571,6 +571,29 @@ namespace CTRPluginFramework {
 		return selectedCharaceters[playerID];
 	}
 
+	u64 CharacterHandler::SelectRandomCharacter(EDriverID driverID, bool includeVanilla) {
+		auto& entries = charEntriesPerDriverID[(int)driverID];
+		if (entries.size() == 0)
+			return 0;
+		std::map<int, std::vector<CharacterEntry*>> entriesPerGroup;
+		for (auto it = entries.begin(); it != entries.end(); it++) {
+			entriesPerGroup[(*it)->groupID].push_back(*it);
+		}
+		u32 max = entriesPerGroup.size() - (includeVanilla ? 0 : 1);
+		u32 choice = max == 0 ? 0 : Utils::Random(0, max);
+		if (includeVanilla) {
+			if (choice == 0) {
+				return 0;
+			}
+			choice--;
+		}
+		auto it = entriesPerGroup.begin();
+		std::advance(it, choice);
+		max = it->second.size() - 1;
+		u32 choice2 = max == 0 ? 0 : Utils::Random(0, max);
+		return it->second[choice2]->id;
+	}
+
 	static bool confirmcharacters_wasdemo = false;
 	void CharacterHandler::ConfirmCharacters() {
 		MarioKartFramework::allowWigglerAngry = true;
@@ -600,12 +623,9 @@ namespace CTRPluginFramework {
 						if (i == MarioKartFramework::masterPlayerID && !isTitleDemo)
 							continue;
 						if (raceInfo.raceMode.type == 0 || (raceInfo.raceMode.mode >= 5 && raceInfo.raceMode.mode <= 7)) {
-							u32 charaAmount = GetCharCount(raceInfo.kartInfos[i].driverID);
-							u32 choice = 0;
-							if (charaAmount > 0)
-								choice = Utils::Random(0, charaAmount);
+							u64 choice = SelectRandomCharacter(raceInfo.kartInfos[i].driverID, true);
 							if (choice > 0) {
-								selectedCharaceters[i] = GetCharEntry(raceInfo.kartInfos[i].driverID, choice - 1).id;
+								selectedCharaceters[i] = choice;
 								updateRaceCharaNamePending = true;
 							}
 							else
@@ -1185,11 +1205,7 @@ namespace CTRPluginFramework {
 		}
 
 		if (lastFileLoadInfo.isCredits && info.kind == ResourceInfo::Kind::EMBLEM_MODEL) {
-			u32 charaAmount = GetCharCount((EDriverID)info.id);
-			if (charaAmount > 0)
-				g_ThankYouChosenCharacter = GetCharEntry((EDriverID)info.id, Utils::Random(1, charaAmount) - 1).id;
-			else
-				g_ThankYouChosenCharacter = 0;
+			g_ThankYouChosenCharacter = SelectRandomCharacter((EDriverID)info.id, false);
 		}
 
 		WaitOnlineLock();

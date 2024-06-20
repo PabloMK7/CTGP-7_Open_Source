@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 825/826 (99.88%)
+Open source lines: 849/850 (99.88%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -41,6 +41,8 @@ namespace CTRPluginFramework
 	std::unordered_map<int, Language::MessageString*> Language::customText;
 	BootSceneHandler::ProgressHandle Language::progressHandle;
 	std::vector<std::string> Language::pendingLangfiles;
+
+	RT_HOOK Language::fileDeviceDoIsExistFileHook = {0};
 	
 	int Language::currentTranslation = -1;
 	char Language::currPostfix[3] = { 0 };
@@ -367,6 +369,18 @@ namespace CTRPluginFramework
 		utf8_to_utf16(filename, (u8*)file.c_str(), 256);
 	}
 
+	bool Language::IsLangSpecificFile(const char* file) {
+		Language::SZSID id = Language::NONE;
+		if (strstr(file, "I/m")) id = Language::MENU;
+		else if (strstr(file, "I/co")) id = Language::COMMON;
+		else if (strstr(file, "I/r")) id = Language::RACE;
+		else if (strstr(file, "I/th")) id = Language::THANKYOU;
+		else if (strstr(file, "I/tr")) id = Language::TROPHY;
+		if (id == Language::NONE) return false;
+		if (!availableSZS[id]) {return false;}
+		return true;
+	}
+
 	void Language::FixRegionSpecificFile(u16* filename) {
 		int filepos;
 		strfind16(filename, (u16*)u"ve-", &filepos);
@@ -377,6 +391,16 @@ namespace CTRPluginFramework
 		// Assuming the new name is always shorter
 		strcpy16(filename + filepos - 3, filename + filepos); // Remove the extension from the folder.
 		strcpy16(filename + fileEndPos - 3, filename + extensionpos - 3);
+	}
+
+	// Fixes a bug on Citra CPU JIT
+	bool Language::OnFileDeviceDoIsExistFile(u32 own, bool* exists, SafeStringBase* file) {
+		if (IsLangSpecificFile(file->c_str())) {
+			if (exists) *exists = true;
+			return true;
+		} else {
+			return ((bool(*)(u32, bool*, SafeStringBase*))fileDeviceDoIsExistFileHook.callCode)(own, exists, file);
+		}
 	}
 
 	void Language::doTextPatchesAfterMsbtReady() {
@@ -560,7 +584,7 @@ namespace CTRPluginFramework
 			allList->msg.list[1] = data;
 			allList->infos[1].txt2StartPtr = data->tag->GetTXT2();
 			allList->infos[1].txt2EndPtr = (u8*)allList->infos[1].txt2StartPtr + data->tag->GetTXT2Size();
-			#if CITRA_MODE == 1
+			#if true
 			MsbtHandler::SetString(2092, NOTE("server_name"));
 			#endif
 		} else if (strcmp(data->name, "Race") == 0) {

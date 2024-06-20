@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 545/720 (75.69%)
+Open source lines: 550/725 (75.86%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -56,6 +56,11 @@ namespace CTRPluginFramework {
 #endif
 		graphicsSarc = new SARC(graphicdata);
 		mainSarc->Append(graphicsSarc, true);
+		
+		SARC::FileInfo sarc_finfo;
+		u32* sarc_version = (u32*)mainSarc->GetFile("sarc_version.bin", &sarc_finfo);
+		if (sarc_version == nullptr || sarc_finfo.fileSize != 4 || *sarc_version != SARCVER) panic("CTGP-7.sarc outdated or corrupted.");
+
 		VersusHandler::Initialize();
 		Snd::InitializeMenuSounds();
 		ItemHandler::Initialize();

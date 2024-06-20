@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2350/2704 (86.91%)
+Open source lines: 2343/2697 (86.87%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -846,7 +846,7 @@ namespace CTRPluginFramework {
         if (startingButtonID >= (size / 2)) {
             startingButtonID = 0;
         }
-        bool isAllRandom = (VersusHandler::IsVersusMode && VersusHandler::IsRandomCourseMode()) || (g_getCTModeVal == CTMode::ONLINE_COM && CourseManager::isRandomTracksForcedComm);
+        bool isAllRandom = (VersusHandler::IsVersusMode && VersusHandler::IsRandomCourseMode());
         if (mode == 0) {
             for (int i = 0; i < 8; i++) {
                 VisualControl::GameVisualControl* currCupButton = buttonList[i];
@@ -1084,8 +1084,6 @@ namespace CTRPluginFramework {
 
         // Other needed stuf
         ownU32[0x98/4] = 0;
-        if (g_getCTModeVal == CTMode::ONLINE_COM && MarioKartFramework::allowCPURacersComm && !MarioKartFramework::israndomdriverchoicesshuffled)
-			MarioKartFramework::getMyNetworkSelectMenuBuffer()[0x12] = Utils::Random();
 
         for (int i = 0; i < 8; i++) {
             obj->SetButtonEnabledState(i, true);
@@ -1435,11 +1433,6 @@ namespace CTRPluginFramework {
                 else
                     courseButtonDmySelectOff(courseButtonDummies[i]);
             }
-        }
-
-        if (g_getCTModeVal == CTMode::ONLINE_COM && CourseManager::isRandomTracksForcedComm && obj->hasRandomButton && ownU8[0x14/1] == 5 && !obj->autoButtonPressed) {
-            buttonKeyHandlerCommon((VisualControl::GameVisualControl*)ownU32[0x314/4], 0, Key::A);
-            obj->autoButtonPressed = true;
         }
     }
 

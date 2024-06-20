@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 395/395 (100.00%)
+Open source lines: 403/403 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -93,6 +93,7 @@ namespace CTRPluginFramework {
 				u32 automaticDelayDrift : 1;
 				u32 useCTGP7Server : 1;
 				u32 customKartsEnabled : 1;
+				u32 blueCoinsEnabled : 1;
 			} flags1;
 			struct 
 			{
@@ -211,6 +212,7 @@ namespace CTRPluginFramework {
 				flags1.automaticDelayDrift = true;
 				flags1.useCTGP7Server = true;
 				flags1.customKartsEnabled = true;
+				flags1.blueCoinsEnabled = true;
 				numberOfRounds = 4;
 				serverDisplayNameMode = (u8)Net::PlayerNameMode::SHOW;
 				serverDisplayCustomName[0] = '\0';
@@ -265,6 +267,10 @@ namespace CTRPluginFramework {
 				pendingAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)0);
 				achievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)0);
 				principalID = (int)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)0);
+				#if CITRA_MODE == 1
+				if (principalID < 100000000)
+					principalID = 0;
+				#endif
 				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES))) {
 					const minibson::binary::buffer& char_handler_choices = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES));
 					if (char_handler_choices.length == sizeof(driverChoices))
@@ -287,6 +293,7 @@ namespace CTRPluginFramework {
 				pendingSpecialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)0);
 				specialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)0);
 				flags1.customKartsEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), true);
+				flags1.blueCoinsEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_COINS_ENABLED), true);
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -332,6 +339,7 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)pendingSpecialAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)specialAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), (bool)flags1.customKartsEnabled);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_COINS_ENABLED), (bool)flags1.blueCoinsEnabled);
 			}
 		};
 		static CTGP7Save saveData;

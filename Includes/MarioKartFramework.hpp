@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 777/777 (100.00%)
+Open source lines: 730/730 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -17,8 +17,6 @@ Open source lines: 777/777 (100.00%)
 #include "random"
 #include "MK7NetworkBuffer.hpp"
 #include "rt.hpp"
-
-#define COMMUSETVER 7
 
 extern "C" u32 g_lapVal;
 extern "C" float g_speedValsqrt;
@@ -124,33 +122,6 @@ namespace CTRPluginFramework {
         Enter = 1,
         Exit = 2,
     };
-
-    struct OnlineSettings
-    {
-        u8  ver{0};
-        u16 speedandcount{0};
-        u32 enabledTracks{0};
-        u8  checksum{0};
-    } PACKED;
-
-	struct OnlineSettingsv2
-	{
-		u8  ver;
-		u16 rounds : 2;
-		u16 speed : 14;
-		u32	isBackcamAllowed : 1;
-		u32 isLEDItemsAllowed : 1;
-		u32 areRandomTracksForced : 1;
-		u32 areOrigTracksAllowed : 1;
-		u32 areCustomTracksAllowed : 1;
-		u32 cpuRacers : 1;
-		u32 improvedTricksAllowed : 1;
-		u32 customItemsAllowed : 1;
-		u32 automaticDelayDriftAllowed : 1;
-		u32 unused : 23;
-		u8  checksum;
-	} PACKED;
-	static_assert(sizeof(OnlineSettings) == sizeof(OnlineSettingsv2));
 
 	struct ResizeInfo {
 
@@ -264,11 +235,6 @@ namespace CTRPluginFramework {
     class MarioKartFramework {
         private:
             static bool calculateRaceCond();
-            static std::string onlineCode;
-            static int getCodeByChar(char c, u8 pos);
-            static u64 decodeFromStr(std::u16string &s);
-            static char getCharByCode(u8 num, u8 pos);
-            static u32 oldStrptr;
 			static u8 previousCDScore;
 			static void* gobjrelocptr;
 
@@ -401,19 +367,11 @@ namespace CTRPluginFramework {
 
             static void getLaunchInfo();
             static bool isCompatible(); //true success, false fail
-            static bool isGameInRace(); // true in race, false not in race
+            static bool isGameInRace() { return isRaceState; }
 			static void onRaceEvent(u32 raceEventID);
 
 			static void changeFilePath(u16* dst, bool isDir);
-            static void encodeFromVal(char out[14], u64 in);
-            static u8 getOnlinechecksum(OnlineSettingsv2* onlineset);
-            static void applycommsettings(u32* commdescptr);
             static void changeNumberRounds(u32 newval);
-            static void loadCustomSetOnline(OnlineSettings& onlineset);
-            static void restoreComTextPtr(u32* strptr = nullptr);
-            static void restoreViewTextPtr(u32* strptr = nullptr);
-            static u16* commDisplayText;
-            static u32* oldStrloc;
             static u32* (*getSaveManagerFuncptr)(void);
 			static void (*getMyPlayerDatafuncptr)(u32 systemEngine, SavePlayerData* data, bool something);
 			static void getMyPlayerData(SavePlayerData* data);
@@ -435,8 +393,6 @@ namespace CTRPluginFramework {
 			static void kartCameraSmooth(u32* camera, float smoothVal);
 			static bool playCountDownCameraAnim;
 			static bool startedRaceScene;
-			static bool isBackCamBlockedComm;
-			static bool isWarnItemBlockedComm;
             //
 			static void patchKMP(void* kmp);
             static void kmpConstructCallback();
@@ -510,8 +466,6 @@ namespace CTRPluginFramework {
 			static void generateCPUDataSettings(CPUDataSettings* buffer, u32 playerID, u32 totalPlayers, ModeManagerData* raceinfo);
 			static void SetWatchRaceMode(bool setMode);
 			static bool isWatchRaceMode;
-			static bool allowCPURacersComm;
-			static bool allowCustomItemsComm;
 			static u32 getNumberOfRacers(u32 players, bool isFake = false);
 			static bool blockWinningRun();
 			static u32 cpuRandomSeed;
@@ -765,9 +719,8 @@ namespace CTRPluginFramework {
 enum class CTMode : u32 {
 	OFFLINE = 0,
 	ONLINE_NOCTWW = 1,
-	ONLINE_COM = 2,
-	ONLINE_CTWW = 3,
-	ONLINE_CTWW_CD = 4,
+	ONLINE_CTWW = 2,
+	ONLINE_CTWW_CD = 3,
 	INVALID = 0xFFFFFFFF
 };
 

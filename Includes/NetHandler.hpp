@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 138/139 (99.28%)
+Open source lines: 139/140 (99.29%)
 *****************************************************/
 
 #pragma once
@@ -82,14 +82,14 @@ namespace CTRPluginFramework {
 				ONLINE_RACING,
 				ONLINE_WATCHING,
 				ONLINE_LEAVEROOM,
-				RELOGIN,
 				HEARTBEAT,
 				ONLINE_RACEFINISH,
 				DISCORD_INFO,
 				UPLOAD_MII,
 				ONLINETOKEN,
 				UNIQUEPID,
-				ROOM_CHAR_IDS
+				ROOM_CHAR_IDS,
+				MESSAGE,
 			};
 			RequestHandler();
 
@@ -115,6 +115,7 @@ namespace CTRPluginFramework {
 			Session session;
 			minibson::document doc;
 			std::vector<RequestType> addedRequests;
+			Mutex requestMutex;
 
 			static const char* reqStr[];
 		};

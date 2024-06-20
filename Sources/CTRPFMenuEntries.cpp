@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 790/798 (99.00%)
+Open source lines: 689/697 (98.85%)
 *****************************************************/
 
 #include "types.h"
@@ -41,7 +41,6 @@ namespace CTRPluginFramework
 {
 	CCSettings ccsettings[2] = {CCSettings(), CCSettings()};
 	//const SpeedValues g_SpdValCostants[2] = { {"km/h", 10.f, 130.f, 2.84872641f}, {"mph", 6.21371f, 80.f, 1.75306240615f} };
-	bool g_ComForcePtrRestore = false;
 	extern RT_HOOK socinithook;
 	extern RT_HOOK socexithook;
 
@@ -60,11 +59,7 @@ namespace CTRPluginFramework
 		if (MarioKartFramework::isGameInRace()) {
 			;
 		} else {
-			if (g_ComForcePtrRestore) { 
-				Sleep(Seconds(0.2f));
-				g_ComForcePtrRestore = false;
-				MarioKartFramework::restoreComTextPtr();
-			}
+			;
 		}
 	}
 
@@ -264,120 +259,6 @@ namespace CTRPluginFramework
 		backwardscam_apply(ret == 0);
 	}
 
-	void 	createcommcode(MenuEntry *entry) {
-		std::string enSlid = "\u2282\u25CF";
-		std::string disSlid = "\u25CF\u2283";
-		OnlineSettingsv2 onlineset;
-		onlineset.ver = COMMUSETVER;
-		CCSettings   *cc_settings = static_cast<CCSettings *>(ccselectorentry->GetArg());
-		if (cc_settings->enabled) {
-			float val;
-			if (cc_settings->value < 1) val = 1;
-			else if (cc_settings->value > 9999) val = 9999;
-			else val = cc_settings->value;
-			onlineset.speed = (u16)val;
-		} else {
-			onlineset.speed = 0;
-		}
-		std::string comanager = NAME("comanager");
-		Keyboard kbd(NAME("rnd_sel"));
-		Keyboard optsKbd("dummy");
-		kbd.Populate({ "2", "4", "8", "16" });
-		kbd.ChangeSelectedEntry(1);
-		int opt = kbd.Open();
-		if (opt < 0) return;
-		int optsOpt = 2;
-		bool cten = true, orien = true, forcerandom = false, camallow = true, ledallow = true, cpuRacers = false, imprTricks = true, customItem = true, automaticdelaydrift = true;
-		do {
-			optsKbd.GetMessage() = NAME("settings") + "\n\n" << (cten ? Color::LimeGreen : Color::Red) << NAME("track_ct") + " (" + (cten ? NAME("state_mode") : NOTE("state_mode")) + ")\n";
-			optsKbd.GetMessage() += (cten ? (orien ? Color::LimeGreen : Color::Red) : Color::Gray) << NAME("track_ori") + " (" + (orien ? NAME("state_mode") : NOTE("state_mode")) + ")\n";
-			optsKbd.Populate({ (cten ? Color::LimeGreen << enSlid : Color::Red << disSlid), (cten ? (orien ? Color::LimeGreen << enSlid : Color::Red << disSlid) : ""), NAME("next") });
-			optsKbd.ChangeEntrySound(0, cten ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(1, orien ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeSelectedEntry(optsOpt);
-			optsOpt = optsKbd.Open();
-			if (optsOpt < 0) return;
-			if (optsOpt == 0) {
-				cten = !cten;
-				if (!cten) orien = true;
-			}
-			if (optsOpt == 1) {
-				orien = !orien || !cten;
-			}
-		} while (optsOpt != 2);
-		optsOpt = 7;
-		do {
-			optsKbd.GetMessage() = NAME("settings") + "\n\n";
-			optsKbd.GetMessage() += NAME("rand_tr") + ": " << (forcerandom ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() += NAME("backcam") + ": " << (camallow ? (Color::LimeGreen << NAME("allow_inf")) : (Color::Red << NOTE("allow_inf"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() += NAME("itemled") + ": " << (ledallow ? (Color::LimeGreen << NAME("allow_inf")) : (Color::Red << NOTE("allow_inf"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() += NAME("CpuAm") + ": " << (cpuRacers ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() += NAME("imtrick") + ": " << (imprTricks ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() +=	NAME("cusitem") + ": " << (customItem ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.GetMessage() += NAME("autodelaydrift") + ": " << (automaticdelaydrift ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-			optsKbd.Populate({ (forcerandom ? Color::LimeGreen << enSlid : Color::Red << disSlid), (camallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (ledallow ? Color::LimeGreen << enSlid : Color::Red << disSlid), (cpuRacers ? Color::LimeGreen << enSlid : Color::Red << disSlid), (imprTricks ? Color::LimeGreen << enSlid : Color::Red << disSlid), (customItem ? Color::LimeGreen << enSlid : Color::Red << disSlid), (automaticdelaydrift ? Color::LimeGreen << enSlid : Color::Red << disSlid), NAME("next") });
-			optsKbd.ChangeEntrySound(0, forcerandom ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(1, camallow ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(2, ledallow ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(3, cpuRacers ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(4, imprTricks ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(5, customItem ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeEntrySound(6, automaticdelaydrift ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
-			optsKbd.ChangeSelectedEntry(optsOpt);
-			optsOpt = optsKbd.Open();
-			if (optsOpt < 0) return;
-			if (optsOpt == 0) {
-				forcerandom = !forcerandom;
-			}
-			if (optsOpt == 1) {
-				camallow = !camallow;
-			}
-			if (optsOpt == 2) {
-				ledallow = !ledallow;
-			}
-			if (optsOpt == 3) {
-				cpuRacers = !cpuRacers;
-			}
-			if (optsOpt == 4) {
-				imprTricks = !imprTricks;
-			}
-			if (optsOpt == 5) {
-				customItem = !customItem;
-			}
-			if (optsOpt == 6) {
-				automaticdelaydrift = !automaticdelaydrift;
-			}
-		} while (optsOpt != 7);
-		onlineset.rounds = opt;
-		onlineset.areOrigTracksAllowed = orien;
-		onlineset.areCustomTracksAllowed = cten;
-		onlineset.areRandomTracksForced = forcerandom;
-		onlineset.isBackcamAllowed = camallow;
-		onlineset.isLEDItemsAllowed = ledallow;
-		onlineset.cpuRacers = cpuRacers;
-		onlineset.improvedTricksAllowed = imprTricks;
-		onlineset.customItemsAllowed = customItem;
-		onlineset.automaticDelayDriftAllowed = automaticdelaydrift;
-		onlineset.unused = Utils::Random();
-		onlineset.checksum = MarioKartFramework::getOnlinechecksum(&onlineset);
-		char comCode[14];
-		MarioKartFramework::encodeFromVal(comCode, *((u64*)&onlineset));
-		int speed = onlineset.speed;
-		int roundCount = 1 << (onlineset.rounds + 1);
-		std::string msgstr = NAME("code") + std::string(": ") + std::string(comCode) + "\n\n";
-		msgstr += (cc_settings->enabled ? std::to_string(speed) + "cc" : NAME("def_spd")) + "\n";
-		msgstr += ((cten) ? (Color::LimeGreen << NAME("ct_endis")) : (Color::Red << NOTE("ct_endis"))) + "\n" + ((orien) ? (Color::LimeGreen << NAME("ori_endis")) : (Color::Red << NOTE("ori_endis"))) + ResetColor() + std::string("\n");
-		msgstr += NAME("rounds") + std::string(": ") + std::to_string(roundCount) + std::string("\n");
-		msgstr += NAME("rand_tr") + ": " << (forcerandom ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-		msgstr += NAME("backcam") + ": " << (camallow ? (Color::LimeGreen << NAME("allow_inf")) : (Color::Red << NOTE("allow_inf"))) << ResetColor() + "\n";
-		msgstr += NAME("itemled") + ": " << (ledallow ? (Color::LimeGreen << NAME("allow_inf")) : (Color::Red << NOTE("allow_inf"))) << ResetColor() + "\n";
-		msgstr += NAME("CpuAm") + ": " << (cpuRacers ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-		msgstr += NAME("imtrick") + ": " << (imprTricks ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-		msgstr += NAME("cusitem") + ": " << (customItem ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-		msgstr += NAME("autodelaydrift") + ": " << (automaticdelaydrift ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
-		(MessageBox(NAME("commugen"), msgstr, DialogType::DialogOk ,ClearScreen::Both))();
-	}
-
 	void changeRoundNumber(MenuEntry *entry) {
 		Keyboard kbd(NAME("chgrnd_desc"));
 		kbd.IsHexadecimal(false);
@@ -521,6 +402,20 @@ namespace CTRPluginFramework
 		automaticdelaydrift_apply(ret == 0);
 	}
 
+	void bluecoin_apply(bool enabled) {
+		blueCoinsEntry->Name() = NAME("blue_coins") << " (" << (enabled ? NAME("state_mode") : NOTE("state_mode")) << ")";
+		SaveHandler::saveData.flags1.blueCoinsEnabled = enabled;
+	}
+
+	void bluecoin_entryfunc(MenuEntry* entry) {
+		Keyboard key(NAME("blue_coins"));
+		key.Populate({ NAME("state_inf"), NOTE("state_inf") });
+		key.ChangeEntrySound(1, SoundEngine::Event::CANCEL);
+		int ret = key.Open();
+		if (ret < 0) return;
+		bluecoin_apply(ret == 0);
+	}
+
 	static void serverChangeDisplayName(const std::string& miiName) {
 		Keyboard kbd(NOTE("serv_displname"));
 		kbd.Populate({ NAME("serv_disphid"), NAME("serv_dispmii"), NAME("custom") });
@@ -633,6 +528,8 @@ namespace CTRPluginFramework
 
 	static int g_keyboardkey = -1;
 	void achievementsEntryHandler(MenuEntry* entry) {
+		bool wasMissionMode = MissionHandler::isMissionMode;
+		MissionHandler::isMissionMode = false;
 		constexpr int normalPages = 3;
 		auto generateAchievementsText = [](int page, int totalMenu) -> std::string {
 			auto genTextAchv = [](const std::string& text, bool completed) -> std::string {
@@ -786,5 +683,7 @@ namespace CTRPluginFramework
 				break;
 			}
 		} while (opt != 0 && opt != -1);
+
+		MissionHandler::isMissionMode = wasMissionMode;
 	}
 }

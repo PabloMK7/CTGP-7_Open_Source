@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 591/591 (100.00%)
+Open source lines: 587/587 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -373,30 +373,26 @@ namespace CTRPluginFramework {
 			}
 		}
 		else if (raceMode.type == 2) {
-			if (g_getCTModeVal == CTMode::ONLINE_COM) {
-				IncreaseStat(Stat::COMMUNITY_RACES, lastTrack);
-			}
-			else {
-				switch (raceMode.mode)
-				{
-				case 0:
-				case 2:
-					if (g_getCTModeVal == CTMode::ONLINE_NOCTWW)
-						IncreaseStat(Stat::ONLINE_RACES, lastTrack);
-					else if (g_getCTModeVal == CTMode::ONLINE_CTWW)
-						IncreaseStat(Stat::CTWW_RACES, lastTrack);
-					else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
-						IncreaseStat(Stat::CD_RACES, lastTrack);
-					break;
-				case 3:
-					if (raceMode.submode == 0)
-						IncreaseStat(Stat::ONLINE_COIN_BATTLES, lastTrack);
-					else if (raceMode.submode == 1)
-						IncreaseStat(Stat::ONLINE_BALLOON_BATTLES, lastTrack);
-					break;
-				default:
-					break;
-				}
+			// TODO: What about communities?
+			switch (raceMode.mode)
+			{
+			case 0:
+			case 2:
+				if (g_getCTModeVal == CTMode::ONLINE_NOCTWW)
+					IncreaseStat(Stat::ONLINE_RACES, lastTrack);
+				else if (g_getCTModeVal == CTMode::ONLINE_CTWW)
+					IncreaseStat(Stat::CTWW_RACES, lastTrack);
+				else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
+					IncreaseStat(Stat::CD_RACES, lastTrack);
+				break;
+			case 3:
+				if (raceMode.submode == 0)
+					IncreaseStat(Stat::ONLINE_COIN_BATTLES, lastTrack);
+				else if (raceMode.submode == 1)
+					IncreaseStat(Stat::ONLINE_BALLOON_BATTLES, lastTrack);
+				break;
+			default:
+				break;
 			}
 		}
 		SaveHandler::SaveSettingsAll();

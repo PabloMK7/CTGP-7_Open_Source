@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 383/396 (96.72%)
+Open source lines: 380/393 (96.69%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -54,7 +54,6 @@ namespace CTRPluginFramework
     MenuEntry *backcamentry;
     MenuEntry *warnitementry;
     MenuEntry *courmanentry;
-    MenuEntry *comcodegenentry;
     MenuEntry *numbRoundsEntry;
 	MenuEntry *customCharactersEntry;
 	MenuEntry *customKartEntry;
@@ -70,9 +69,9 @@ namespace CTRPluginFramework
 	MenuEntry* brakeDriftEntry;
 	MenuEntry* automaticDelayDriftEntry;
 	MenuEntry* achievementsEntry;
+	MenuEntry* blueCoinsEntry;
 
 	OnlineMenuEntry* ccSelOnlineEntry;
-	OnlineMenuEntry* comCodeGenOnlineEntry;
 	OnlineMenuEntry* numbRoundsOnlineEntry;
 	OnlineMenuEntry* serverOnlineEntry;
 	OnlineMenuEntry* improvedTricksOnlineEntry;
@@ -259,7 +258,8 @@ namespace CTRPluginFramework
 			improvedTricksEntry = new MenuEntry(NAME("imtrick"), nullptr, improvedTricks, NOTE("imtrick")),
 			autoAccelEntry = new MenuEntry(NAME("autoaccel"), nullptr, autoAccelSetting, NOTE("autoaccel")),
 			brakeDriftEntry = new MenuEntry(NAME("imbrakedrift"), nullptr, brakeDrift, NOTE("imbrakedrift")),
-			automaticDelayDriftEntry = new MenuEntry(NAME("autodelaydrift"), nullptr, automaticdelaydrift_entryfunc, NOTE("autodelaydrift"))
+			automaticDelayDriftEntry = new MenuEntry(NAME("autodelaydrift"), nullptr, automaticdelaydrift_entryfunc, NOTE("autodelaydrift")),
+			blueCoinsEntry = new MenuEntry(NAME("blue_coins"), nullptr, bluecoin_entryfunc, NAME("blue_coins_desc"))
 		});
 
 		MenuFolder* settings = new MenuFolder(NAME("settings_folder"), NOTE("settings_folder"), {
@@ -273,7 +273,6 @@ namespace CTRPluginFramework
 
 		MenuFolder* other = new MenuFolder(NAME("other_folder"), NOTE("other_folder"), {
 			statsEntry = new MenuEntry(NAME("statsentry"), nullptr, StatsHandler::StatsMenu, NOTE("statsentry")),
-			comcodegenentry = new MenuEntry(NAME("commugen"), nullptr, createcommcode, NOTE("commugen")),
 			resetGhostsEntry = new MenuEntry(NAME("resghost"), nullptr, CourseManager::resetGhost, NOTE("resghost"))
 		});
 
@@ -295,7 +294,6 @@ namespace CTRPluginFramework
 			}
 		);
 		
-		comCodeGenOnlineEntry = new OnlineMenuEntry(comcodegenentry, nullptr, createcommcode, [](MenuEntry* e, std::string& s) {});
 		serverOnlineEntry = new OnlineMenuEntry(serverEntry, nullptr, serverEntryHandler, [](MenuEntry* e, std::string& s) {});
 		improvedTricksOnlineEntry = new OnlineMenuEntry(improvedTricksEntry, nullptr, improvedTricks, [](MenuEntry* e, std::string& s) {});
 		numbRoundsOnlineEntry = new OnlineMenuEntry(numbRoundsEntry, nullptr, changeRoundNumber,
@@ -305,7 +303,6 @@ namespace CTRPluginFramework
 		);
 
 		#if CITRA_MODE == 1
-		comcodegenentry->Hide();
 		warnitementry->Hide();
 		#endif
 

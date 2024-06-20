@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.hpp
-Open source lines: 108/117 (92.31%)
+Open source lines: 109/118 (92.37%)
 *****************************************************/
 
 #pragma once
@@ -76,8 +76,6 @@ namespace CTRPluginFramework
 	void backwardscam(MenuEntry *entry);
 	void backwardscam_apply(bool active);
 
-	void createcommcode(MenuEntry *entry);
-
 	void onMenuChangeCallback(u32 menuID);
 
 	void changeRoundNumber(MenuEntry *entry);
@@ -105,4 +103,7 @@ namespace CTRPluginFramework
 	void useCTGP7server_apply(bool useCTGP7);
 
 	void achievementsEntryHandler(MenuEntry* entry);
+
+	void bluecoin_apply(bool enabled);
+	void bluecoin_entryfunc(MenuEntry* entry);
 }
