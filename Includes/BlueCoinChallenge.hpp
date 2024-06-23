@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.hpp
-Open source lines: 51/51 (100.00%)
+Open source lines: 55/55 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -24,6 +24,10 @@ namespace CTRPluginFramework {
         static void InitCoinLocations();
         static void SetCoinCollected(u32 courseID);
         static bool closeCoinCollectedDialog(const Screen &s);
+        
+        static void SaveCoinLoc();
+        static void DumpCoinLocsToFile();
+
     public:
         class GameAddr {
         public:
@@ -45,7 +49,7 @@ namespace CTRPluginFramework {
         static void CalcObj(u32 objBase);
         static void DespawnCoin();
         static void OnKartHitCoin(u32 vehicleMove);
-        static void SaveCoinLoc();
-        static void DumpCoinLocsToFile();
+
+        static void SetupBlueCoinsCallback();
     };
 }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 689/697 (98.85%)
+Open source lines: 692/700 (98.86%)
 *****************************************************/
 
 #include "types.h"
@@ -55,6 +55,9 @@ namespace CTRPluginFramework
 			save_instrumentation();
 		if (Controller::IsKeyPressed(Key::DPadRight))
 			start_instrumentation();
+		#endif
+		#ifdef SETUP_BLUE_COINS
+		BlueCoinChallenge::SetupBlueCoinsCallback();
 		#endif
 		if (MarioKartFramework::isGameInRace()) {
 			;

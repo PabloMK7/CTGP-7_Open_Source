@@ -637,10 +637,10 @@ namespace CTRPluginFramework
 			0x2B,
 			0x31
 		},{ //0x0C Cloud Cup
-			0x32,
+			0x35,
 			0x36,
 			0x34,
-			0x35
+			0x60
 		},{ //0x0D Boo Cup
 			0x37,
 			0x3E,
@@ -694,7 +694,7 @@ namespace CTRPluginFramework
 		},{ //0x17 Coin Cup
 			0x5E,
 			0x5F,
-			0x60,
+			0x32,
 			0x49
 		},{ //0x18 Pickaxe Cup
 			0x62,
@@ -792,7 +792,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Gn64_ChocoMountainn", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x2F
 			{&globalNameData.f, "Ctgp_DSShroomRidge", 0x08, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x30
 			{&globalNameData.f, "Ctgp_BowserCastle3", 0x1D, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x31
-			{&globalNameData.f, "Ctgp_EvGre", 0x16, 0x03, MarioKartTimer::ToFrames(2,0)},						//0x32
+			{&globalNameData.f, "Ctgp_N64DKJungleParkway", 0x07, 0x03, MarioKartTimer::ToFrames(2,30)},		//0x32
 			{&globalNameData.f, "Ctgp_CrashCov", 0x14, 0x03, MarioKartTimer::ToFrames(2,30)},					//0x33
 			{&globalNameData.f, "Ctgp_ArchipAvenue", 0x11, 0x03, MarioKartTimer::ToFrames(2,10)},				//0x34
 			{&globalNameData.f, "Ctgp_FrapeSnow", 0x0A, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x35

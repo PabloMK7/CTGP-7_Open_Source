@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.cpp
-Open source lines: 252/373 (67.56%)
+Open source lines: 263/384 (68.49%)
 *****************************************************/
 
 #include "BlueCoinChallenge.hpp"
@@ -229,7 +229,7 @@ namespace CTRPluginFramework {
     }
 
     void BlueCoinChallenge::SaveCoinLoc() {
-    #if false
+    #ifdef SETUP_BLUE_COINS
         u32 vehicle = MarioKartFramework::getVehicle(0);
         Vector3 fromPoint = *(Vector3*)(vehicle + 0x24);
         fromPoint -= Vector3(0.f, 5.220f, 0.f); // To compensate yoshi + red wheels combo
@@ -239,7 +239,7 @@ namespace CTRPluginFramework {
     }
 
     void BlueCoinChallenge::DumpCoinLocsToFile() {
-    #if false
+    #ifdef SETUP_BLUE_COINS
         File dumpLoc("/bluecoins.txt", File::RWC);
         std::string dump;
         for (auto it = coinLocations.begin(); it != coinLocations.end(); it++) {
@@ -247,6 +247,17 @@ namespace CTRPluginFramework {
         }
         dumpLoc.Write(dump.data(), dump.size());
         OSD::Notify("Written to file");
+    #endif
+    }
+
+    void BlueCoinChallenge::SetupBlueCoinsCallback() {
+    #ifdef SETUP_BLUE_COINS
+        if (Controller::IsKeyPressed(Key::DPadLeft)) {
+            SaveCoinLoc();
+        }
+        if (Controller::IsKeyPressed(Key::DPadRight)) {
+            DumpCoinLocsToFile();
+        }
     #endif
     }
 }
