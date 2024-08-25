@@ -274,7 +274,7 @@ namespace CTRPluginFramework {
 	}
 
 	TextFileParser::~TextFileParser() {	}
-	bool TextFileParser::IsNumerical(const std::string& str, bool isHex)
+	bool TextFileParser::IsNumerical(const std::string& str, bool isHex, bool isU64)
 	{
 		int i = 0;
 		for (const char c : str) {
@@ -285,17 +285,17 @@ namespace CTRPluginFramework {
 			i++;
 		}
 		if (!isHex) {
-			if (i > 10) return false;
-			if (i == 10) {
-				const char max[] = "4294967295";
-				for (int i = 0; i <= 10; i++) {
+			if (i > (isU64 ? 20 : 10)) return false;
+			if (i == (isU64 ? 20 : 10)) {
+				const char* max = isU64 ? "18446744073709551615" : "4294967295";
+				for (int i = 0; i <= isU64 ? 20 : 10; i++) {
 					if (str[i] > max[i]) return false;
 				}
 				return true;
 			}
 		}
 		else {
-			if (i > 8) return false;
+			if (i > (isU64 ? 16 : 8)) return false;
 		}
 		return true;
 	}

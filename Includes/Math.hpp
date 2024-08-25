@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Math.hpp
-Open source lines: 255/255 (100.00%)
+Open source lines: 267/267 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -253,3 +253,15 @@ struct Color4 {
         A = 1.f;
     }
 };
+
+template<class RandomIt, class RandomFunc>
+void random_shuffle_custom(RandomIt first, RandomIt last, RandomFunc&& r)
+{
+    typedef typename std::iterator_traits<RandomIt>::difference_type diff_t;
+ 
+    for (diff_t i = last - first - 1; i > 0; --i)
+    {
+        using std::swap;
+        swap(first[i], first[r(i + 1)]);
+    }
+}

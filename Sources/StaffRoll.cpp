@@ -36,7 +36,7 @@ namespace CTRPluginFramework {
             for (int i = 0; i < sarc->GetFileCount() - 2; i++) {
                 randomImageList.push_back((u8)i);
             }
-            std::random_shuffle(randomImageList.begin(), randomImageList.end(), [](int i) {
+            random_shuffle_custom(randomImageList.begin(), randomImageList.end(), [](int i) {
 				return Utils::Random(0, i - 1);
 			});
         }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 730/730 (100.00%)
+Open source lines: 735/735 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -597,6 +597,9 @@ namespace CTRPluginFramework {
 			static void OnLapRankCheckerDisconnectCheck(u32* laprankchecker, u32* kartinfo);
 			static u32 countdownDisconnectTimer;
 			static MarioKartTimer graceDokanPeriod;
+			static std::vector<std::tuple<float, float, float, float, float>> bannedUltraShortcuts;
+			static float masterPrevRaceCompletion;
+			static int masterSuspectUltraShortcut;
 			static void OnRRAsteroidInitObj(u32* rrAsteroid);
 			//
 			static void OnObjectBaseSetScale(u32* objectBase, Vector3& copyTo, const Vector3& copyFrom);
@@ -711,6 +714,8 @@ namespace CTRPluginFramework {
 			static void OnJugemSwitchReverseUpdate(u32 switchReverse);
 			//
 			static u32 SndActorKartDecideBoostSndID(u32 sndActorKart, u32 courseID);
+			//
+			static u32 AdjustVRIncrement(u32 playerID, u32 vr, s32 vrIncrement);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

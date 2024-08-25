@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 753/774 (97.29%)
+Open source lines: 819/840 (97.50%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -28,6 +28,9 @@ namespace CTRPluginFramework {
 	float Net::ctwwCPURubberBandOffset = 0.f;
 	StarGrade Net::myGrade = StarGrade::NONE;
 	std::string Net::trackHistory;
+	std::string Net::allowedTracks;
+	float Net::vrMultiplier = 1.f;
+	std::vector<u64> Net::whiteListedCharacters;
 	NetHandler::RequestHandler Net::netRequests;
 	Net::CTWWLoginStatus Net::lastLoginStatus = Net::CTWWLoginStatus::NOTLOGGED;
 	Net::OnlineStateMachine Net::currState = Net::OnlineStateMachine::OFFLINE;
@@ -55,6 +58,7 @@ namespace CTRPluginFramework {
 	bool Net::temporaryRedirectCTGP7 = false;
 	Net::CustomGameAuthentication Net::customAuthData;
 	Task Net::checkMessageAndKickTask{checkMessageAndKickTaskfunc, nullptr, Task::Affinity::AppCore};
+	Task Net::ultraShortcutTask{reportUltraShortcutTaskfunc, nullptr, Task::Affinity::AppCore};
 
 	Net::CTWWLoginStatus Net::GetLoginStatus()
 	{
@@ -202,6 +206,16 @@ namespace CTRPluginFramework {
 				req->Start(false);
 				return true;
 			}
+			whiteListedCharacters.clear();
+			std::string allowedChars = reqDoc.get("allowedCharacters", "");
+			if (!allowedChars.empty()) {
+				std::vector<std::string> allowedList = TextFileParser::Split(allowedChars);
+				for (auto it = allowedList.begin(); it != allowedList.end(); it++) {
+					std::string& curr = *it;
+					u64 id = std::strtoull(curr.c_str(), nullptr, 0);
+					whiteListedCharacters.push_back(id);
+				}
+			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH, &reqDoc);
@@ -217,6 +231,8 @@ namespace CTRPluginFramework {
 					SaveHandler::saveData.cdVR = reqDoc.get("cdvr", 1000);
 					vrPositions[0] = reqDoc.get("ctvrPos", 0);
 					vrPositions[1] = reqDoc.get("cdvrPos", 0);
+					vrMultiplier = reqDoc.get("vrMultiplier", 1000) / 1000.f;
+					allowedTracks = reqDoc.get("allowedTracks", "");
 				}
 				trackHistory = reqDoc.get("trackHistory", "");
 			}
@@ -250,6 +266,18 @@ namespace CTRPluginFramework {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_RACING, &reqDoc);
 			if (static_cast<CTWWLoginStatus>(res) != CTWWLoginStatus::SUCCESS)
 				MarioKartFramework::dialogBlackOut();
+			std::string banned_shortcuts = reqDoc.get("bannedUltraSC", "");
+			if (!banned_shortcuts.empty()) {
+				std::vector<std::string> sc_list = TextFileParser::Split(banned_shortcuts);
+				float temp[5]; int c_temp = 0; 
+				for (auto it = sc_list.begin(); it != sc_list.end(); it++) {
+					temp[c_temp++] = strtof(it->c_str(), NULL);
+					if (c_temp == 5) {
+						c_temp = 0;
+						MarioKartFramework::bannedUltraShortcuts.push_back(std::make_tuple(temp[0], temp[1], temp[2], temp[3], temp[4]));
+					}
+				}
+			}
 		} else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_RACEFINISH)) {
 			res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_RACEFINISH, &reqDoc);
 			trackHistory = reqDoc.get("trackHistory", "");
@@ -622,6 +650,7 @@ namespace CTRPluginFramework {
 	s32 Net::checkMessageAndKickTaskfunc(void* arg) {
 		NetHandler::RequestHandler messageHandler;
 		minibson::document reqDoc;
+		reqDoc.set<int>("localVer", lastOnlineVersion);
 		messageHandler.AddRequest(NetHandler::RequestHandler::RequestType::MESSAGE, reqDoc);
 		messageHandler.Start();
 		messageHandler.Wait();
@@ -630,9 +659,21 @@ namespace CTRPluginFramework {
 		int res = messageHandler.GetResult(NetHandler::RequestHandler::RequestType::MESSAGE, &resDoc);
 		if (res == (int)CTWWLoginStatus::MESSAGE || res == (int)CTWWLoginStatus::MESSAGEKICK) {
 			MarioKartFramework::dialogBlackOut(resDoc.get("loginMessage", ""));
+		} else if (res == (int)CTWWLoginStatus::VERMISMATCH) {
+			MarioKartFramework::dialogBlackOut(NOTE("update_check"));
 		} else {
 			MarioKartFramework::dialogBlackOut();
 		}
+		return 0;
+	}
+
+	s32 Net::reportUltraShortcutTaskfunc(void* arg) {
+		NetHandler::RequestHandler messageHandler;
+		minibson::document reqDoc;
+		messageHandler.AddRequest(NetHandler::RequestHandler::RequestType::ULTRASHORTCUT, reqDoc);
+		messageHandler.Start();
+		messageHandler.Wait();
+
 		return 0;
 	}
 
@@ -733,8 +774,33 @@ namespace CTRPluginFramework {
 		#endif
 	}
 
+	bool Net::IsCharacterBlocked(EDriverID driverID, u64 characterID) {
+		if (g_getCTModeVal != CTMode::ONLINE_CTWW && g_getCTModeVal != CTMode::ONLINE_CTWW_CD)
+			return false;
+		if (whiteListedCharacters.empty())
+			return false;
+		u64 id = characterID == 0 ? (u64)driverID : characterID;
+		for (auto it = whiteListedCharacters.begin(); it != whiteListedCharacters.end(); it++) {
+			if (*it == id) return false;
+		}
+		return true;
+	}
+
 	void Net::applyBlockedTrackList() {
 		MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
+		if (!allowedTracks.empty()) {
+			std::vector<std::string> tracks = TextFileParser::Split(allowedTracks);
+			auto checkRange = [](std::vector<std::string>& tracks, u32 lower, u32 upper) {
+				for (u32 i = lower; i <= upper; i++) {
+					if (std::find(tracks.begin(), tracks.end(), CourseManager::getCourseData(i)->name) == tracks.end()) {
+						MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(i);
+					}
+				}
+			};
+			checkRange(tracks, ORIGINALTRACKLOWER, ORIGINALTRACKUPPER);
+			checkRange(tracks, BATTLETRACKLOWER, BATTLETRACKUPPER);
+			checkRange(tracks, CUSTOMTRACKLOWER, CUSTOMTRACKUPPER);
+		}
 		std::vector<std::string> tracks = TextFileParser::Split(trackHistory);
 		for (auto it = tracks.cbegin(); it != tracks.cend(); it++) {
 			int courseID = CourseManager::getCourseIDFromName(*it);

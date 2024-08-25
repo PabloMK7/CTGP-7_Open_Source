@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 139/140 (99.29%)
+Open source lines: 140/141 (99.29%)
 *****************************************************/
 
 #pragma once
@@ -90,6 +90,7 @@ namespace CTRPluginFramework {
 				UNIQUEPID,
 				ROOM_CHAR_IDS,
 				MESSAGE,
+				ULTRASHORTCUT,
 			};
 			RequestHandler();
 

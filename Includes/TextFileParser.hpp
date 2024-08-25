@@ -40,7 +40,7 @@ namespace CTRPluginFramework {
 		static std::string& Trim(std::string& str);
 		static void ProcessText(std::string& str);
 
-		static bool IsNumerical(const std::string& str, bool isHex);
+		static bool IsNumerical(const std::string& str, bool isHex, bool isU64 = false);
 
 		enum class NumberType {
 			INVALID,

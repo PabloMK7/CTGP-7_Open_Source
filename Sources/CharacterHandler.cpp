@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2129/2132 (99.86%)
+Open source lines: 2130/2133 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -840,26 +840,27 @@ namespace CTRPluginFramework {
 		}
 	}
 
-	void CharacterHandler::UpdateMenuCharaText(EDriverID driverID, u64 characterID) {
+	void CharacterHandler::UpdateMenuCharaText(EDriverID driverID, u64 characterID, bool isBlocked) {
 		auto it = charEntries.find(characterID);
+		Color defaultColor = isBlocked ? Color(255, 0, 0) : Color(245, 245, 245);
 		if (it != charEntries.end() && it->second.origChar == driverID) {
 			string16 longStr16;
 			Utils::ConvertUTF8ToUTF16(longStr16, it->second.longName);
-			if (it->second.achievementLevel > 0 && it->second.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount()) {
+			if (!isBlocked && it->second.achievementLevel > 0 && it->second.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount()) {
 				if (it->second.achievementLevel >= 5)
 					longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 0, 255)) + longStr16;
 				else
 					longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 255, 0)) + longStr16;
-			} else if (it->second.specialAchievement != SaveHandler::SpecialAchievements::NONE && SaveHandler::saveData.IsSpecialAchievementCompleted(it->second.specialAchievement)) {
+			} else if (!isBlocked && it->second.specialAchievement != SaveHandler::SpecialAchievements::NONE && SaveHandler::saveData.IsSpecialAchievementCompleted(it->second.specialAchievement)) {
 				longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 255, 0)) + longStr16;
 			} else {
-				longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(245, 245, 245)) + longStr16;
+				longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, defaultColor) + longStr16;
 			}
 			Language::MsbtHandler::SetString(1000 + msbtOrder[(int)driverID], longStr16);		
 		} else {
 			Language::MsbtHandler::RemoveAllString(1000 + msbtOrder[(int)driverID]);
 			Language::MsbtHandler::SetString(1000 + msbtOrder[(int)driverID],
-				Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(245, 245, 245)) + 
+				Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, defaultColor) + 
 				Language::MsbtHandler::DashTextWithTagsToString(Language::MsbtHandler::GetText(1000 + msbtOrder[(int)driverID]))
 			);
 		}
@@ -1872,7 +1873,7 @@ namespace CTRPluginFramework {
 		else charName = g_thisCharEntries[option]->longName;
 		charName += ResetColor();
 
-		std::string stateText = (g_thisCharEntries[option]->selectAllowed ? ( "(" + NAME("state_mode") + ")") : (Color(64, 64, 64) << "(" + NOTE("state_mode") + ")")) + ResetColor();
+		std::string stateText = Utils::Format("ID: 0x%016llX ", g_thisCharEntries[option]->id) + (g_thisCharEntries[option]->selectAllowed ? ( "(" + NAME("state_mode") + ")") : (Color(64, 64, 64) << "(" + NOTE("state_mode") + ")")) + ResetColor();
 		std::string text = CenterAlign(charName) + "\n" + CenterAlign(stateText);
 		
 		text += HorizontalSeparator();

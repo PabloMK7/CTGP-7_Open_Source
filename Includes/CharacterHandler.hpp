@@ -100,7 +100,7 @@ namespace CTRPluginFramework {
         static u8* OnGetCharaTexture(SafeStringBase* file, ExtraResource::SARC::FileInfo* fileInfo);
         static void setupExtraResource();
         static void applySarcPatches();
-        static void UpdateMenuCharaText(EDriverID driverID, u64 characterID);
+        static void UpdateMenuCharaText(EDriverID driverID, u64 characterID, bool isBlocked);
         static void UpdateMenuCharaTextures(EDriverID driverID, u8* texture, u8* texture_sh, bool forceReset);
         static void UpdateRaceCharaText();
         static void* OnKartUnitConstructor(void* own, int playerID, CRaceInfo& raceInfo, bool isHiRes);

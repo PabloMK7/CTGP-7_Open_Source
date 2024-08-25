@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3415/3521 (96.99%)
+Open source lines: 3473/3579 (97.04%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -161,6 +161,9 @@ namespace CTRPluginFramework {
 	u32 (*MarioKartFramework::vehicleMove_startDokanWarp)(u32 vehicleMove, u32 chosenPoint, Vector3* targetPosition, Vector3* kartDirection) = nullptr;
 	u32 MarioKartFramework::countdownDisconnectTimer;
 	MarioKartTimer MarioKartFramework::graceDokanPeriod;
+	std::vector<std::tuple<float, float, float, float, float>> MarioKartFramework::bannedUltraShortcuts;
+	float MarioKartFramework::masterPrevRaceCompletion = 0.f;
+	int MarioKartFramework::masterSuspectUltraShortcut = -1;
 	bool MarioKartFramework::lastPolePositionLeft = false;
 	bool MarioKartFramework::bulletBillAllowed = true;
 	bool MarioKartFramework::speedupMusicOnLap = false;
@@ -939,6 +942,9 @@ namespace CTRPluginFramework {
 		lastCheckedLap = 1;
 		raceMusicSpeedMultiplier = 1.f;
 
+		masterSuspectUltraShortcut = -1;
+		masterPrevRaceCompletion = 0.f;
+
 		float speedmod = 1;
 		if (entrycount > 1) {
 			u8 poleval = (float)(*stginfo)[1].PolePosition;
@@ -1195,6 +1201,9 @@ namespace CTRPluginFramework {
 				g_updateCTMode();
 				CharacterHandler::ResetCharacters();
 				CharacterHandler::DisableOnlineLock();
+				bannedUltraShortcuts.clear();
+				Net::vrMultiplier = 1.f;
+				Net::allowedTracks = "";
 				resetdriverchoices();
 				MarioKartFramework::SetWatchRaceMode(false);
 				currCommNumberTracksPtr = nullptr;
@@ -1340,6 +1349,9 @@ namespace CTRPluginFramework {
 		Net::customAuthData.result = 0;
 		Net::temporaryRedirectCTGP7 = false;
 		Net::privateRoomID = 0;
+		Net::vrMultiplier = 1.f;
+		Net::whiteListedCharacters.clear();
+		Net::allowedTracks = "";
 		VersusHandler::IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		MarioKartFramework::setSkipGPCoursePreview(false);
@@ -1355,6 +1367,7 @@ namespace CTRPluginFramework {
 		if (g_hasGameReachedTitle)
 			SaveHandler::SaveSettingsAll();
 		g_hasGameReachedTitle = true;
+		bannedUltraShortcuts.clear();
 	}
 
 	static void OnTitleOnlineButtonPressed() {
@@ -2507,7 +2520,6 @@ namespace CTRPluginFramework {
 		}
 	}
 
-	static float g_prevRaceProgress = 0.f;
 	void MarioKartFramework::OnLapRankCheckerDisconnectCheck(u32* laprankchecker, u32* kartinfo) {
 		//u32 vehicle = ((u32**)kartInfo)[0][0];
 
@@ -2518,9 +2530,7 @@ namespace CTRPluginFramework {
 
 #ifdef NO_DISCONNECT_ONLINE
 		*currTimer = 0; *secondaryTimer = 0.f;
-		return;
-#endif
-
+#else
 		if (++(*currTimer) > MarioKartTimer::ToFrames(0, 12, 0))
 			kartinfo[0x24/4] |= 8;
 		
@@ -2528,7 +2538,7 @@ namespace CTRPluginFramework {
 
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 
-			if (((currRaceProgress + 0.00001f) < biggestRaceProgress) || ((currRaceProgress - g_prevRaceProgress) < 0.00001f))
+			if (((currRaceProgress + 0.00001f) < biggestRaceProgress) || ((currRaceProgress - masterPrevRaceCompletion) < 0.00001f))
 				countdownDisconnectTimer+=2;
 
 			if (countdownDisconnectTimer > (CourseManager::getCountdownCourseTime(CourseManager::lastLoadedCourseID) - MarioKartTimer::ToFrames(0, 10, 0))) {
@@ -2539,8 +2549,38 @@ namespace CTRPluginFramework {
 				*currTimer = 0;
 				*secondaryTimer = 0.f;
 			}
-			g_prevRaceProgress = currRaceProgress;
 		}
+#endif
+#ifdef REPORT_RACE_PROGRESS
+		if (Controller::IsKeyPressed(Key::DPadLeft)) {
+			float curProgDecimal = currRaceProgress - (int)currRaceProgress;
+			OSD::Notify(Utils::Format("Progress: %.4f", curProgDecimal));
+		}
+#endif
+		if (!bannedUltraShortcuts.empty()) {
+			float curProgDecimal = currRaceProgress - (int)currRaceProgress;
+			float prevProgDecimal = masterPrevRaceCompletion - (int)masterPrevRaceCompletion;
+			int i = 0;
+			for (auto it = bannedUltraShortcuts.begin(); it != bannedUltraShortcuts.end(); it++, i++) {
+				if (masterSuspectUltraShortcut == i) {
+					if (curProgDecimal >= std::get<0>(*it) && curProgDecimal <= std::get<1>(*it)) {
+						masterSuspectUltraShortcut = -1;
+					} else if (curProgDecimal >= std::get<4>(*it)) {
+						masterSuspectUltraShortcut = -1;
+						Net::ReportUltraShortcut();
+					}
+				} else {
+					if (
+						prevProgDecimal >= std::get<0>(*it) && prevProgDecimal <= std::get<1>(*it) &&
+						curProgDecimal >= std::get<2>(*it) && curProgDecimal <= std::get<3>(*it)
+					) {
+						masterSuspectUltraShortcut = i;
+					}
+				}
+			}
+		}
+
+		masterPrevRaceCompletion = currRaceProgress;
 	}
 
 	void MarioKartFramework::OnRRAsteroidInitObj(u32* rrAsteroid) {
@@ -3171,6 +3211,24 @@ namespace CTRPluginFramework {
 			return Snd::SoundID::KART_DASH;
 		}
 		return Snd::SoundID::KART_DASH_WALUIGI_PINBALL;
+	}
+
+	u32 MarioKartFramework::AdjustVRIncrement(u32 playerID, u32 vr, s32 vrIncrement) {
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
+			if (vrIncrement > 0) vrIncrement *= Net::vrMultiplier;
+		}
+
+		if (std::abs(vrIncrement) > 1000) {
+			vrIncrement = 0;
+		}
+		if (__builtin_add_overflow_p((s32)vr, vrIncrement, (s32)0)) {
+			vrIncrement = 0;
+		}
+
+		vr += vrIncrement;
+		if (vr > 99999) vr = 99999;
+		else if (vr < 1) vr = 1;
+		return vr;
 	}
 
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2343/2697 (86.87%)
+Open source lines: 2369/2732 (86.71%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -82,6 +82,7 @@ namespace CTRPluginFramework {
     VisualControl::GameVisualControlVtable* MenuPageHandler::MenuCharaBasePage::controlVtable;
     std::array<int, EDriverID::DRIVER_SIZE> MenuPageHandler::MenuCharaBasePage::currentChoices{};
     void (*MenuPageHandler::MenuCharaBasePage::deallocateBackup)(GameSequenceSection* own) = nullptr;
+    void (*MenuPageHandler::MenuCharaBasePage::multiOnTimeUpCompleteStepBackup)(GameSequenceSection* own, int unk) = nullptr;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::destructorHook;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::initControlHook;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::pageEnterHook;
@@ -1991,7 +1992,15 @@ namespace CTRPluginFramework {
         u32 textElementHandle = charCountControl->GetNwlytControl()->vtable->getElementHandle(charCountControl->GetNwlytControl(), SafeStringBase("T_mngr"), 0);
         charCountControl->GetNwlytControl()->vtable->replaceMessageImpl(charCountControl->GetNwlytControl(), textElementHandle, VisualControl::Message(msg16.c_str()), nullptr, nullptr);
     
-        CharacterHandler::UpdateMenuCharaText(currDriver, GetSelectedCustomCharacterID(currDriver));
+        bool isBlocked = Net::IsCharacterBlocked(currDriver, GetSelectedCustomCharacterID(currDriver));
+        VisualControl::GameVisualControl* icon = GetButtonFromDriverID(own, currDriver);
+        if (icon != nullptr) {
+            ((u32*)icon)[0x230 / 4] = isBlocked ? -1 : 0;
+            ((u8*)icon)[0x224] = isBlocked ? 0 : 90;
+            ((u8*)icon)[0x225] = isBlocked ? 91 : 0;
+        }
+
+        CharacterHandler::UpdateMenuCharaText(currDriver, GetSelectedCustomCharacterID(currDriver), isBlocked);
     }
     
     void MenuPageHandler::MenuCharaBasePage::UpdateDriverIcon(EDriverID driverID, bool forceReset) {
@@ -2043,7 +2052,15 @@ namespace CTRPluginFramework {
         page->loadAllIconsDelay = 3;
         page->coolDownScrollTimer = 0;
         for (int i = 0; i < (int)EDriverID::DRIVER_SIZE; i++) {
-            CharacterHandler::UpdateMenuCharaText((EDriverID)i, GetSelectedCustomCharacterID((EDriverID)i));
+            bool isBlocked = Net::IsCharacterBlocked((EDriverID)i, GetSelectedCustomCharacterID((EDriverID)i));
+            VisualControl::GameVisualControl* icon = GetButtonFromDriverID(own, (EDriverID)i);
+            if (icon != nullptr) {
+                ((u32*)icon)[0x230 / 4] = isBlocked ? -1 : 0;
+                ((u8*)icon)[0x224] = isBlocked ? 0 : 90;
+                ((u8*)icon)[0x225] = isBlocked ? 91 : 0;
+            }
+
+            CharacterHandler::UpdateMenuCharaText((EDriverID)i, GetSelectedCustomCharacterID((EDriverID)i), isBlocked);
         }
     }
 
@@ -2122,6 +2139,15 @@ namespace CTRPluginFramework {
         CharacterHandler::SetupMenuVoices(newID);
         CharacterHandler::SaveCharacterChoices();
         ((void(*)(GameSequenceSection*, int))buttonHandlerOKHook.callCode)(own, buttonID);
+    }
+
+    void MenuPageHandler::MenuCharaBasePage::OnTimeUpCompleteStep(GameSequenceSection* own, int unknown) {
+        EDriverID currDriver = GetSelectedDriverID(own);
+        bool isBlocked = Net::IsCharacterBlocked(currDriver, GetSelectedCustomCharacterID(currDriver));
+        if (isBlocked) {
+            MarioKartFramework::dialogBlackOut();
+        }
+        multiOnTimeUpCompleteStepBackup(own, unknown);
     }
 
     void MenuPageHandler::InitHooksFromSingleCupGP(u32 sectionVtable) {

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 190/194 (97.94%)
+Open source lines: 202/206 (98.06%)
 *****************************************************/
 
 #pragma once
@@ -143,6 +143,11 @@ namespace CTRPluginFramework {
 		static Task checkMessageAndKickTask;
 		static s32 checkMessageAndKickTaskfunc(void* arg);
 
+		static Task ultraShortcutTask;
+		static void ReportUltraShortcut() {
+			ultraShortcutTask.Start();
+		}
+
 		class DiscordInfo
 		{
 		private:
@@ -166,6 +171,11 @@ namespace CTRPluginFramework {
 		static float ctwwCPURubberBandOffset;
 		static StarGrade myGrade;
 		static std::string trackHistory;
+		static std::string allowedTracks;
+		static float vrMultiplier;
+		static std::vector<u64> whiteListedCharacters;
+
+		static bool IsCharacterBlocked(EDriverID driverID, u64 characterID);
 
 	private:
 		static NetHandler::RequestHandler netRequests;
@@ -178,6 +188,8 @@ namespace CTRPluginFramework {
 		static u32 pretendoState;
 
 		static void applyBlockedTrackList();
+
+		static s32 reportUltraShortcutTaskfunc(void* arg);
 
 #ifdef BETA_BUILD
 		static BetaState betaState;

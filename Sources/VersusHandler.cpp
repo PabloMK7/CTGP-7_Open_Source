@@ -525,7 +525,7 @@ namespace CTRPluginFramework {
 			default:
 				break;
 			}
-			std::random_shuffle(courseList.begin(), courseList.end(), [](int i) {
+			random_shuffle_custom(courseList.begin(), courseList.end(), [](int i) {
 				return Utils::Random(0, i - 1);
 			});
 			for (int i = 0; i < SaveHandler::saveData.vsSettings.roundAmount; i++) {

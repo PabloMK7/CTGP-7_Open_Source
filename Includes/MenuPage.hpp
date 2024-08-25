@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 762/762 (100.00%)
+Open source lines: 768/768 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -563,6 +563,10 @@ namespace CTRPluginFramework {
                     return (*arr)[button];
                 }
                 static VisualControl::GameVisualControl* GetButtonFromDriverID(GameSequenceSection* own, EDriverID driverID) {
+                    if (driverID == EDriverID::DRIVER_MIIM || driverID == EDriverID::DRIVER_MIIF) {
+                        return (VisualControl::GameVisualControl*)((u32*)own)[0x350/4];
+                    }
+
                     SeadArray<EDriverID, 0x11>* arr = (SeadArray<EDriverID, 0x11>*)(((u32*)own) + 0x2A8/4);
                     for (int i = 0; i < arr->count; i++) {
                         if ((*arr)[i] == driverID) {
@@ -583,6 +587,7 @@ namespace CTRPluginFramework {
                 static RT_HOOK buttonHandlerSelectOnHook;
                 static RT_HOOK buttonHandlerOKHook;
                 static void (*deallocateBackup)(GameSequenceSection* own);
+                static void (*multiOnTimeUpCompleteStepBackup)(GameSequenceSection* own, int unk);
                 
                 static void OnDestruct(GameSequenceSection* own);
                 static void OnDeallocate(GameSequenceSection* own);
@@ -592,6 +597,7 @@ namespace CTRPluginFramework {
                 static void OnPagePreStep(GameSequenceSection* own);
                 static void OnButtonHandlerSelectOn(GameSequenceSection* own, int buttonID);
                 static void OnButtonHandlerOK(GameSequenceSection* own, int buttonID);
+                static void OnTimeUpCompleteStep(GameSequenceSection* own, int unknown);
             private:
                 VisualControl::GameVisualControl* charCountControl = nullptr;
                 GameSequenceSection* own = nullptr;

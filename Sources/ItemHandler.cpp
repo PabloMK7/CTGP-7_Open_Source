@@ -652,8 +652,8 @@ namespace CTRPluginFramework {
             ExtendedItemBoxController::konohaTimer = ((u32*)itemObjTail)[0x70/4];
         
         int spinTimer = ((u32*)itemObjTail)[0x210/4];
-        if (buttonData.item && spinTimer > 20 && allowFasterItemDisappear)
-            ((u32*)itemObjTail)[0x70/4]+=3;
+        if (buttonData.item && spinTimer > 12 && allowFasterItemDisappear)
+            ((u32*)itemObjTail)[0x70/4]+=4;
     }
 
     void ItemHandler::OnKartItemCalcAfterStructure(u32 kartItem) {
@@ -666,15 +666,15 @@ namespace CTRPluginFramework {
             kartHoldItemFrames[playerID]++;
         else
             kartHoldItemFrames[playerID] = 0;
-        if (kartHoldItemFrames[playerID] > 20 && allowFasterItemDisappear) {
+        if (kartHoldItemFrames[playerID] > 12 && allowFasterItemDisappear) {
             if (currItem == EItemSlot::ITEM_KINOKOP) {
                 int& goldenTimer = ((int*)kartItem)[0x54/4];
                 if (goldenTimer > 0)
-                    goldenTimer+=3;
+                    goldenTimer+=4;
             } else if (currItem == EItemSlot::ITEM_FLOWER) {
                 int& flowerTimer = ((int*)kartItem)[0x50/4];
                 if (flowerTimer > 0)
-                    flowerTimer+=3;
+                    flowerTimer+=4;
             }
         }
 	}
