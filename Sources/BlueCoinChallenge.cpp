@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.cpp
-Open source lines: 263/384 (68.49%)
+Open source lines: 264/385 (68.57%)
 *****************************************************/
 
 #include "BlueCoinChallenge.hpp"
@@ -172,11 +172,12 @@ namespace CTRPluginFramework {
     static string16 g_coinCollectedText;
     bool BlueCoinChallenge::closeCoinCollectedDialog(const Screen &s) {
         if (s.IsTop && BlueCoinChallenge::coinCollectedDialogFrames) {
-            if (Controller::IsKeyDown(Key::Start) && BlueCoinChallenge::coinCollectedDialogFrames > 46)
-                BlueCoinChallenge::coinCollectedDialogFrames = 46;
-            if (--BlueCoinChallenge::coinCollectedDialogFrames == 45) {
+            if (BlueCoinChallenge::coinCollectedDialogFrames < 180 && BlueCoinChallenge::coinCollectedDialogFrames > 65 && Controller::IsKeyDown(Key::Start))
+                BlueCoinChallenge::coinCollectedDialogFrames = 65;
+            if (BlueCoinChallenge::coinCollectedDialogFrames == 60) {
                 MarioKartFramework::closeDialog();
             }
+            BlueCoinChallenge::coinCollectedDialogFrames--;
             if (!BlueCoinChallenge::coinCollectedDialogFrames) {
                 MarioKartFramework::isPauseBlocked = false;
                 OSD::Stop(closeCoinCollectedDialog);
@@ -192,7 +193,7 @@ namespace CTRPluginFramework {
     }
 
     void BlueCoinChallenge::OnKartHitCoin(u32 vehicleMove) {
-        if (coinSpawned) {
+        if (coinSpawned && !MarioKartFramework::isRacePaused) {
             bool coinWasCollected = IsCoinCollected(CourseManager::lastLoadedCourseID);
             u32 coinsRemaining = coinLocations.size() - GetCollectedCoinCount();
             DespawnCoin();
@@ -223,7 +224,7 @@ namespace CTRPluginFramework {
                 MarioKartFramework::isPauseBlocked = true;
                 MarioKartFramework::openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "", nullptr, true);
                 OSD::Run(closeCoinCollectedDialog);
-                coinCollectedDialogFrames = 255;
+                coinCollectedDialogFrames = 270;
             }
         }
     }

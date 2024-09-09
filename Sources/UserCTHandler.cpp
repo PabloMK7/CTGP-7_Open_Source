@@ -321,14 +321,14 @@ namespace CTRPluginFramework {
 #ifdef GOTO_TOADCIRCUIT
         skipConfig.enabled = true;
         skipConfig.skipCoursePreview = false;
-        skipConfig.cpuAmount = 8;
+        skipConfig.cpuAmount = 1;
         skipConfig.driverID = EDriverID::DRIVER_YOSHI;
         skipConfig.bodyID = EBodyID::BODY_DSH;
         skipConfig.tireID = ETireID::TIRE_BIGRED;
         skipConfig.wingID = EWingID::WING_BASA;
         skipConfig.itemID = EItemSlot::ITEM_KOURAB;
         skipConfig.useLeftToFinish = true;
-        skipConfig.courseID = -1;
+        skipConfig.courseID = 4;
 #else
         skipConfig.enabled = false;
         TextFileParser parser;

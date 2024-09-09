@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 735/735 (100.00%)
+Open source lines: 738/738 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -362,6 +362,7 @@ namespace CTRPluginFramework {
 			static Key injectedKey;
 			static bool areKeysBlocked;
 			static bool isPauseBlocked;
+			static bool isPauseAllowForced;
 			//
 			static bool isLoadingAward;
 
@@ -715,7 +716,9 @@ namespace CTRPluginFramework {
 			//
 			static u32 SndActorKartDecideBoostSndID(u32 sndActorKart, u32 courseID);
 			//
-			static u32 AdjustVRIncrement(u32 playerID, u32 vr, s32 vrIncrement);
+			static u32 AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement);
+			//
+			static bool OnRacePauseAllow(bool gamePauseAllowed);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

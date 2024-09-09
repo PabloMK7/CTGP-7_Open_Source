@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 819/840 (97.50%)
+Open source lines: 823/844 (97.51%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -813,6 +813,10 @@ namespace CTRPluginFramework {
 				} else
 					MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(courseID);
 			}
+		}
+		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
+			// Wuhu Mountain Loop is bugged in countdown mode, block it
+			MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(0x09);
 		}
 	}
 }

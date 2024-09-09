@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3473/3579 (97.04%)
+Open source lines: 3483/3589 (97.05%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -98,6 +98,7 @@ namespace CTRPluginFramework {
 	Key MarioKartFramework::injectedKey = (Key)0;
 	bool MarioKartFramework::areKeysBlocked = false;
 	bool MarioKartFramework::isPauseBlocked = false;
+	bool MarioKartFramework::isPauseAllowForced = false;
 	std::tuple<u32, u32*> MarioKartFramework::soundThreadsInfo[2] = { std::tuple<u32, u32*>(0xFFFFFFFF, nullptr), std::tuple<u32, u32*>(0xFFFFFFFF, nullptr) };
 	bool MarioKartFramework::forceDisableSndOnPause = false;
 	void (*MarioKartFramework::BaseMenuPageApplySetting_CPU)(int cpuAmount, int startingCPUIndex, int* playerChar) = nullptr;
@@ -329,6 +330,10 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::onRaceEvent(u32 raceEventID)
 	{
 		// 0 -> Start countdown, 1 -> Start race, 2 -> Pause, 3 -> Unpause, 4 -> End race
+		if (raceEventID == 2) 
+			isRacePaused = true;
+		if (raceEventID == 3)
+			isRacePaused = false;
 		if (raceEventID == 0 && startedRaceScene)
 		{
 			if (g_isFoolActive)
@@ -645,7 +650,6 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::handleBackwardsCamera(u32 pad)
 	{
 		if (areKeysBlocked) pad = 0;
-		if (isPauseBlocked) pad &= ~(Key::Start | Key::Select);
 		if (wasKeyInjected) {
 			pad |= (u32)injectedKey;
 			injectedKey = (Key)0;
@@ -2596,7 +2600,6 @@ namespace CTRPluginFramework {
 	}
 
 	void MarioKartFramework::OnRacePauseEvent(bool pauseOpen) {
-		isRacePaused = pauseOpen;
 		SpeedometerController::OnPauseEvent(pauseOpen);
 		if (!MissionHandler::isMissionMode && SaveHandler::saveData.flags1.autoacceleration) AutoAccelerationController::OnPauseEvent(pauseOpen);
 	}
@@ -3213,7 +3216,7 @@ namespace CTRPluginFramework {
 		return Snd::SoundID::KART_DASH_WALUIGI_PINBALL;
 	}
 
-	u32 MarioKartFramework::AdjustVRIncrement(u32 playerID, u32 vr, s32 vrIncrement) {
+	u32 MarioKartFramework::AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement) {
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 			if (vrIncrement > 0) vrIncrement *= Net::vrMultiplier;
 		}
@@ -3221,14 +3224,17 @@ namespace CTRPluginFramework {
 		if (std::abs(vrIncrement) > 1000) {
 			vrIncrement = 0;
 		}
-		if (__builtin_add_overflow_p((s32)vr, vrIncrement, (s32)0)) {
-			vrIncrement = 0;
-		}
 
 		vr += vrIncrement;
 		if (vr > 99999) vr = 99999;
 		else if (vr < 1) vr = 1;
 		return vr;
+	}
+
+	bool MarioKartFramework::OnRacePauseAllow(bool gamePauseAllowed) {
+		if (isPauseBlocked) return false;
+		if (isPauseAllowForced) return true;
+		return gamePauseAllowed;
 	}
 
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {
@@ -3404,6 +3410,7 @@ namespace CTRPluginFramework {
 			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			isCTWW = 0;
 			isAltGameMode = 0;
+			MarioKartFramework::isPauseAllowForced = false;
 			break;
 		case CTMode::ONLINE_NOCTWW:
 			CourseManager::setCustomTracksAllowed(false);
@@ -3420,6 +3427,7 @@ namespace CTRPluginFramework {
 			MenuPageHandler::MenuSingleCourseBasePage::ClearBlockedCourses();
 			isCTWW = 0;
 			isAltGameMode = 0;
+			MarioKartFramework::isPauseAllowForced = true;
 			break;
 		case CTMode::ONLINE_CTWW:
 			CourseManager::setCustomTracksAllowed(true);
@@ -3439,6 +3447,7 @@ namespace CTRPluginFramework {
 			ccselector_apply(ccselectorentry);
 			isCTWW = 1;
 			isAltGameMode = 0;
+			MarioKartFramework::isPauseAllowForced = true;
 			break;
 		case CTMode::ONLINE_CTWW_CD:
 			CourseManager::setCustomTracksAllowed(true);
@@ -3458,6 +3467,7 @@ namespace CTRPluginFramework {
 			ccselector_apply(ccselectorentry);
 			isCTWW = 1;
 			isAltGameMode = 1;
+			MarioKartFramework::isPauseAllowForced = true;
 			break;
 		case CTMode::INVALID:
 		default:
