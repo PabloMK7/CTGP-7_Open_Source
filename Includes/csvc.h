@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: csvc.h
-Open source lines: 206/206 (100.00%)
+Open source lines: 214/214 (100.00%)
 *****************************************************/
 
 /*   This paricular file is licensed under the following terms: */
@@ -85,6 +85,13 @@ void svcInvalidateEntireInstructionCache(void);
 
 ///@name Memory management
 ///@{
+
+/// Flags for svcMapProcessMemoryEx
+typedef enum MapExFlags
+{
+    MAPEXFLAGS_PRIVATE = BIT(0), ///< Maps the memory as PRIVATE (0xBB05) instead of SHARED (0x5806)
+} MapExFlags;
+
 /**
  * @brief Maps a block of process memory.
  * @param dstProcessHandle Handle of the process to map the memory in (destination)
@@ -92,8 +99,9 @@ void svcInvalidateEntireInstructionCache(void);
  * @param srcProcessHandle Handle of the process to map the memory from (source)
  * @param srcAddress Start address of the memory block in the source process
  * @param size Size of the block of the memory to map (truncated to a multiple of 0x1000 bytes)
+ * @param flags Extended flags for mapping the memory (see MapExFlags)
 */
-Result svcMapProcessMemoryEx(Handle dstProcessHandle, u32 destAddress, Handle srcProcessHandle, u32 srcAddress, u32 size);
+Result svcMapProcessMemoryEx(Handle dstProcessHandle, u32 destAddress, Handle srcProcessHandle, u32 srcAddress, u32 size, MapExFlags flags);
 
 /**
  * @brief Unmaps a block of process memory.

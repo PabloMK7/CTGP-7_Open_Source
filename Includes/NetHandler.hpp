@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 140/141 (99.29%)
+Open source lines: 137/138 (99.28%)
 *****************************************************/
 
 #pragma once
@@ -128,13 +128,10 @@ namespace CTRPluginFramework {
 		static u64 GetConsoleSecureHash(int part);
 		static std::string GetConsoleUniquePassword();
 		static void InitColsoleUniqueHash();
-		static void SetHttpcStolenMemory(u32* addr);
-		static u32* GetHttpcStolenMemory();
 
 	private:
 		static u64 ConsoleUniqueHash;
 		static u64 ConsoleSecureHash[2];
 		static std::string ConsoleUniquePassword;
-		static u32* HttpcStolenMemory;
 	};
 }

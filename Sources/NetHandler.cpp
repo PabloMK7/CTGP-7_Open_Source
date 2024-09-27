@@ -4,11 +4,10 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 447/532 (84.02%)
+Open source lines: 435/520 (83.65%)
 *****************************************************/
 
 #include "NetHandler.hpp"
-#include "httpcPatch.h"
 #include "main.hpp"
 
 namespace CTRPluginFramework {
@@ -20,7 +19,6 @@ namespace CTRPluginFramework {
 	LightEvent NetHandler::Session::threadFinishEvent;
 	bool NetHandler::Session::runThread = false;
 
-	u32* NetHandler::HttpcStolenMemory = nullptr;
 	const minibson::document NetHandler::Session::defaultDoc;
 
 	u64 NetHandler::ConsoleUniqueHash = 0;
@@ -204,7 +202,7 @@ namespace CTRPluginFramework {
 		u32             responseCode = 0;
 		u32             totalSize = 0, bytesRead = 0;
 		Result          res = 0, initres = 0;
-		httpcPatchContext    context;
+		httpcContext    context;
 		char            userAgent[128];
 		u8* buf = NULL;
 		bool repeatSession = false;
@@ -216,9 +214,9 @@ namespace CTRPluginFramework {
 			if (!runThread)
 				break;
 
-			initres = httpcPatchInit((u32)NetHandler::GetHttpcStolenMemory(), 0x2000);
+			initres = httpcInit(0x2000);
 
-			while (R_SUCCEEDED(initres))
+			while (true)
 			{
 				buf = NULL; downSize = 0; responseCode = 0; totalSize = 0; bytesRead = 0;
 				if (!repeatSession)
@@ -230,7 +228,7 @@ namespace CTRPluginFramework {
 					pendingSessions.pop_back();
 				}
 
-				if (currS->rawbsondata == nullptr || currS->rawbsonsize == 0) {
+				if (R_FAILED(initres) || currS->rawbsondata == nullptr || currS->rawbsonsize == 0) {
 					repeatSession = false;
 					currS->status = Status::FAILURE;
 					currS->lastRes = -1;
@@ -241,20 +239,20 @@ namespace CTRPluginFramework {
 					continue;
 				}
 
-				if (R_SUCCEEDED(res = httpcPatchOpenContext(&context, HTTPCPATCH_METHOD_POST, currS->remoteUrl.c_str(), 0)))
+				if (R_SUCCEEDED(res = httpcOpenContext(&context, HTTPC_METHOD_POST, currS->remoteUrl.c_str(), 0)))
 				{
 					snprintf(userAgent, sizeof(userAgent), "CTGP7/1.1");
-					if (R_SUCCEEDED(res = httpcPatchSetSSLOpt(&context, SSLCOPT_DisableVerify))
-						&& R_SUCCEEDED(res = httpcPatchSetKeepAlive(&context, HTTPCPATCH_KEEPALIVE_DISABLED))
-						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "User-Agent", userAgent))
-						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "Content-Type", "application/octet-stream"))
+					if (R_SUCCEEDED(res = httpcSetSSLOpt(&context, SSLCOPT_DisableVerify))
+						&& R_SUCCEEDED(res = httpcSetKeepAlive(&context, HTTPC_KEEPALIVE_DISABLED))
+						&& R_SUCCEEDED(res = httpcAddRequestHeaderField(&context, "User-Agent", userAgent))
+						&& R_SUCCEEDED(res = httpcAddRequestHeaderField(&context, "Content-Type", "application/octet-stream"))
 						#if CITRA_MODE == 1
-						&& R_SUCCEEDED(res = httpcPatchAddRequestHeaderField(&context, "Citra", "1"))
+						&& R_SUCCEEDED(res = httpcAddRequestHeaderField(&context, "Citra", "1"))
 						#endif
-						&& R_SUCCEEDED(res = httpcPatchAddPostDataRaw(&context, (u32*)currS->rawbsondata, currS->rawbsonsize))
-						&& R_SUCCEEDED(res = httpcPatchBeginRequest(&context))
-						&& R_SUCCEEDED(res = httpcPatchGetResponseStatusCodeTimeout(&context, &responseCode, 10ULL * 1000ULL * 1000ULL * 1000ULL))
-						&& R_SUCCEEDED(res = httpcPatchGetDownloadSizeState(&context, NULL, &totalSize)))
+						&& R_SUCCEEDED(res = httpcAddPostDataRaw(&context, (u32*)currS->rawbsondata, currS->rawbsonsize))
+						&& R_SUCCEEDED(res = httpcBeginRequest(&context))
+						&& R_SUCCEEDED(res = httpcGetResponseStatusCodeTimeout(&context, &responseCode, 10ULL * 1000ULL * 1000ULL * 1000ULL))
+						&& R_SUCCEEDED(res = httpcGetDownloadSizeState(&context, NULL, &totalSize)))
 					{
 						if (responseCode == 200)
 						{
@@ -263,14 +261,14 @@ namespace CTRPluginFramework {
 							}
 							else {
 								buf = (u8*)::operator new(totalSize);
-								res = httpcPatchDownloadData(&context, buf, totalSize, &bytesRead);
+								res = httpcDownloadData(&context, buf, totalSize, &bytesRead);
 								if (bytesRead != totalSize)
 									res = -5;
 							}
 						}
 						else res = (Result)(0x80000000 | (u32)responseCode);
 					}
-					httpcPatchCloseContext(&context);
+					httpcCloseContext(&context);
 				}
 
 				currS->ClearInputData();
@@ -295,7 +293,7 @@ namespace CTRPluginFramework {
 				if (!repeatSession) currS->isFinished = true;
 				if (!repeatSession) LightEvent_Signal(&currS->waitEvent);
 			}
-			if (R_SUCCEEDED(initres)) httpcPatchExit();
+			if (R_SUCCEEDED(initres)) httpcExit();
 		}
 
 		LightEvent_Signal(&threadFinishEvent);
@@ -433,15 +431,5 @@ namespace CTRPluginFramework {
 	bool NetHandler::RequestHandler::Contains(RequestType type)
 	{
 		return std::find(addedRequests.begin(), addedRequests.end(), type) != addedRequests.end();
-	}
-
-	void NetHandler::SetHttpcStolenMemory(u32* addr)
-	{
-		HttpcStolenMemory = addr;
-	}
-
-	u32* NetHandler::GetHttpcStolenMemory()
-	{
-		return HttpcStolenMemory;
 	}
 }
