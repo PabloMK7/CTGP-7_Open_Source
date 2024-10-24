@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 435/520 (83.65%)
+Open source lines: 441/530 (83.21%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -23,6 +23,7 @@ namespace CTRPluginFramework {
 
 	u64 NetHandler::ConsoleUniqueHash = 0;
 	std::string NetHandler::ConsoleUniquePassword = "";
+	std::string NetHandler::UserUniqueName = "";
 
 	const char* NetHandler::RequestHandler::reqStr[] = {
 		"req_betaver",
@@ -312,6 +313,11 @@ namespace CTRPluginFramework {
 	std::string NetHandler::GetConsoleUniquePassword()
 	{
 		return ConsoleUniquePassword;
+	}
+
+	std::string NetHandler::GetUserUniqueName()
+	{
+		return UserUniqueName;
 	}
 
 	void NetHandler::InitColsoleUniqueHash()

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 202/206 (98.06%)
+Open source lines: 204/208 (98.08%)
 *****************************************************/
 
 #pragma once
@@ -174,6 +174,8 @@ namespace CTRPluginFramework {
 		static std::string allowedTracks;
 		static float vrMultiplier;
 		static std::vector<u64> whiteListedCharacters;
+		static std::string myServerName;
+		static std::string othersServerNames[8];
 
 		static bool IsCharacterBlocked(EDriverID driverID, u64 characterID);
 

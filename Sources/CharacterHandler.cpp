@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2130/2133 (99.86%)
+Open source lines: 2139/2142 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -18,6 +18,7 @@ Open source lines: 2130/2133 (99.86%)
 #include "MissionHandler.hpp"
 #include "str16utils.hpp"
 #include "MenuPage.hpp"
+#include "VoiceChatHandler.hpp"
 
 namespace CTRPluginFramework {
 	BootSceneHandler::ProgressHandle CharacterHandler::progressHandle;
@@ -1401,6 +1402,14 @@ namespace CTRPluginFramework {
 				decltype(charEntries)::iterator it;
 				if (((it = charEntries.find(customChar)) != charEntries.end()) && it->second.origChar == raceInfo.kartInfos[i].driverID)
 					selectedCharaceters[i] = customChar;
+			}
+			if (VoiceChatHandler::Initialized) {
+				const minibson::document& names = resDoc.get("names", minibson::document());
+				for (int i = 0; i < 8; i++) {
+					u16 key = '0' + i;
+					Net::othersServerNames[i] = names.get((char*)&key, "");
+				}
+				VoiceChatHandler::UpdatePlayerNames();
 			}
 		}
 		netRequestHandler.Cleanup();

@@ -3,15 +3,15 @@
 <table align="center">
 <tr>
 <td>Total open source lines:</td>
-<td>35362 / 47681 (74.16%)</td>
+<td>36246 / 48571 (74.62%)</td>
 </tr>
 <tr>
 <td>Total open source files:</td>
-<td>108 / 130 (83.08%)</td>
+<td>114 / 136 (83.82%)</td>
 </tr>
 <tr>
 <td>Total open source lines, excluding<br/>closed source files from total:</td>
-<td>35362 / 40009 (88.39%)</td>
+<td>36246 / 40915 (88.59%)</td>
 </tr>
 </table>
 

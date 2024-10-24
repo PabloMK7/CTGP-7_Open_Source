@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 823/844 (97.51%)
+Open source lines: 844/865 (97.57%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -17,6 +17,7 @@ Open source lines: 823/844 (97.51%)
 #include "acta.h"
 #include "MenuPage.hpp"
 #include "CharacterHandler.hpp"
+#include "VoiceChatHandler.hpp"
 
 extern "C" u32 g_regionID;
 
@@ -31,6 +32,8 @@ namespace CTRPluginFramework {
 	std::string Net::allowedTracks;
 	float Net::vrMultiplier = 1.f;
 	std::vector<u64> Net::whiteListedCharacters;
+	std::string Net::myServerName;
+	std::string Net::othersServerNames[8];
 	NetHandler::RequestHandler Net::netRequests;
 	Net::CTWWLoginStatus Net::lastLoginStatus = Net::CTWWLoginStatus::NOTLOGGED;
 	Net::OnlineStateMachine Net::currState = Net::OnlineStateMachine::OFFLINE;
@@ -186,6 +189,19 @@ namespace CTRPluginFramework {
 					stat = CTWWLoginStatus::FAILED;
 				lastLoginStatus = stat;
 			}
+			whiteListedCharacters.clear();
+			std::string allowedChars = reqDoc.get("allowedCharacters", "");
+			if (!allowedChars.empty()) {
+				std::vector<std::string> allowedList = TextFileParser::Split(allowedChars);
+				for (auto it = allowedList.begin(); it != allowedList.end(); it++) {
+					std::string& curr = *it;
+					u64 id = std::strtoull(curr.c_str(), nullptr, 0);
+					whiteListedCharacters.push_back(id);
+				}
+			}
+			myServerName = reqDoc.get("name", "");
+
+			// This should be last
 			if (reqDoc.get("needsMiiUpload", false)) {
 				LZCompressArg arg;
 				arg.inputAddr = MarioKartFramework::GetSelfMiiIcon();
@@ -205,16 +221,6 @@ namespace CTRPluginFramework {
 				req->AddRequest(NetHandler::RequestHandler::RequestType::UPLOAD_MII, newDoc);
 				req->Start(false);
 				return true;
-			}
-			whiteListedCharacters.clear();
-			std::string allowedChars = reqDoc.get("allowedCharacters", "");
-			if (!allowedChars.empty()) {
-				std::vector<std::string> allowedList = TextFileParser::Split(allowedChars);
-				for (auto it = allowedList.begin(); it != allowedList.end(); it++) {
-					std::string& curr = *it;
-					u64 id = std::strtoull(curr.c_str(), nullptr, 0);
-					whiteListedCharacters.push_back(id);
-				}
 			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH)) {
@@ -254,12 +260,17 @@ namespace CTRPluginFramework {
 			if (g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
 				MarioKartFramework::onlineBotPlayerIDs.clear();
 				MarioKartFramework::resetdriverchoices();
+				#ifndef NO_CPUS_IN_CTWW
 				MarioKartFramework::neededCPU = reqDoc.get("neededPlayerAmount", (int)0);
-				if (MarioKartFramework::neededCPU) MarioKartFramework::neededCPUCurrentPlayers = MarioKartFramework::GetValidStationIDAmount();
 				MarioKartFramework::cpuRandomSeed = reqDoc.get("cpuRandomSeed", (int)1);
+				#endif
+				if (MarioKartFramework::neededCPU) MarioKartFramework::neededCPUCurrentPlayers = MarioKartFramework::GetValidStationIDAmount();
 				lastRoomVRMean = reqDoc.get("vrMean", (int)1000);
 				ctwwCPURubberBandMultiplier = reqDoc.get("rubberBMult", 1.);
 				ctwwCPURubberBandOffset = reqDoc.get("rubberBOffset", 0.);
+			}
+			if (VoiceChatHandler::Initialized) {
+				VoiceChatHandler::JoinRoom(g_regionID, MarioKartFramework::currGatheringID);
 			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_RACING)) {
@@ -319,6 +330,7 @@ namespace CTRPluginFramework {
 			MarioKartFramework::getMyPlayerData(&sv);
 			std::string miiName = sv.miiData.GetName();
 			loginDoc.set<int>("pid", SaveHandler::saveData.principalID);
+			loginDoc.set("uName", NetHandler::GetUserUniqueName().c_str());
 			loginDoc.set<int>("nameMode", (int)currPlayerNameMode);
 			loginDoc.set("miiName", miiName.c_str());
 			loginDoc.set<bool>("ctgp7network", SaveHandler::saveData.flags1.useCTGP7Server);
@@ -363,6 +375,9 @@ namespace CTRPluginFramework {
 				reqDoc.set<bool>("imHost", MarioKartFramework::myRoomPlayerID == 0);
 				reqDoc.set<int>("myPlayerID", MarioKartFramework::myRoomPlayerID);
 				reqDoc.set<u64>("customCharID", CharacterHandler::GetSelectedMenuCharacter());
+				if (VoiceChatHandler::Initialized && !VoiceChatHandler::Error) {
+					reqDoc.set<bool>("voiceChat", true);
+				}
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING, reqDoc);
 				heartBeatClock.Restart();
 				netRequests.Start();
@@ -379,12 +394,15 @@ namespace CTRPluginFramework {
 				reqDoc.set("courseSzsID", globalNameData.entries[latestCourseID].name);
 				reqDoc.set("ctvr", (int)SaveHandler::saveData.ctVR);
 				reqDoc.set("cdvr", (int)SaveHandler::saveData.cdVR);
+				if (VoiceChatHandler::Initialized && !VoiceChatHandler::Error) {
+					reqDoc.set<bool>("voiceChat", true);
+				}
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_RACING, reqDoc);
 				heartBeatClock.Restart();
 				netRequests.Start();
 			}
 		}
-		else if (mode == OnlineStateMachine::RACE_FINISHED) { // Room start racing
+		else if (mode == OnlineStateMachine::RACE_FINISHED) { // Room race finished
 			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
@@ -413,6 +431,9 @@ namespace CTRPluginFramework {
 			netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_LEAVEROOM, reqDoc);
 			heartBeatClock.Restart();
 			netRequests.Start();
+			if (VoiceChatHandler::Initialized) {
+				VoiceChatHandler::LeaveRoom();
+			}
 		}
 		else if (mode == OnlineStateMachine::OFFLINE) { // Logout
 			*PluginMenu::GetRunningInstance() -= HeartBeat;

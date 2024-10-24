@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 738/738 (100.00%)
+Open source lines: 740/740 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -438,9 +438,11 @@ namespace CTRPluginFramework {
 			static int handleBootSequenceCallback();
 			static void OnBootTaskFinish();
 			//
+			static bool pendingVoiceChatInit;
 			static bool needsOnlineCleanup;
 			static void DoOnlineCleanup();
-			static void OnInternetConnection();
+			static void OnSocInit();
+			static void OnSocExit();
 			static void handleTitleEnterCallback();
 			static void handleTitleCompleteCallback(u32 option);
 			static u32 handleTitleMenuPagePreStep(u32 timerVal);

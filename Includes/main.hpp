@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.hpp
-Open source lines: 111/120 (92.50%)
+Open source lines: 112/121 (92.56%)
 *****************************************************/
 
 #pragma once
@@ -31,6 +31,7 @@ Open source lines: 111/120 (92.50%)
 //#define NO_HUD_RACE
 //#define SETUP_BLUE_COINS
 //#define REPORT_RACE_PROGRESS
+//#define NO_CPUS_IN_CTWW
 
 #include "CTRPluginFramework.hpp"
 #include "Lang.hpp"

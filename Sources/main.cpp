@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 380/393 (96.69%)
+Open source lines: 397/410 (96.83%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -211,15 +211,18 @@ namespace CTRPluginFramework
 		#ifndef RELEASE_BUILD
 		menuType = 0;
 		#endif
-		mainPluginMenu = new PluginMenu(Color::Gray << std::string("CTGP") << Color::White << std::string("-") << Color::Red << std::string("7"), "\nCTGP-7 modpack for Mario Kart 7\n\nWebsite: https://ctgp-7.github.io/ \nDiscord: https://invite.gg/ctgp7 \n\nHave fun!\n- CTGP-7 Team", menuType);
+		mainPluginMenu = new PluginMenu(Color::Gray << std::string("CTGP") << Color::White << std::string("-") << Color::Red << std::string("7") << ResetColor() + 
+		#ifdef BETA_BUILD
+		" (BETA)" +
+		#endif
+		#ifndef RELEASE_BUILD
+		" (DEBUG)" +
+		#endif
+		"", "\nCTGP-7 modpack for Mario Kart 7\n\nWebsite: https://ctgp-7.github.io/ \nDiscord: https://invite.gg/ctgp7 \n\nHave fun!\n- CTGP-7 Team", menuType);
         PluginMenu      &menu = *mainPluginMenu;
 
         //-----
-		#ifdef BETA_BUILD
-		menu.Append(new MenuEntry("BETA BUILD", nullptr, [](MenuEntry* entry) {}, "BETA BUILD"));
-		#endif
         #ifndef RELEASE_BUILD
-		menu.Append(new MenuEntry("DEBUG BUILD", nullptr, [](MenuEntry* entry) {Snd::PlayMenu(Snd::RACE_OK); }, "DEBUG BUILD"));
 		menu.Append(new MenuEntry("Quick u32 Watch", [](MenuEntry* entry) {
 			u32* addrPtr = (u32*)entry->GetArg();
 			if (addrPtr) {
@@ -239,6 +242,20 @@ namespace CTRPluginFramework
 			if (addrPtr) {
 				float* addr = (float*)*addrPtr;
 				NOXTRACEPOS("quickwatchf", 10, 40, "%0.4f", *addr);
+			}
+		}, [](MenuEntry* entry) {
+			static u32 addr = 0x100000;
+			Keyboard kbd("Set watch address.");
+			kbd.IsHexadecimal(true);
+			if (kbd.Open(addr, addr) == 0) {
+				entry->SetArg(&addr);
+			}
+		}, ""));
+		menu.Append(new MenuEntry("Quick Vector3 Watch", [](MenuEntry* entry) {
+			u32* addrPtr = (u32*)entry->GetArg();
+			if (addrPtr) {
+				Vector3* addr = (Vector3*)*addrPtr;
+				NOXTRACEPOS("quickwatchf", 10, 60, "%0.2f %0.2f %0.2f", addr->x, addr->y, addr->z);
 			}
 		}, [](MenuEntry* entry) {
 			static u32 addr = 0x100000;

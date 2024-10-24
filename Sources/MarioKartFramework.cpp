@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3483/3589 (97.05%)
+Open source lines: 3564/3670 (97.11%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -35,6 +35,8 @@ Open source lines: 3483/3589 (97.05%)
 #include "VisualControl.hpp"
 #include "CharacterHandler.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "VoiceChatHandler.hpp"
+#include "Unicode.h"
 
 extern "C" u32 g_gameModeID;
 extern "C" u32 g_altGameModeIsRaceOver;
@@ -90,6 +92,7 @@ namespace CTRPluginFramework {
 	bool (*MarioKartFramework::isDialogYesImpl)() = nullptr;
 	void (*MarioKartFramework::closeDialogImpl)() = nullptr;
 	void (*MarioKartFramework::nwlytReplaceText)(u32 a0, u32 a1, u32 msgPtr, u32 a3, u32 a4) = nullptr;
+	bool MarioKartFramework::pendingVoiceChatInit = false;
 	bool MarioKartFramework::needsOnlineCleanup = false;
 	bool MarioKartFramework::playCountDownCameraAnim = false;
 	bool MarioKartFramework::startedRaceScene = false;
@@ -1306,8 +1309,13 @@ namespace CTRPluginFramework {
 	}
 	
 	static Mutex g_internetConnectionMutex;
-	void MarioKartFramework::OnInternetConnection() { // Called as soon as the game tries to connect online
-		Lock lock(g_internetConnectionMutex);         // including online multiplayer and mario kart channel
+	void MarioKartFramework::OnSocInit() {
+		if (pendingVoiceChatInit) {
+			pendingVoiceChatInit = false;
+			VoiceChatHandler::OnSocketInit();
+		}
+
+		Lock lock(g_internetConnectionMutex);
 		if (!needsOnlineCleanup) {
 			ccSelOnlineEntry->setOnlineMode(true);
 			numbRoundsOnlineEntry->setOnlineMode(true);
@@ -1322,6 +1330,10 @@ namespace CTRPluginFramework {
 			while (!ISGAMEONLINE) g_isOnlineMode = rol<u8>(g_isOnlineMode, 1);
 			needsOnlineCleanup = true;
 		}
+	}
+
+	void MarioKartFramework::OnSocExit() {
+		VoiceChatHandler::OnSocketExit();
 	}
 
 	void MarioKartFramework::DoOnlineCleanup() {
@@ -1374,6 +1386,15 @@ namespace CTRPluginFramework {
 		bannedUltraShortcuts.clear();
 	}
 
+	static std::string g_build_lobby_message() {
+		return NAME("choose_lobby") + "\n\n" + 
+			NAME("proximity_chat") + " " + NOTE("proximity_chat") + ":\n" + (SaveHandler::saveData.flags1.enableVoiceChat ? (
+				(Color::LimeGreen << NAME("state_mode"))
+			) : (
+				(Color::Red << NOTE("state_mode"))
+			)) + ResetColor();
+	}
+
 	static void OnTitleOnlineButtonPressed() {
 		*(PluginMenu::GetRunningInstance()) -= OnTitleOnlineButtonPressed;
 		#if false
@@ -1404,37 +1425,53 @@ namespace CTRPluginFramework {
 		SaveHandler::saveData.flags1.useCTGP7Server = true;
 		useCTGP7server_apply(true);
 		Net::privateRoomID = 0;
-
-		Keyboard keyboard(NAME("choose_lobby"));
-		keyboard.Populate({NAME("lobby_type"), std::string(NOTE("lobby_type"))});
 		Process::Pause();
-		int res = keyboard.Open();
-		switch (res)
+
 		{
-		case 1:
-		{
-			Keyboard privkbd(NAME("enter_lobby_code"));
-			std::string name;
-			privkbd.SetCompareCallback([](const void * buf, std::string& err) -> bool{
-				const std::string* in = reinterpret_cast<const std::string*>(buf);
-				if (in->size() <= 6) {
-					if (in->size() != 0)
-						err = "\n\n" + NOTE("enter_lobby_code");
-					else
-						err = "";
-					return false;
+			Keyboard keyboard(g_build_lobby_message());
+			keyboard.CanAbort(false);
+			keyboard.Populate({NAME("lobby_type"), std::string(NOTE("lobby_type"))});
+			keyboard.OnKeyboardEvent([](Keyboard& k, KeyboardEvent& event) {
+				if (event.type == KeyboardEvent::EventType::KeyPressed) {
+					if (event.affectedKey == Key::X) {
+						SoundEngine::PlayMenuSound(SoundEngine::Event::SELECT);
+						SaveHandler::saveData.flags1.enableVoiceChat = !SaveHandler::saveData.flags1.enableVoiceChat;
+						k.GetMessage() = g_build_lobby_message();
+					}
 				}
-				err = "";
-				return true;
 			});
-			int res2 = privkbd.Open(name);
-			if (res >= 0) {
-				// Generate the secret private room ID and store it to Net::privateRoomID
+			int res = keyboard.Open();
+			switch (res)
+			{
+			case 1:
+			{
+				Keyboard privkbd(NAME("enter_lobby_code"));
+				privkbd.CanAbort(false);
+				std::string name;
+				privkbd.SetCompareCallback([](const void * buf, std::string& err) -> bool{
+					const std::string* in = reinterpret_cast<const std::string*>(buf);
+					if (in->size() <= 6) {
+						if (in->size() != 0)
+							err = "\n\n" + NOTE("enter_lobby_code");
+						else
+							err = "";
+						return false;
+					}
+					err = "";
+					return true;
+				});
+				int res2 = privkbd.Open(name);
+				if (res >= 0) {
+					// Generate the secret private room ID and store it to Net::privateRoomID
+				}
+			}
+			default:
+				break;
 			}
 		}
-		default:
-			break;
-		}
+
+		MarioKartFramework::pendingVoiceChatInit = true;
+
 		Process::Play();
 
 		#endif
@@ -1452,7 +1489,6 @@ namespace CTRPluginFramework {
 		if (option == 2)
 		{
 			*(PluginMenu::GetRunningInstance()) += OnTitleOnlineButtonPressed;
-			OnInternetConnection();
 		}
 	}
 
@@ -2607,6 +2643,10 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::OnRaceStartCountdown() {
 		SpeedometerController::OnRaceStart();
 		MusicCreditsController::OnRaceStart();
+		if (VoiceChatHandler::Initialized) {
+			CRaceInfo* raceInfo = getRaceInfo(true);
+			VoiceChatHandler::SetRaceMode(true, raceInfo->isMirror);
+		}
 	}
 
 	void MarioKartFramework::GetTerrainParameters(u32 vehicleMove, u8 kclID) {
@@ -3276,8 +3316,12 @@ namespace CTRPluginFramework {
 				}
 			}
 		}
+		if (VoiceChatHandler::Initialized) {
+			VoiceChatHandler::SetRaceMode(false, false);
+		}
 	}
 
+	static u32 g_updateVoiceDataTimer = 0;
 	void MarioKartFramework::KartNetDataSend(u32* kartData, int playerID) {
 		MK7NetworkBuffer dataBuffer; // Will be 0x88 bytes
 
@@ -3293,6 +3337,43 @@ namespace CTRPluginFramework {
 
 		void(*NetUtilEndWriteKartSendBuffer)(int playerID, MK7NetworkBuffer& outBuffer) = (decltype(NetUtilEndWriteKartSendBuffer))NetUtilEndWriteKartSendBufferAddr;
 		NetUtilEndWriteKartSendBuffer(playerID, dataBuffer);
+
+		if (VoiceChatHandler::Initialized && (g_updateVoiceDataTimer++ & 1) && playerID == masterPlayerID) {
+			u32 kartDirector = getKartDirector();
+			if (kartDirector) {
+				Vector3T<s8> myFwd, myUp;
+				std::array<Vector3T<s16>, 8> pos;
+				std::array<u8, 8> flags;
+				u32 kartCount = ((u32*)kartDirector)[0x28 / 4];
+				u32* kartUnits = ((u32**)kartDirector)[0x2C / 4];
+				for (u32 i = 0; i < kartCount; i++) {
+					u32 currUnit = kartUnits[i];
+					u32* vehicle = ((u32**)currUnit)[0x2C / 4];
+					if (i == masterPlayerID) {
+						struct CameraBasePosData {
+							Vector3 postion;
+							Vector3 lookAt;
+							Vector3 up;
+							Vector3 fwd;
+						};
+						u32* camera = *(((u32**)currUnit) + 0x214/4);
+						u32* cameraBase = *(((u32**)camera) + 0xD0/4);
+						CameraBasePosData* campos = (CameraBasePosData*)(cameraBase + 0x2C/4);
+						pos[i] = campos->postion;
+						myUp = campos->up * 100.f;
+						myFwd = campos->fwd * 100.f;
+					} else {
+						pos[i] = *(Vector3*)(vehicle + 0x24/4);
+					}
+
+					bool isStar = vehicle[(0xC00 + 0x3F4) / 4] > 0;
+					bool isSmall = vehicle[(0x1000) / 4] > 0 || vehicle[(0x1004) / 4] > 0;
+					bool isMega = megaMushTimers[i] > 0;
+					flags[i] = ((isStar ? 1 : 0) << 0) | ((isSmall ? 1 : 0) << 1) | ((isMega ? 1 : 0) << 2);
+				}
+				VoiceChatHandler::SetPositions(myFwd, myUp, pos, flags);
+			}
+		}
 	}
 
 	bool MarioKartFramework::KartNetDataRead(u32* kartData, MK7NetworkBuffer* dataBuf, u32** prevKartData, u32** nextKartData) {

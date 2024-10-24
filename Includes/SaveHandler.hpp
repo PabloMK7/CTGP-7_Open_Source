@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 403/403 (100.00%)
+Open source lines: 426/426 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -94,6 +94,7 @@ namespace CTRPluginFramework {
 				u32 useCTGP7Server : 1;
 				u32 customKartsEnabled : 1;
 				u32 blueCoinsEnabled : 1;
+				u32 enableVoiceChat : 1;
 			} flags1;
 			struct 
 			{
@@ -117,6 +118,8 @@ namespace CTRPluginFramework {
 			u64 driverChoices[EDriverID::DRIVER_SIZE];
 			std::vector<u64> disabledChars;
 			std::vector<u32> collectedBlueCoins;
+
+			char voiceChatServerAddr[0x20];
 
 			bool IsAchievementPending(Achievements achiev) {
 				return pendingAchievements & (u32)achiev;
@@ -213,6 +216,7 @@ namespace CTRPluginFramework {
 				flags1.useCTGP7Server = true;
 				flags1.customKartsEnabled = true;
 				flags1.blueCoinsEnabled = true;
+				flags1.enableVoiceChat = false;
 				numberOfRounds = 4;
 				serverDisplayNameMode = (u8)Net::PlayerNameMode::SHOW;
 				serverDisplayCustomName[0] = '\0';
@@ -225,6 +229,12 @@ namespace CTRPluginFramework {
 				memset(driverChoices, sizeof(driverChoices), 0);
 				disabledChars.clear();
 				collectedBlueCoins.clear();
+				#if CITRA_MODE == 1
+				strcpy(voiceChatServerAddr, "127.0.0.1");
+				#else
+				voiceChatServerAddr[0] = '\0';
+				#endif
+
 			}
 
 			CTGP7Save(minibson::document& doc) {
@@ -294,6 +304,16 @@ namespace CTRPluginFramework {
 				specialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)0);
 				flags1.customKartsEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), true);
 				flags1.blueCoinsEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_COINS_ENABLED), true);
+				flags1.enableVoiceChat = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_ENABLED), false);
+				n = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_SERVER), 
+				#if CITRA_MODE == 1
+				"127.0.0.1"
+				#else
+				""
+				#endif
+				);
+				strncpy(voiceChatServerAddr, n.c_str(), sizeof(voiceChatServerAddr) - 1);
+				voiceChatServerAddr[sizeof(voiceChatServerAddr) - 1] = '\0';
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -340,6 +360,9 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)specialAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), (bool)flags1.customKartsEnabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_COINS_ENABLED), (bool)flags1.blueCoinsEnabled);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_ENABLED), (bool)flags1.enableVoiceChat);
+				voiceChatServerAddr[sizeof(voiceChatServerAddr) - 1] = '\0';
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_SERVER), (const char*)voiceChatServerAddr);
 			}
 		};
 		static CTGP7Save saveData;

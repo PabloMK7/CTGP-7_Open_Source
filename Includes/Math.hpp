@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Math.hpp
-Open source lines: 267/267 (100.00%)
+Open source lines: 286/286 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -265,3 +265,22 @@ void random_shuffle_custom(RandomIt first, RandomIt last, RandomFunc&& r)
         swap(first[i], first[r(i + 1)]);
     }
 }
+
+template<typename T>
+struct Vector3T {
+    T x, y, z;
+
+    constexpr Vector3T() : x(0), y(0), z(0) {}
+    constexpr Vector3T(T x, T y, T z) {
+        this->x = x;
+        this->y = y;
+        this->z = z;
+    }
+
+    inline void operator=(const Vector3& right)
+    {
+        this->x = static_cast<T>(right.x);
+        this->y = static_cast<T>(right.y);
+        this->z = static_cast<T>(right.z);
+    }
+};
