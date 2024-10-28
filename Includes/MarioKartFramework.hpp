@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 740/740 (100.00%)
+Open source lines: 747/747 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -525,9 +525,9 @@ namespace CTRPluginFramework {
 			static int startedBoxID;
 			static void (*ItemDirector_StartSlot)(u32 itemDirector, u32 playerID, u32 boxID);
 			static void startItemSlot(u32 playerID, u32 boxID);
-			static u16 itemProbabilities[EItemSlot::ITEM_SIZE];
+			static u16 itemProbabilitiesForImprovedRoulette[EItemSlot::ITEM_SIZE];
 			static int (*CsvParam_getDataInt)(void* csvObject, int row, int column);
-			static void storeItemProbability(u32 itemID, u16 prob);
+			static void storeImprovedRouletteItemProbability(u32 itemID, u16 prob);
 			static int nextForcedItem;
 			static u16 handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag);
 			static u32 pullRandomItemID();
@@ -721,6 +721,13 @@ namespace CTRPluginFramework {
 			static u32 AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement);
 			//
 			static bool OnRacePauseAllow(bool gamePauseAllowed);
+			//
+			static bool useCustomItemProbability;
+			static bool customItemProbabilityRandom;
+			static std::array<bool, EItemSlot::ITEM_SIZE> customItemProbabilityAllowed;
+			static u16 handleCustomItemProbabilityRecursive(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag, int recursionMode);
+			static void UseCustomItemMode(const std::array<bool, EItemSlot::ITEM_SIZE>& allowedItems, bool randomItems);
+			static void ClearCustomItemMode();
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

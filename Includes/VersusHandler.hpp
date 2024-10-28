@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.hpp
-Open source lines: 192/192 (100.00%)
+Open source lines: 190/190 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -168,7 +168,6 @@ namespace CTRPluginFramework {
 
 		static void OpenItemSelectorMenu(bool isRandom);
 		static bool neeedsCustomItemHandling();
-		static u16 handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag);
 
 	private:
 		struct KeyboardArguments {
@@ -181,7 +180,6 @@ namespace CTRPluginFramework {
 		static void CupKeyboardCallback(Keyboard& k, KeyboardEvent& event);
 		static void getSettingsKeyboardText(std::string& string);
 		static void getCupKeyboardText(std::string& string, u32 startCup, std::string& topMessage);
-		static u16 handleItemProbabilityRecursive(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag, int recursionMode = 0);
 		static std::vector<std::string> settingsOpts;
 		static std::vector<std::string> cpudifficulty;
 		static std::vector<std::string> courseOpts;

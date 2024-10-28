@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 844/865 (97.57%)
+Open source lines: 867/888 (97.64%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -30,6 +30,7 @@ namespace CTRPluginFramework {
 	StarGrade Net::myGrade = StarGrade::NONE;
 	std::string Net::trackHistory;
 	std::string Net::allowedTracks;
+	std::string Net::allowedItems;
 	float Net::vrMultiplier = 1.f;
 	std::vector<u64> Net::whiteListedCharacters;
 	std::string Net::myServerName;
@@ -239,6 +240,7 @@ namespace CTRPluginFramework {
 					vrPositions[1] = reqDoc.get("cdvrPos", 0);
 					vrMultiplier = reqDoc.get("vrMultiplier", 1000) / 1000.f;
 					allowedTracks = reqDoc.get("allowedTracks", "");
+					allowedItems = reqDoc.get("allowedItems", "");
 				}
 				trackHistory = reqDoc.get("trackHistory", "");
 			}
@@ -381,8 +383,10 @@ namespace CTRPluginFramework {
 				netRequests.AddRequest(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING, reqDoc);
 				heartBeatClock.Restart();
 				netRequests.Start();
-				if (g_getCTModeVal != CTMode::ONLINE_NOCTWW)
+				if (g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
 					applyBlockedTrackList();
+					applyAllowedItems();
+				}
 			}
 			trackHistory = "";
 		}
@@ -805,6 +809,25 @@ namespace CTRPluginFramework {
 			if (*it == id) return false;
 		}
 		return true;
+	}
+
+	void Net::applyAllowedItems() {
+		if (allowedItems.empty()) {
+			MarioKartFramework::ClearCustomItemMode();
+			return;
+		}
+		
+		std::array<bool, EItemSlot::ITEM_SIZE> array = { 0 };
+		std::vector<std::string> items = TextFileParser::Split(allowedItems);
+		for (auto it = items.begin(); it != items.end(); it++) {
+			std::string& curr = *it;
+			u32 id = std::strtoul(curr.c_str(), nullptr, 0);
+			if (id >= 0 && id < array.size()) {
+				array[id] = true;
+			}
+		}
+
+		MarioKartFramework::UseCustomItemMode(array, false);
 	}
 
 	void Net::applyBlockedTrackList() {

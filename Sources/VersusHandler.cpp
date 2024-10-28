@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.cpp
-Open source lines: 720/720 (100.00%)
+Open source lines: 683/683 (100.00%)
 *****************************************************/
 
 #include "VersusHandler.hpp"
@@ -266,6 +266,15 @@ namespace CTRPluginFramework {
 		if (itemMode == EItemMode::ITEMMODE_CUSTOM || itemMode == EItemMode::ITEMMODE_RANDOM)
 			itemMode = EItemMode::ITEMMODE_ALL;
 		ApplySpecifiedSetting(VSSettings::ITEMS, itemMode);
+
+		if (neeedsCustomItemHandling()) {
+			std::array<bool, EItemSlot::ITEM_SIZE> array;
+			bool isRandomMode = SaveHandler::saveData.vsSettings.itemOption == EItemMode::ITEMMODE_RANDOM;
+			for (int i = 0; i < array.size(); i++) {
+				array[i] = SaveHandler::saveData.vsSettings.GetItemEnabled((EItemSlot)i, isRandomMode);
+			}
+			MarioKartFramework::UseCustomItemMode(array, isRandomMode);
+		}
 	}
 
 	void VersusHandler::ApplySpecifiedSetting(VSSettings setting, u32 value) {
@@ -623,6 +632,7 @@ namespace CTRPluginFramework {
 		MissionHandler::onModeMissionExit();
 		UserCTHandler::UpdateCurrentCustomCup(0);
 		CharacterHandler::ResetCharacters();
+		MarioKartFramework::ClearCustomItemMode();
 	}
 
 	void VersusHandler::OnMenuSingleOKCallback(u32 val) {
@@ -668,53 +678,6 @@ namespace CTRPluginFramework {
 		return IsVersusMode && 
 		(SaveHandler::saveData.vsSettings.itemOption == EItemMode::ITEMMODE_CUSTOM || 
 		SaveHandler::saveData.vsSettings.itemOption == EItemMode::ITEMMODE_RANDOM); 
-	}
-
-	u16 VersusHandler::handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag) {
-		u16 ret = handleItemProbabilityRecursive(dstArray, csvPtr, rowIndex, blockedBitFlag, 0);
-		if (!ret) {
-			dstArray[EItemSlot::ITEM_KINOKO] = 200;
-			return 200;
-		}
-		return ret;
-	}
-
-	u16 VersusHandler::handleItemProbabilityRecursive(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag, int recursionMode) {
-		u16 totalProb = 0;
-		bool isRandomMode = SaveHandler::saveData.vsSettings.itemOption == EItemMode::ITEMMODE_RANDOM;
-		constexpr u32 unblockItems = (1 << EItemSlot::ITEM_GESSO) | (1 << EItemSlot::ITEM_KILLER) | (1 << EItemSlot::ITEM_THUNDER) | 
-							(1 << EItemSlot::ITEM_TEST4) | (1 << EItemSlot::ITEM_KINOKO) | (1 << EItemSlot::ITEM_KINOKO3) | (1 << EItemSlot::ITEM_STAR) |
-							(1 << EItemSlot::ITEM_KINOKOP) | (1 << EItemSlot::ITEM_KONOHA);
-		if (!MarioKartFramework::bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
-		for (int i = 0; i < EItemSlot::ITEM_SIZE; i++) {
-			if ((blockedBitFlag & (1 << i)) == 0) {
-				u16 currProb = 0;
-				if (isRandomMode) {
-					currProb = SaveHandler::saveData.vsSettings.GetItemEnabled((EItemSlot)i, true) ? 10 : 0;
-				} else {
-					currProb = SaveHandler::saveData.vsSettings.GetItemEnabled((EItemSlot)i, false) ? MarioKartFramework::CsvParam_getDataInt(csvPtr, rowIndex, i) : 0;
-				}
-				totalProb += currProb;
-			}
-			dstArray[i] = totalProb;
-			MarioKartFramework::storeItemProbability(i, totalProb);
-		}
-		if (totalProb == 0) {
-			if (recursionMode == 0) {
-				return handleItemProbabilityRecursive(dstArray, csvPtr, rowIndex, blockedBitFlag & ~unblockItems, 1);
-			} else if (recursionMode == 1 && MarioKartFramework::startedBoxID == 0) {
-				for (int i = 1; i < 7; i++) {
-					int prevRow = (int)rowIndex - i;
-					int postRow = (int)rowIndex + i;
-					if (postRow <= 7) totalProb = handleItemProbabilityRecursive(dstArray, csvPtr, (u32)postRow, blockedBitFlag, 2);
-					if (!totalProb && prevRow >= 0) totalProb = handleItemProbabilityRecursive(dstArray, csvPtr, (u32)prevRow, blockedBitFlag, 2);
-					if (totalProb)
-						break;
-				}
-				return totalProb;
-			}
-		}
-		return totalProb;
 	}
 }
 

@@ -1197,7 +1197,7 @@ namespace CTRPluginFramework {
                 totalProb += currProb;
             }
             dstArray[i] = totalProb;
-            MarioKartFramework::storeItemProbability(i, totalProb);
+            MarioKartFramework::storeImprovedRouletteItemProbability(i, totalProb);
         }
         return totalProb;
     }

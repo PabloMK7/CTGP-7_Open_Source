@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 204/208 (98.08%)
+Open source lines: 206/210 (98.10%)
 *****************************************************/
 
 #pragma once
@@ -172,6 +172,7 @@ namespace CTRPluginFramework {
 		static StarGrade myGrade;
 		static std::string trackHistory;
 		static std::string allowedTracks;
+		static std::string allowedItems;
 		static float vrMultiplier;
 		static std::vector<u64> whiteListedCharacters;
 		static std::string myServerName;
@@ -189,6 +190,7 @@ namespace CTRPluginFramework {
 		static u32 latestCourseID;
 		static u32 pretendoState;
 
+		static void applyAllowedItems();
 		static void applyBlockedTrackList();
 
 		static s32 reportUltraShortcutTaskfunc(void* arg);

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3564/3670 (97.11%)
+Open source lines: 3625/3731 (97.16%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -136,7 +136,7 @@ namespace CTRPluginFramework {
 	int MarioKartFramework::startedItemSlot = -1;
 	int MarioKartFramework::startedBoxID = -1;
 	void (*MarioKartFramework::ItemDirector_StartSlot)(u32 itemDirector, u32 playerID, u32 boxID) = nullptr;
-	u16 MarioKartFramework::itemProbabilities[EItemSlot::ITEM_SIZE] = { 0 };
+	u16 MarioKartFramework::itemProbabilitiesForImprovedRoulette[EItemSlot::ITEM_SIZE] = { 0 };
 	int (*MarioKartFramework::CsvParam_getDataInt)(void*, int, int) = nullptr;
 	int MarioKartFramework::nextForcedItem = -1;
 	void (*MarioKartFramework::SndActorKArt_PlayDriverVoice)(u32* sndActorKart, EVoiceType voice) = nullptr;
@@ -204,6 +204,10 @@ namespace CTRPluginFramework {
 	u64 MarioKartFramework::rotateCharacterID = false;
 	u8 MarioKartFramework::characterRotateAmount[8];
 	RT_HOOK MarioKartFramework::jugemSwitchReverseUpdateHook = {0};
+	bool MarioKartFramework::useCustomItemProbability = false;
+	bool MarioKartFramework::customItemProbabilityRandom = false;
+	std::array<bool, EItemSlot::ITEM_SIZE> MarioKartFramework::customItemProbabilityAllowed = {0};
+			
 
 	extern "C" u32 myPlayerIDValue;
 
@@ -1213,6 +1217,7 @@ namespace CTRPluginFramework {
 				Net::allowedTracks = "";
 				resetdriverchoices();
 				MarioKartFramework::SetWatchRaceMode(false);
+				MarioKartFramework::ClearCustomItemMode();
 				currCommNumberTracksPtr = nullptr;
 				g_firstTimeInPage = false;
 				g_needsToCheckUpdate = true;
@@ -1384,6 +1389,7 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 		g_hasGameReachedTitle = true;
 		bannedUltraShortcuts.clear();
+		ClearCustomItemMode();
 	}
 
 	static std::string g_build_lobby_message() {
@@ -1953,17 +1959,24 @@ namespace CTRPluginFramework {
 		ItemDirector_StartSlot(getItemDirector(), playerID, boxID);
 	}
 
-	void MarioKartFramework::storeItemProbability(u32 itemID, u16 prob)
+	void MarioKartFramework::storeImprovedRouletteItemProbability(u32 itemID, u16 prob)
 	{
 		if (startedItemSlot == masterPlayerID)
-			itemProbabilities[itemID] = prob;
+			itemProbabilitiesForImprovedRoulette[itemID] = prob;
 	}
 
 	u16 MarioKartFramework::handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag)
 	{
 		bool isDecided = strcmp((char*)csvPtr + 0x50, "ItemSlotTable_Decided") == 0;
 		if (MissionHandler::neeedsCustomItemHandling()) return MissionHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
-		if (!isDecided && VersusHandler::neeedsCustomItemHandling()) return VersusHandler::handleItemProbability(dstArray, csvPtr, rowIndex, blockedBitFlag);
+		if (!isDecided && useCustomItemProbability) {
+			u16 ret = handleCustomItemProbabilityRecursive(dstArray, csvPtr, rowIndex, blockedBitFlag, 0);
+			if (!ret) {
+				dstArray[EItemSlot::ITEM_KINOKO] = 200;
+				return 200;
+			}
+			return ret;
+		}
 		u16 totalProb = 0;
 		if (!bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
 		for (int i = 0; i < EItemSlot::ITEM_SIZE; i++) {
@@ -1972,7 +1985,7 @@ namespace CTRPluginFramework {
 				totalProb += currProb;
 			}
 			dstArray[i] = totalProb;
-			storeItemProbability(i, totalProb);
+			storeImprovedRouletteItemProbability(i, totalProb);
 		}
 		nextForcedItem = -1;
 		return totalProb;
@@ -1981,11 +1994,11 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::pullRandomItemID()
 	{
 		if (SaveHandler::saveData.flags1.improvedRoulette || MissionHandler::isMissionMode) {
-			int max = itemProbabilities[EItemSlot::ITEM_SIZE - 1] - 1;
+			int max = itemProbabilitiesForImprovedRoulette[EItemSlot::ITEM_SIZE - 1] - 1;
 			u32 randomChoice = Utils::Random(0, ((max < 0) ? 0 : max));
 			int i = 0;
 			for (; i < EItemSlot::ITEM_SIZE; i++) {
-				if (itemProbabilities[i] > randomChoice) return i;
+				if (itemProbabilitiesForImprovedRoulette[i] > randomChoice) return i;
 			}
 			return EItemSlot::ITEM_KINOKO;
 		}
@@ -3275,6 +3288,54 @@ namespace CTRPluginFramework {
 		if (isPauseBlocked) return false;
 		if (isPauseAllowForced) return true;
 		return gamePauseAllowed;
+	}
+
+	u16 MarioKartFramework::handleCustomItemProbabilityRecursive(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag, int recursionMode) {
+		u16 totalProb = 0;
+		bool isRandomMode = customItemProbabilityRandom;
+		constexpr u32 unblockItems = (1 << EItemSlot::ITEM_GESSO) | (1 << EItemSlot::ITEM_KILLER) | (1 << EItemSlot::ITEM_THUNDER) | 
+							(1 << EItemSlot::ITEM_TEST4) | (1 << EItemSlot::ITEM_KINOKO) | (1 << EItemSlot::ITEM_KINOKO3) | (1 << EItemSlot::ITEM_STAR) |
+							(1 << EItemSlot::ITEM_KINOKOP) | (1 << EItemSlot::ITEM_KONOHA);
+		if (!bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
+		for (int i = 0; i < EItemSlot::ITEM_SIZE; i++) {
+			if ((blockedBitFlag & (1 << i)) == 0) {
+				u16 currProb = 0;
+				if (isRandomMode) {
+					currProb = customItemProbabilityAllowed[i] ? 10 : 0;
+				} else {
+					currProb = customItemProbabilityAllowed[i] ? MarioKartFramework::CsvParam_getDataInt(csvPtr, rowIndex, i) : 0;
+				}
+				totalProb += currProb;
+			}
+			dstArray[i] = totalProb;
+			storeImprovedRouletteItemProbability(i, totalProb);
+		}
+		if (totalProb == 0) {
+			if (recursionMode == 0) {
+				return handleCustomItemProbabilityRecursive(dstArray, csvPtr, rowIndex, blockedBitFlag & ~unblockItems, 1);
+			} else if (recursionMode == 1 && MarioKartFramework::startedBoxID == 0) {
+				for (int i = 1; i < 7; i++) {
+					int prevRow = (int)rowIndex - i;
+					int postRow = (int)rowIndex + i;
+					if (postRow <= 7) totalProb = handleCustomItemProbabilityRecursive(dstArray, csvPtr, (u32)postRow, blockedBitFlag, 2);
+					if (!totalProb && prevRow >= 0) totalProb = handleCustomItemProbabilityRecursive(dstArray, csvPtr, (u32)prevRow, blockedBitFlag, 2);
+					if (totalProb)
+						break;
+				}
+				return totalProb;
+			}
+		}
+		return totalProb;
+	}
+
+	void MarioKartFramework::UseCustomItemMode(const std::array<bool, EItemSlot::ITEM_SIZE>& allowedItems, bool randomItems) {
+		useCustomItemProbability = true;
+		customItemProbabilityAllowed = allowedItems;
+		customItemProbabilityRandom = randomItems;
+	}
+	
+	void MarioKartFramework::ClearCustomItemMode() {
+		useCustomItemProbability = false;
 	}
 
 	float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {
