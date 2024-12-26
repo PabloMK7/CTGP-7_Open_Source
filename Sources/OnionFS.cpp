@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: OnionFS.cpp
-Open source lines: 414/414 (100.00%)
+Open source lines: 413/413 (100.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -31,14 +31,14 @@ enum fileSystemBits
 };
 
 typedef u32(*fsRegArchiveTypeDef)(u8*, u32*, u32, u32);
-typedef u32(*userFsTryOpenFileTypeDef)(u32, u16*, u32);
+typedef u32(*userFsTryOpenFileTypeDef)(u32, char16_t*, u32);
 typedef u32(*fsMountArchiveTypeDef)(u32*, u32);
 
-typedef u32(*fsu32u16u32)(u32, u16*, u32);
-typedef u32(*fsu16)(u16*);
-typedef u32(*fsu16u16)(u16*, u16*);
-typedef u32(*fsu16u64)(u16*, u64);
-typedef u32(*fsu32u16)(u32, u16*);
+typedef u32(*fsu32u16u32)(u32, char16_t*, u32);
+typedef u32(*fsu16)(char16_t*);
+typedef u32(*fsu16u16)(char16_t*, char16_t*);
+typedef u32(*fsu16u64)(char16_t*, u64);
+typedef u32(*fsu32u16)(u32, char16_t*);
 
 u8 fsMountArchivePat1[] = { 0x10, 0x00, 0x97, 0xE5, 0xD8, 0x20, 0xCD, 0xE1, 0x00, 0x00, 0x8D };
 u8 fsMountArchivePat2[] = { 0x28, 0xD0, 0x4D, 0xE2, 0x00, 0x40, 0xA0, 0xE1, 0xA8, 0x60, 0x9F, 0xE5, 0x01, 0xC0, 0xA0, 0xE3 };
@@ -130,16 +130,16 @@ namespace CTRPluginFramework::OnionFS
 		return;
 	}
 
-	static thread_local u16 *g_buffers[2] = {nullptr, nullptr};
+	static thread_local char16_t *g_buffers[2] = {nullptr, nullptr};
 
-    static inline u16     *GetBuffer(bool secondary = false)
+    static inline char16_t     *GetBuffer(bool secondary = false)
     {
         if (g_buffers[secondary] == nullptr)
-            g_buffers[secondary] = static_cast<u16 *>(::operator new(0x200));
+            g_buffers[secondary] = static_cast<char16_t *>(::operator new(0x200));
         return g_buffers[secondary];
     }
 
-    static inline void concatFileName(u16* dest, const u16* s1, const u16* s2) {
+    static inline void concatFileName(char16_t* dest, const char16_t* s1, const char16_t* s2) {
         while (*s1)    *dest++ = *s1++; //Copy the default file path
 
         while (*s2++ != u'/'); // Skip the archive lowpath
@@ -153,7 +153,7 @@ namespace CTRPluginFramework::OnionFS
 #ifdef LOG_ONIONFS_FILES
 	static File* g_logFile = nullptr;
 	static Mutex g_logMutex;
-	static void LogFileToSD(u16* path) {
+	static void LogFileToSD(char16_t* path) {
 		Lock lock(g_logMutex);
 		if (!g_logFile) g_logFile = new File("/CTGP-7/filelog.txt", File::RWC);
 		std::string out;
@@ -162,28 +162,27 @@ namespace CTRPluginFramework::OnionFS
 			g_logFile->WriteLine(out);
 	}
 #endif
-    static u16* calculateNewPath(u16* initialPath, bool isReadOnly, bool isSecondary = false, bool* shouldReopen = nullptr) {
+    static char16_t* calculateNewPath(char16_t* initialPath, bool isReadOnly, bool isSecondary = false, bool* shouldReopen = nullptr) {
 #ifdef LOG_ONIONFS_FILES
 		LogFileToSD(initialPath);
 #endif
-        const u16* basePath;
+        const char16_t* basePath;
         if (*((u32*)initialPath) == 0x610064) {
-            basePath = (const u16*)savePath;
+            basePath = savePath;
             if (shouldReopen) *shouldReopen = false;
         }
         else if (!isReadOnly && (*((u32*)initialPath) == 0x6F0072 || *((u32*)initialPath) == 0x610070)) {
-            basePath = (const u16*)romfsPath;
+            basePath = romfsPath;
         }
         else {
             return initialPath;
         }
-        u16* dst = GetBuffer(isSecondary);
+        char16_t* dst = GetBuffer(isSecondary);
         concatFileName(dst, basePath, initialPath);
         return dst;
     }
 
-	static inline u32 getArchiveMode(u16* initialPath) {
-		u16* basePath;
+	static inline u32 getArchiveMode(char16_t* initialPath) {
 		if (*((u32*)initialPath) == 0x610064) {
 			return 1; //SAVE
 		}
@@ -195,9 +194,9 @@ namespace CTRPluginFramework::OnionFS
 		}
 	}
 
-    static u32  fsOpenFileFunc(u32 a1, u16* path, u32 a2) {
+    static u32  fsOpenFileFunc(u32 a1, char16_t* path, u32 a2) {
         bool reopen = true;
-        u16* newPath = calculateNewPath(path, 0, false, &reopen);
+        char16_t* newPath = calculateNewPath(path, 0, false, &reopen);
 		MarioKartFramework::changeFilePath(newPath, false);
 
 		if (newPath[0] == '\0' || CheckGameFSFileExists(newPath) == GameFSFileState::NOTEXISTS) // OnionFS operation cancelled, use default path.
@@ -213,7 +212,7 @@ namespace CTRPluginFramework::OnionFS
         return ret;
     }
 
-	static inline u16* skipArchive(u16* src) {
+	static inline char16_t* skipArchive(char16_t* src) {
 		while (*src++ != u'/'); //Skip the archive lowpath
 
 		while (*src == u'/') ++src; // Skip any remaining  /
@@ -221,7 +220,7 @@ namespace CTRPluginFramework::OnionFS
 		return src - 1; //Return the position of the last /
 	}
 
-	static int checkFileExistsWithDir(u16* path) { // Sometimes game devs choose to check if a file exists by doing open directory on it.
+	static int checkFileExistsWithDir(char16_t* path) { // Sometimes game devs choose to check if a file exists by doing open directory on it.
 											// The problem is that SD archive doesn't behave the same way as other archives.
 											// Doing openDir on a file in the SD returns "doesn't exist" while on the save file it returns "operation not supported".
 		Handle file;
@@ -246,8 +245,8 @@ namespace CTRPluginFramework::OnionFS
 		return 0;
 	}
 
-	static u32  fsOpenDirectoryFunc(u32 a1, u16* path) {
-		u16* newPath = calculateNewPath(path, 0);
+	static u32  fsOpenDirectoryFunc(u32 a1, char16_t* path) {
+		char16_t* newPath = calculateNewPath(path, 0);
 		MarioKartFramework::changeFilePath(newPath, true);
 		if (newPath[0] == '\0') // OnionFS operation cancelled, use default path.
 			return ((fsu32u16)fileOpHooks[OPEN_DIRECTORY_OP].callCode)(a1, path);
@@ -260,42 +259,42 @@ namespace CTRPluginFramework::OnionFS
 		return ret;
 	}
 
-    static u32  fsDeleteFileFunc(u16* path) {
-        u16* newPath = calculateNewPath(path, 1);
+    static u32  fsDeleteFileFunc(char16_t* path) {
+        char16_t* newPath = calculateNewPath(path, 1);
         int ret = ((fsu16)fileOpHooks[DELETE_FILE_OP].callCode)(newPath);
         return ret;
     }
 
-    static u32  fsRenameFileFunc(u16* path1, u16* path2) {
-        u16* newPath1 = calculateNewPath(path1, 1);
-        u16* newPath2 = calculateNewPath(path2, 1, true);
+    static u32  fsRenameFileFunc(char16_t* path1, char16_t* path2) {
+        char16_t* newPath1 = calculateNewPath(path1, 1);
+        char16_t* newPath2 = calculateNewPath(path2, 1, true);
         int ret = ((fsu16u16)fileOpHooks[RENAME_FILE_OP].callCode)(newPath1, newPath2);
         return ret;
     }
 
-    static u32  fsDeleteDirectoryFunc(u16* path) {
-        u16* newPath = calculateNewPath(path, 1);
+    static u32  fsDeleteDirectoryFunc(char16_t* path) {
+        char16_t* newPath = calculateNewPath(path, 1);
         int ret = ((fsu16)fileOpHooks[DELETE_DIRECTORY_OP].callCode)(newPath);
         return ret;
     }
-    static u32  fsDeleteDirectoryRecFunc(u16* path) {
-        u16* newPath = calculateNewPath(path, 1);
+    static u32  fsDeleteDirectoryRecFunc(char16_t* path) {
+        char16_t* newPath = calculateNewPath(path, 1);
         int ret = ((fsu16)fileOpHooks[DELETE_DIRECTORY_RECURSIVE_OP].callCode)(newPath);
         return ret;
     }
-    static u32  fsCreateFileFunc(u16* path, u64 a2) {
-        u16* newPath = calculateNewPath(path, 1);
+    static u32  fsCreateFileFunc(char16_t* path, u64 a2) {
+        char16_t* newPath = calculateNewPath(path, 1);
         int ret = ((fsu16u64)fileOpHooks[CREATE_FILE_OP].callCode)(newPath, a2);
         return ret;
     }
-    static u32  fsCreateDirectoryFunc(u16* path) {
-        u16* newPath = calculateNewPath(path, 1);
+    static u32  fsCreateDirectoryFunc(char16_t* path) {
+        char16_t* newPath = calculateNewPath(path, 1);
         int ret = ((fsu16)fileOpHooks[CREATE_DIRECTORY_OP].callCode)(newPath);
         return ret;
     }
-    static u32  fsRenameDirectoryFunc(u16* path1, u16* path2) {
-        u16* newPath1 = calculateNewPath(path1, 1);
-        u16* newPath2 = calculateNewPath(path2, 1, true);
+    static u32  fsRenameDirectoryFunc(char16_t* path1, char16_t* path2) {
+        char16_t* newPath1 = calculateNewPath(path1, 1);
+        char16_t* newPath2 = calculateNewPath(path2, 1, true);
         int ret = ((fsu16u16)fileOpHooks[RENAME_DIRECTORY_OP].callCode)(newPath1, newPath2);
         return ret;
     }
@@ -355,11 +354,11 @@ namespace CTRPluginFramework::OnionFS
 		LightEvent_Signal(&gameFsFileHashesEvent);
 	}
 
-	GameFSFileState CheckGameFSFileExists(const u16* file) {
-		if (!gameFsHashesReady || (!strcmp16(file, (const u16*)romfsPath) && !strcmp16(file, (const u16*)u"ram:/CTGP-7/MyStuff/stream/")))
+	GameFSFileState CheckGameFSFileExists(const char16_t* file) {
+		if (!gameFsHashesReady || (!strcmp16(file, romfsPath) && !strcmp16(file, u"ram:/CTGP-7/MyStuff/stream/")))
 			return GameFSFileState::UNKNOWN;
 
-		u32 hash = ExtraResource::SARC::CalculateHash<u16>(file, 0x65);
+		u32 hash = ExtraResource::SARC::CalculateHash<char16_t>(file, 0x65);
 		auto it = std::lower_bound(gameFsFileHashes.begin(), gameFsFileHashes.end(), hash);
 		if (it != gameFsFileHashes.end() && *it == hash)
 			return GameFSFileState::EXISTS;

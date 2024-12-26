@@ -87,12 +87,12 @@ namespace CTRPluginFramework {
     void setFoolsSeed() {
         g_foolTextSeed = Utils::Random() | (((u64)Utils::Random()) << 32);
     }
-    const u16* getFoolsText() {
-        const u16* piracyStr[] = {
-            (u16*)u"CHECKSUM FAILED",
-            (u16*)u"PIRACY IS NO FUN",
-            (u16*)u"POWER OFF NOW",
-            (u16*)u"REPORT STOLEN SOFTWARE"
+    const char16_t* getFoolsText() {
+        const char16_t* piracyStr[] = {
+            u"CHECKSUM FAILED",
+            u"PIRACY IS NO FUN",
+            u"POWER OFF NOW",
+            u"REPORT STOLEN SOFTWARE"
         };
         g_foolTextSeed = rol<u64>(g_foolTextSeed, 3);
         return piracyStr[g_foolTextSeed & 3];

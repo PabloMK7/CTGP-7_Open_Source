@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.cpp
-Open source lines: 683/683 (100.00%)
+Open source lines: 692/692 (100.00%)
 *****************************************************/
 
 #include "VersusHandler.hpp"
@@ -22,6 +22,7 @@ Open source lines: 683/683 (100.00%)
 #include "MenuPage.hpp"
 #include "str16utils.hpp"
 #include <algorithm>
+#include "CustomTextEntries.hpp"
 
 namespace CTRPluginFramework {
 
@@ -65,6 +66,7 @@ namespace CTRPluginFramework {
 	VersusHandler::SettingsObject* VersusHandler::SetObject = new VersusHandler::SettingsObject();
 	bool VersusHandler::IsVersusMode = false;
 	void (*VersusHandler::ApplyVSSetting)(VersusHandler::SettingsObject*) = (void(*)(VersusHandler::SettingsObject*))0;
+	u32 VersusHandler::openSettingsKeyboardMode = 0;
 	bool VersusHandler::canShowVSSet = false;
 	u32 VersusHandler::MenuSingleClassPage = 0;
 	u32 VersusHandler::invalidLRVal3 = 0;
@@ -99,6 +101,8 @@ namespace CTRPluginFramework {
 		itemNames.insert(itemNames.end(), {Language::MsbtHandler::GetString(1023), Language::MsbtHandler::GetString(1022), Language::MsbtHandler::GetString(1026), Language::MsbtHandler::GetString(1018), Language::MsbtHandler::GetString(1027), Language::MsbtHandler::GetString(1029), Language::MsbtHandler::GetString(1028), Language::MsbtHandler::GetString(1033), Language::MsbtHandler::GetString(1020), Language::MsbtHandler::GetString(1030),
 											Language::MsbtHandler::GetString(1025), Language::MsbtHandler::GetString(1021), Language::MsbtHandler::GetString(1019), Language::MsbtHandler::GetString(1024), Language::MsbtHandler::GetString(1031), NAME("item_fib"), NAME("item_mega"), Language::MsbtHandler::GetString(1035), Language::MsbtHandler::GetString(1034), Language::MsbtHandler::GetString(1036)});
 		textRandom = Language::MsbtHandler::GetString(2322);
+		Language::MsbtHandler::SetString(CustomTextEntries::options, NAME("optionsentry"));
+        Language::MsbtHandler::SetString(CustomTextEntries::optionsDesc, NOTE("optionsentry"));
 	}
 
 	void VersusHandler::PopulateCupKbdForPage(std::vector<CustomIcon>& icons, int page)
@@ -285,7 +289,12 @@ namespace CTRPluginFramework {
 
 	void VersusHandler::OpenSettingsKeyboardCallback()
 	{
-		OpenSettingsKeyboard();
+		if (openSettingsKeyboardMode == 1) {
+			OpenSettingsKeyboard();
+		} else if (openSettingsKeyboardMode == 2) {
+			PluginMenu::GetRunningInstance()->ForceOpen();
+		}
+		openSettingsKeyboardMode = 0;
 		*(PluginMenu::GetRunningInstance()) -= OpenSettingsKeyboardCallback;
 	}
 

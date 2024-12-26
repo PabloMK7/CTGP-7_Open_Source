@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 530/533 (99.44%)
+Open source lines: 532/535 (99.44%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -123,14 +123,15 @@ namespace CTRPluginFramework {
 	}
 	
 	static std::unordered_map<u64, CharacterHandler::CharacterEntry>::iterator g_lastCharShown;
-	static u32 g_pendingFlagOpen = 0;
+	static bool g_processing_achievements = false;
 	void SaveHandler::UpdateCharacterIterator() {
 		g_lastCharShown = CharacterHandler::GetCharEntries().begin();
 	}
 	bool SaveHandler::CheckAndShowAchievementMessages() {
 		if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_GOLD)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_gold"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_GOLD, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_GOLD, true);
 			UpdateAchievementCryptoFiles();
@@ -138,8 +139,9 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_ONE_STAR)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_1star"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_ONE_STAR, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_ONE_STAR, true);
 			UpdateAchievementCryptoFiles();
@@ -147,8 +149,9 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_THREE_STAR)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_3star"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_THREE_STAR, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_THREE_STAR, true);
 			UpdateAchievementCryptoFiles();
@@ -156,8 +159,9 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_MISSION_TEN)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_mission"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_MISSION_TEN, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_MISSION_TEN, true);
 			UpdateAchievementCryptoFiles();
@@ -165,8 +169,9 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_5000_vr"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::VR_5000, true);
 			UpdateAchievementCryptoFiles();
@@ -176,8 +181,9 @@ namespace CTRPluginFramework {
 		}
 		
 		else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS)) {
-			if (MarioKartFramework::isDialogOpened()) return true;
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
 			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_blue_coin"));
+			g_processing_achievements = true;
 			SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS, false);
 			SaveHandler::saveData.SetSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS, true);
 			UpdateAchievementCryptoFiles();
@@ -185,22 +191,14 @@ namespace CTRPluginFramework {
 			SaveHandler::SaveSettingsAll();
 			return true;
 		} 
-		
+
 		else {
-			if (MarioKartFramework::isDialogOpened()) {
-				if (g_pendingFlagOpen) {
-					g_pendingFlagOpen--;
-				}
-				if (g_pendingFlagOpen == 1) {
-					Snd::PlayMenu(Snd::SoundID::FLAG_OPEN);
-				}
-				return true;
-			}
+			if (g_processing_achievements && MarioKartFramework::isDialogOpened()) return true;
 			u32 newCount = SaveHandler::saveData.GetCompletedAchievementCount();
 			if (lastAchievementCount < newCount) {
 				for (auto it = g_lastCharShown; it != CharacterHandler::GetCharEntries().end(); it++) {
 					if (it->second.achievementLevel > 0 && it->second.achievementLevel == (lastAchievementCount + 1)) {
-						string16 text;
+						std::u16string text;
 						Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
 						text.append(
 							Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM,
@@ -210,7 +208,8 @@ namespace CTRPluginFramework {
 						Utils::ConvertUTF8ToUTF16(text, it->second.longName);
 						Language::MsbtHandler::SetString(CustomTextEntries::dialog, text);
 						MarioKartFramework::openDialog(DialogFlags::Mode::OK, "", nullptr, true);
-						g_pendingFlagOpen = 30;
+						g_processing_achievements = true;
+						MarioKartFramework::playTitleFlagOpenTimer = 30;
 						g_lastCharShown = it;
 						g_lastCharShown++;
 						return true;
@@ -230,7 +229,7 @@ namespace CTRPluginFramework {
 				}
 				for (auto it = g_lastCharShown; it != CharacterHandler::GetCharEntries().end(); it++) {
 					if (it->second.specialAchievement != SpecialAchievements::NONE && it->second.specialAchievement == next) {
-						string16 text;
+						std::u16string text;
 						Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
 						text.append(
 							Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM,
@@ -240,7 +239,8 @@ namespace CTRPluginFramework {
 						Utils::ConvertUTF8ToUTF16(text, it->second.longName);
 						Language::MsbtHandler::SetString(CustomTextEntries::dialog, text);
 						MarioKartFramework::openDialog(DialogFlags::Mode::OK, "", nullptr, true);
-						g_pendingFlagOpen = 30;
+						g_processing_achievements = true;
+						MarioKartFramework::playTitleFlagOpenTimer = 30;
 						g_lastCharShown = it;
 						g_lastCharShown++;
 						return true;
@@ -251,6 +251,7 @@ namespace CTRPluginFramework {
 				return true;
 			}
 		}
+		g_processing_achievements = false;
 		return false;
 	}
 
@@ -481,7 +482,8 @@ namespace CTRPluginFramework {
 		"options",
 		"stats",
 		"races",
-		"mission"
+		"mission",
+		"badges",
 	};
 
 	minibson::encdocument SaveHandler::SaveFile::Load(SaveType type, LoadStatus& status) {
@@ -490,7 +492,7 @@ namespace CTRPluginFramework {
 		if (!savefile.IsOpen()) {status = LoadStatus::FILE_NOT_FOUND; return minibson::encdocument();}
 
 		u32 saveFileSize = savefile.GetSize();
-		if (saveFileSize < 0xC || saveFileSize > 0x10000) {status = LoadStatus::CORRUPTED_FILE; return minibson::encdocument();}
+		if (saveFileSize < 0xC || saveFileSize > 0x40000) {status = LoadStatus::CORRUPTED_FILE; return minibson::encdocument();}
 
 		CTGP7SaveFile* filedata = (CTGP7SaveFile*)::memalign(0x1000, saveFileSize);
 		savefile.Read(filedata, saveFileSize);

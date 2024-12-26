@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 849/850 (99.88%)
+Open source lines: 846/847 (99.88%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -353,12 +353,12 @@ namespace CTRPluginFramework
 		}
 	}
 
-	void Language::GetLangSpecificFile(u16* filename, SZSID id, bool isPatch)
+	void Language::GetLangSpecificFile(char16_t* filename, SZSID id, bool isPatch)
 	{
 		if (isPatch) {
 			if (MarioKartFramework::region == JAPAN && MarioKartFramework::revision == REV2) {
-				if (strfind16(filename, (u16*)u"dash")) {
-					strcpy16(filename, (u16*)u"pat1:/Patch/UI/common-jp/dash_ntlg16b.bcfnt");
+				if (strfind16(filename, u"dash")) {
+					strcpy16(filename, u"pat1:/Patch/UI/common-jp/dash_ntlg16b.bcfnt");
 				}
 			}
 			return;
@@ -366,7 +366,7 @@ namespace CTRPluginFramework
 		if (!availableSZS[id]) {return;}
 		std::string file("ram:/CTGP-7/MyStuff/Languages/Lang_" + availableLang[currentTranslation].ID + "/" + g_szsFileNames[id] + currPostfix + ".szs");
 		memset(filename, 0, 0x200);
-		utf8_to_utf16(filename, (u8*)file.c_str(), 256);
+		utf8_to_utf16(reinterpret_cast<uint16_t*>(filename), reinterpret_cast<const uint8_t*>(file.c_str()), 256);
 	}
 
 	bool Language::IsLangSpecificFile(const char* file) {
@@ -381,12 +381,12 @@ namespace CTRPluginFramework
 		return true;
 	}
 
-	void Language::FixRegionSpecificFile(u16* filename) {
+	void Language::FixRegionSpecificFile(char16_t* filename) {
 		int filepos;
-		strfind16(filename, (u16*)u"ve-", &filepos);
+		strfind16(filename, u"ve-", &filepos);
 		filepos += 5;
 		int extensionpos;
-		strfind16(filename, (u16*)u".", &extensionpos);
+		strfind16(filename, u".", &extensionpos);
 		int fileEndPos = extensionpos - 3;
 		// Assuming the new name is always shorter
 		strcpy16(filename + filepos - 3, filename + filepos); // Remove the extension from the folder.
@@ -446,7 +446,7 @@ namespace CTRPluginFramework
         return len;
     }
 	
-	bool Language::MsbtHandler::ControlString::GetChoice(u16* out, int choice) const {
+	bool Language::MsbtHandler::ControlString::GetChoice(char16_t* out, int choice) const {
 		if (header.group == Group::STRFORMAT && header.type == 6) {
 			const u8* c = args;
 			int counter = 0;
@@ -468,8 +468,8 @@ namespace CTRPluginFramework
 		return false;
 	}
 
-	string16 Language::MsbtHandler::ControlString::GenSizeControlString(s16 percentage) {
-		string16 ret((sizeof(ControlString) / 2) + 1, '\0');
+	std::u16string Language::MsbtHandler::ControlString::GenSizeControlString(s16 percentage) {
+		std::u16string ret((sizeof(ControlString) / 2) + 1, '\0');
 		ControlString* control = (ControlString*)ret.data();
 		control->header.magic = 0xE;
 		control->header.group = Group::RENDERING;
@@ -479,7 +479,7 @@ namespace CTRPluginFramework
 		return ret;
 	}
 
-	string16 Language::MsbtHandler::ControlString::GenColorControlString(DashColor color, const Color& customColor) {
+	std::u16string Language::MsbtHandler::ControlString::GenColorControlString(DashColor color, const Color& customColor) {
 		s16 realColor;
 		if (color == DashColor::CUSTOM) {
 			// NOTE: Pure white is not possible as it generates DashColor::RESET
@@ -490,7 +490,7 @@ namespace CTRPluginFramework
 		} else {
 			realColor = (s16)color;
 		}
-		string16 ret((sizeof(ControlString) / 2) + 1, '\0');
+		std::u16string ret((sizeof(ControlString) / 2) + 1, '\0');
 		ControlString* control = (ControlString*)ret.data();
 		control->header.magic = 0xE;
 		control->header.group = Group::RENDERING;
@@ -525,7 +525,7 @@ namespace CTRPluginFramework
 		}
 	}
 
-	static VisualControl::Message defaultMsg((u16*)u"");
+	static VisualControl::Message defaultMsg(u"");
 	void Language::MsbtHandler::GetMessage(VisualControl::Message& out, MessageData* data, u32 id) {
 		if (g_isFoolActive && id != CustomTextEntries::dialog) {out = VisualControl::Message(getFoolsText()); return;}
 		auto it = customText.find(id);
@@ -542,7 +542,7 @@ namespace CTRPluginFramework
 		}
 		u32 entry;
 		if ((entry = data->tag->GetNLI1()->GetTxt2Entry(id)) != 0xFFFFFFFF) {
-			u16* ptr = data->tag->GetTXT2()->GetText(entry);
+			char16_t* ptr = data->tag->GetTXT2()->GetText(entry);
 			out = (ptr) ? VisualControl::Message(ptr) : defaultMsg;
 		} else out = defaultMsg;
 	}
@@ -557,10 +557,10 @@ namespace CTRPluginFramework
 	void Language::MsbtHandler::RecalculateCrossMsbtPtr(u32 msbtIndex, void* newStart) {
 		for (auto it = customText.cbegin(); it != customText.cend(); it++) {
 			if (it->second->didCopy) continue;
-			const u16* text = it->second->message.data;
+			const char16_t* text = it->second->message.data;
 			if (text >= allList->infos[msbtIndex].txt2StartPtr && text <= allList->infos[msbtIndex].txt2EndPtr)
 			{
-				text = (u16*)((u32)text + ((u32)newStart - (u32)allList->infos[msbtIndex].txt2StartPtr));
+				text = (char16_t*)((u32)text + ((u32)newStart - (u32)allList->infos[msbtIndex].txt2StartPtr));
 				it->second->message.data = text;
 			}
 		}
@@ -635,8 +635,8 @@ namespace CTRPluginFramework
 		queuedReferenceStr.clear();
 	}
 
-	u32 Language::MsbtHandler::GetTextLenNoFormatting(const u16* text) {
-		const u16* p = text;
+	u32 Language::MsbtHandler::GetTextLenNoFormatting(const char16_t* text) {
+		const char16_t* p = text;
 		u32 count = 0;
 		while (*p) {
 			if (*p == 0xE) { // Control String
@@ -649,25 +649,24 @@ namespace CTRPluginFramework
 		return count;
 	}
 
-	void Language::MsbtHandler::SkipTextControlString(u16* dst, const u16* src) {
+	void Language::MsbtHandler::SkipTextControlString(std::u16string& dst, const char16_t* src) {
 		while (*src)
 		{
 			if (*src == 0xE) { // Control String
 				u32 csSize = ((ControlString*)src)->GetSizeBytes();
-				src += csSize / sizeof(u16);
+				src += csSize / sizeof(char16_t);
 			} else {
-				*dst++ = *src++;
+				dst.push_back(*src++);
 			}
 		}
-		*dst = '\0';
 	}
 
-	string16 Language::MsbtHandler::DashTextWithTagsToString(const u16* src) {
-		string16 ret;
+	std::u16string Language::MsbtHandler::DashTextWithTagsToString(const char16_t* src) {
+		std::u16string ret;
 		while (*src)
 		{
 			if (*src == 0xE) { // Control String
-				u32 csSize = ((const ControlString*)src)->GetSizeBytes() / sizeof(u16);
+				u32 csSize = ((const ControlString*)src)->GetSizeBytes() / sizeof(char16_t);
 				while (csSize--) {
 					ret.push_back(*src++);
 				}
@@ -678,13 +677,13 @@ namespace CTRPluginFramework
 		return ret;
 	}
 
-	const Language::MsbtHandler::ControlString* Language::MsbtHandler::FindControlString(const u16* text, u16 group, u16 type, const u16** nextChar) {
+	const Language::MsbtHandler::ControlString* Language::MsbtHandler::FindControlString(const char16_t* text, u16 group, u16 type, const char16_t** nextChar) {
 		while (*text)
 		{
 			if (*text == 0xE) { // Control String
 				ControlString* cstr = (ControlString*)text;
 				if ((u16)cstr->header.group == group && cstr->header.type == type) {
-					if (nextChar) *nextChar = text + cstr->GetSizeBytes() / sizeof(u16);
+					if (nextChar) *nextChar = text + cstr->GetSizeBytes() / sizeof(char16_t);
 					return cstr;
 				}
 			}
@@ -694,21 +693,19 @@ namespace CTRPluginFramework
 		return nullptr;
 	}
 
-	const u16* Language::MsbtHandler::GetText(u32 id) {
+	const char16_t* Language::MsbtHandler::GetText(u32 id) {
 		VisualControl::Message msg;
 		GetMessageFromList(msg, &allList->msg, id);
 		return msg.data;
 	}
 
-	static u16* g_convBuff1 = nullptr;
-	std::string Language::MsbtHandler::GetString(const u16* text) {
-		if (!g_convBuff1)
-			g_convBuff1 = (u16*)operator new(0x200);
+	std::string Language::MsbtHandler::GetString(const char16_t* text) {
+		std::u16string out;
 
-		SkipTextControlString(g_convBuff1, text);
+		SkipTextControlString(out, text);
 		
 		std::string ret;
-		Utils::ConvertUTF16ToUTF8(ret, g_convBuff1);
+		Utils::ConvertUTF16ToUTF8(ret, out);
 
 		return ret;
 	}
@@ -717,9 +714,9 @@ namespace CTRPluginFramework
 		return GetString(GetText(id));
 	}
 	
-	void Language::MsbtHandler::SetText(u32 id, const u16* text, bool insertFront, u32 textSize) {
+	void Language::MsbtHandler::SetText(u32 id, const char16_t* text, bool insertFront, u32 textSize) {
 		auto it = customText.find(id);
-		MessageString* m =  new MessageString((u16*)text, false, textSize);
+		MessageString* m =  new MessageString(text, false, textSize);
 		if (it != customText.end()) {
 			if (insertFront) {
 				MessageString* old = it->second;
@@ -771,7 +768,7 @@ namespace CTRPluginFramework
 		}
 	}
 
-	Language::MessageString::MessageString(u16* src, bool makeCopy, u32 size) {
+	Language::MessageString::MessageString(const char16_t* src, bool makeCopy, u32 size) {
 		if (size != 0xFFFFFFFF) makeCopy = true;
 		didCopy = makeCopy;
 		isEnabled = true;
@@ -779,7 +776,7 @@ namespace CTRPluginFramework
         if (makeCopy)
         {
             u32 sizeBytes = (size == 0xFFFFFFF) ? ((strsize16(src) + 1) * 2) : ((size + 1) * 2);
-            message.data = (u16*)::operator new(sizeBytes);
+            message.data = (char16_t*)::operator new(sizeBytes);
 			memcpy((u16*)message.data, src, sizeBytes - 2);
 			((u16*)message.data)[sizeBytes / 2 - 1] = 0;
         }
@@ -840,10 +837,10 @@ namespace CTRPluginFramework
 			panic("Invalid character while decoding utf16");
         u32 sizeBytes = (size + 1) * 2;
 
-        message.data = (u16*)::operator new(sizeBytes);
+        message.data = (char16_t*)::operator new(sizeBytes);
 
         int units = utf8_to_utf16_special_null((u16*)message.data, (u8*)src, size);
         if (units >= 0)
-            ((u16*)message.data)[units] = 0;
+            ((char16_t*)message.data)[units] = 0;
     }
 }

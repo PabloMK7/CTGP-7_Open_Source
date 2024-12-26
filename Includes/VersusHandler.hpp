@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.hpp
-Open source lines: 190/190 (100.00%)
+Open source lines: 191/191 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -158,6 +158,7 @@ namespace CTRPluginFramework {
 		static void OnNextTrackLoad();
 		static void OnNextMenuShow();
 
+		static u32 openSettingsKeyboardMode;
 		static bool canShowVSSet;
 		static u32 MenuSingleClassPage;
 		static u32 invalidLRVal3;

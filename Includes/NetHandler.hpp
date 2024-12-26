@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 139/140 (99.29%)
+Open source lines: 140/141 (99.29%)
 *****************************************************/
 
 #pragma once
@@ -74,7 +74,7 @@ namespace CTRPluginFramework {
 			enum class RequestType
 			{
 				BETA_VER,
-				PUT_GENERAL_STATS,
+				GENERAL_STATS,
 				LOGIN,
 				LOGOUT,
 				ONLINE_SEARCH,
@@ -91,6 +91,7 @@ namespace CTRPluginFramework {
 				ROOM_CHAR_IDS,
 				MESSAGE,
 				ULTRASHORTCUT,
+				BADGES,
 			};
 			RequestHandler();
 

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 397/410 (96.83%)
+Open source lines: 400/413 (96.85%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -69,6 +69,7 @@ namespace CTRPluginFramework
 	MenuEntry* brakeDriftEntry;
 	MenuEntry* automaticDelayDriftEntry;
 	MenuEntry* achievementsEntry;
+	MenuEntry* badgesEntry;
 	MenuEntry* blueCoinsEntry;
 
 	OnlineMenuEntry* ccSelOnlineEntry;
@@ -139,6 +140,7 @@ namespace CTRPluginFramework
 		settings.TryLoadSDSounds = false;
 		settings.UseGameHidMemory = true;
 		settings.AreN3DSButtonsAvailable = false;
+		settings.CloseMenuWithB = true;
 		MarioKartFramework::getLaunchInfo();
 		LightEvent_Init(&mainEvent1, RESET_ONESHOT);
 		LightEvent_Init(&mainEvent0, RESET_ONESHOT);
@@ -298,6 +300,7 @@ namespace CTRPluginFramework
 		menu.Append(other);
 
 		menu.Append(achievementsEntry = new MenuEntry(NAME("achieventry"), nullptr, achievementsEntryHandler, NOTE("achieventry")));
+		menu.Append(badgesEntry = new MenuEntry(NAME("badgesentry"), nullptr, BadgeManager::BadgesMenu, NOTE("badgesentry")));
 		menu.Append(langSettingEntry = new MenuEntry("Language", nullptr, Language::ShowLangMenu, " "));
 
 		customKartEntry->Name() = NAME("cuskart") + " (" + (SaveHandler::saveData.flags1.customKartsEnabled ? NAME("state_mode") : NOTE("state_mode")) + ")";

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 426/426 (100.00%)
+Open source lines: 435/435 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -95,6 +95,7 @@ namespace CTRPluginFramework {
 				u32 customKartsEnabled : 1;
 				u32 blueCoinsEnabled : 1;
 				u32 enableVoiceChat : 1;
+				u32 needsBadgeObtainedMsg : 1;
 			} flags1;
 			struct 
 			{
@@ -120,6 +121,8 @@ namespace CTRPluginFramework {
 			std::vector<u32> collectedBlueCoins;
 
 			char voiceChatServerAddr[0x20];
+
+			u64 useBadgeOnline;
 
 			bool IsAchievementPending(Achievements achiev) {
 				return pendingAchievements & (u32)achiev;
@@ -217,6 +220,7 @@ namespace CTRPluginFramework {
 				flags1.customKartsEnabled = true;
 				flags1.blueCoinsEnabled = true;
 				flags1.enableVoiceChat = false;
+				flags1.needsBadgeObtainedMsg = false;
 				numberOfRounds = 4;
 				serverDisplayNameMode = (u8)Net::PlayerNameMode::SHOW;
 				serverDisplayCustomName[0] = '\0';
@@ -234,7 +238,7 @@ namespace CTRPluginFramework {
 				#else
 				voiceChatServerAddr[0] = '\0';
 				#endif
-
+				useBadgeOnline = 0;
 			}
 
 			CTGP7Save(minibson::document& doc) {
@@ -314,6 +318,8 @@ namespace CTRPluginFramework {
 				);
 				strncpy(voiceChatServerAddr, n.c_str(), sizeof(voiceChatServerAddr) - 1);
 				voiceChatServerAddr[sizeof(voiceChatServerAddr) - 1] = '\0';
+				useBadgeOnline = (u64)doc.get<s64>(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), 0);
+				flags1.needsBadgeObtainedMsg = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), false);
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -363,6 +369,8 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_ENABLED), (bool)flags1.enableVoiceChat);
 				voiceChatServerAddr[sizeof(voiceChatServerAddr) - 1] = '\0';
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_SERVER), (const char*)voiceChatServerAddr);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), (s64)useBadgeOnline);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), (bool)flags1.needsBadgeObtainedMsg);
 			}
 		};
 		static CTGP7Save saveData;
@@ -398,6 +406,7 @@ namespace CTRPluginFramework {
 				STATS,
 				RACES,
 				MISSION,
+				BADGES,
 
 				MAX_TYPE
 			};

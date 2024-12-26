@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2139/2142 (99.86%)
+Open source lines: 2146/2149 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -19,6 +19,7 @@ Open source lines: 2139/2142 (99.86%)
 #include "str16utils.hpp"
 #include "MenuPage.hpp"
 #include "VoiceChatHandler.hpp"
+#include "StatsHandler.hpp"
 
 namespace CTRPluginFramework {
 	BootSceneHandler::ProgressHandle CharacterHandler::progressHandle;
@@ -845,7 +846,7 @@ namespace CTRPluginFramework {
 		auto it = charEntries.find(characterID);
 		Color defaultColor = isBlocked ? Color(255, 0, 0) : Color(245, 245, 245);
 		if (it != charEntries.end() && it->second.origChar == driverID) {
-			string16 longStr16;
+			std::u16string longStr16;
 			Utils::ConvertUTF8ToUTF16(longStr16, it->second.longName);
 			if (!isBlocked && it->second.achievementLevel > 0 && it->second.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount()) {
 				if (it->second.achievementLevel >= 5)
@@ -871,14 +872,14 @@ namespace CTRPluginFramework {
 		if (!updateRaceCharaNamePending)
 			return;
 		CRaceInfo& raceInfo = *MarioKartFramework::getRaceInfo(true);
-		FixedStringBase<u16, 0x20>* playerNames = MarioKartFramework::getPlayerNames();
+		FixedStringBase<char16_t, 0x20>* playerNames = MarioKartFramework::getPlayerNames();
 		for (int i = 0; i < raceInfo.playerAmount; i++) {
 			if (raceInfo.kartInfos[i].playerType == EPlayerType::TYPE_CPU) {
 				u64 selectedChar = GetSelectedCharacter(i);
 				if (selectedChar) {
 					auto it = charEntries.find(selectedChar);
 					if (it == charEntries.end()) continue;
-					string16 name;
+					std::u16string name;
 					Utils::ConvertUTF8ToUTF16(name, it->second.shortName);
 					strcpy16n(playerNames[i].strData, name.c_str(), playerNames[i].bufferSize * sizeof(u16));
 				}
@@ -1411,6 +1412,12 @@ namespace CTRPluginFramework {
 				}
 				VoiceChatHandler::UpdatePlayerNames();
 			}
+			const minibson::document& badgeIDs = resDoc.get("badgeIDs", minibson::document());
+			for (int i = 0; i < 8; i++) {
+				u16 key = '0' + i;
+				Net::othersBadgeIDs[i] = badgeIDs.get_numerical((char*)&key, 0);
+			}
+			BadgeManager::UpdateOnlineBadges();
 		}
 		netRequestHandler.Cleanup();
 	}

@@ -29,7 +29,7 @@ extern "C" u32 * g_altGameModeplayerStatPointer;
 
 namespace CTRPluginFramework {
     bool MissionHandler::isMissionMode = false;
-    u16 MissionHandler::cupNameFormatReplace[5] = { 0x0E, 0x01, 0x03, 0x00, 0x00 };
+    char16_t MissionHandler::cupNameFormatReplace[5] = { 0x0E, 0x01, 0x03, 0x00, 0x00 };
     MissionHandler::MissionParameters* MissionHandler::missionParam = nullptr;
     MissionHandler::MissionParameters* MissionHandler::temporaryParam[4] = {nullptr};
     bool MissionHandler::lastLoadedCupAccessible = false;
@@ -89,9 +89,9 @@ namespace CTRPluginFramework {
         }
         const Language::MsbtHandler::ControlString* ptsControl = Language::MsbtHandler::FindControlString(Language::MsbtHandler::GetText(9830), 1, 6);
         if (ptsControl) {
-            u16 buff[0x20];
+            char16_t buff[0x20];
             ptsControl->GetChoice(buff, 0);
-            std::string singlePts =Language::MsbtHandler::GetString(buff);
+            std::string singlePts = Language::MsbtHandler::GetString(buff);
             std::string pluralPts;
             if (ptsControl->GetChoice(buff, 1))
                 pluralPts = Language::MsbtHandler::GetString(buff);
@@ -392,7 +392,7 @@ namespace CTRPluginFramework {
         MarioKartFramework::BaseResultBar minBar = MarioKartFramework::resultBarArray[2];
         MarioKartFramework::BaseResultBar bestBar = MarioKartFramework::resultBarArray[3];
         
-        string16 utf16;
+        std::u16string utf16;
         u16* utf16ptr;
 
         Utils::ConvertUTF8ToUTF16(utf16, playerGrade);
@@ -616,7 +616,7 @@ namespace CTRPluginFramework {
                     if (saveEntry.hasData) {
                         text += " (" + std::to_string(saveEntry.grade) + ")";
                     }
-                    string16 finalText;
+                    std::u16string finalText;
                     Utils::ConvertUTF8ToUTF16(finalText, text);
                     #if CITRA_MODE == 0
                     if (!saveEntry.IsChecksumValid())
@@ -752,27 +752,27 @@ namespace CTRPluginFramework {
 		MarioKartFramework::RacePageInitFunctions[RacePageInitID::TIMER](racePage);
     }
 
-    void MissionHandler::LoadCoursePreview(u16* dst) {
+    void MissionHandler::LoadCoursePreview(char16_t* dst) {
         if (!isMissionMode) return;
         std::string previewPath = Utils::Format((GetMissionDirPath(currMissionWorld) + "/%d_%d/preview.bcstm").c_str(), currMissionWorld, currMissionLevel);
         if (File::Exists(previewPath)) {
-            strcpy16(dst, (u8*)"ram:");
-            strcat16n(dst, (u8*)previewPath.c_str(), 0x100);
+            strcpy16(dst, "ram:");
+            strcat16n(dst, previewPath.c_str(), 0x100);
         }
     }
 
-    bool MissionHandler::LoadCustomMusic(u16* dst, bool isFinalLap) {
+    bool MissionHandler::LoadCustomMusic(char16_t* dst, bool isFinalLap) {
         if (!isMissionMode) return false;
         auto it = customMusic.find(missionParam->MissionFlags->courseID);
 		if (it != customMusic.end()) {
 			std::string musicPath = "ram:" + GetMissionDirPath(currMissionWorld) + "/Music/STRM_C";
-            strcpy16(dst, (u8*)musicPath.c_str());
-            strcat16n(dst, (const u8*)(*it).second.musicFileName.data(), 0x100);
+            strcpy16(dst, musicPath.c_str());
+            strcat16n(dst, (*it).second.musicFileName.data(), 0x100);
             if (isFinalLap) {
-                strcat16n(dst, (u16*)u"_F.bcstm", 0x100);
+                strcat16n(dst, u"_F.bcstm", 0x100);
 			}
 			else {
-				strcat16n(dst, (u16*)u"_N.bcstm", 0x100);
+				strcat16n(dst, u"_N.bcstm", 0x100);
 			}
             return true;
 		}

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 550/725 (75.86%)
+Open source lines: 552/727 (75.93%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -19,6 +19,7 @@ Open source lines: 550/725 (75.86%)
 #include "CrashReport.hpp"
 #include "CharacterHandler.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "StatsHandler.hpp"
 
 namespace CTRPluginFramework {
 	
@@ -67,6 +68,7 @@ namespace CTRPluginFramework {
 		CrashReport::Initialize();
 		BlueCoinChallenge::Initialize();
 		CharacterHandler::applySarcPatches();
+		BadgeManager::SetupExtraResource();
 	}
 
 	static inline void concatSZSCustomName(char* dst, const char* archive, const char* file) {

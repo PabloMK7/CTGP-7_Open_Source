@@ -64,7 +64,7 @@ namespace CTRPluginFramework {
         static void OnNextTrackLoad();
         static void CleanTextureSarc();
         static void TimeTrialsSetTrack(u32 track);
-        static void GetCouseSZSPath(u16* dst, bool withLang);
+        static void GetCouseSZSPath(char16_t* dst, bool withLang);
 
         static u8* LoadTextureFile(u32* archive, SafeStringBase* file, ExtraResource::SARC::FileInfo* fileInfo);
 

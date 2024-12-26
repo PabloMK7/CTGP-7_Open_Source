@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 768/768 (100.00%)
+Open source lines: 774/774 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -273,13 +273,15 @@ namespace CTRPluginFramework {
                 MenuSingleModePage() {}
 
                 GameSequenceSection* gameSection;
-                VisualControl::GameVisualControl* buttonList[6];
+                VisualControl::GameVisualControl* buttonList[7];
                 GameSequenceSectionVtable vtable;
 
                 GameSequenceSection* Load(void* sectionDirector);
 
                 void Deallocate() {deallocatingBackup(gameSection);}
                 static bool DefineAnimation(VisualControl::AnimationDefine* anDefine);
+
+                bool openCTGP7Setting = false;
 
             private:
                 GameSequenceSection* MenuSingleModePageCons(GameSequenceSection* own);
@@ -726,6 +728,10 @@ namespace CTRPluginFramework {
 
         static void dashSectionDefinePageClassInfoList(void* dashSectionManager, void* sectionclassinfolist);
         static void InitHooksFromDefinePageClassInfoList(u32 funcAddr);
+
+        static MenuSingleModePage* GetMenuSingleModePage() {
+            return menuSingleMode;
+        }
     private:
         static MenuSingleModePage* menuSingleMode;
 

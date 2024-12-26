@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 867/888 (97.64%)
+Open source lines: 893/914 (97.70%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -35,6 +35,7 @@ namespace CTRPluginFramework {
 	std::vector<u64> Net::whiteListedCharacters;
 	std::string Net::myServerName;
 	std::string Net::othersServerNames[8];
+	u64 Net::othersBadgeIDs[8];
 	NetHandler::RequestHandler Net::netRequests;
 	Net::CTWWLoginStatus Net::lastLoginStatus = Net::CTWWLoginStatus::NOTLOGGED;
 	Net::OnlineStateMachine Net::currState = Net::OnlineStateMachine::OFFLINE;
@@ -377,6 +378,7 @@ namespace CTRPluginFramework {
 				reqDoc.set<bool>("imHost", MarioKartFramework::myRoomPlayerID == 0);
 				reqDoc.set<int>("myPlayerID", MarioKartFramework::myRoomPlayerID);
 				reqDoc.set<u64>("customCharID", CharacterHandler::GetSelectedMenuCharacter());
+				reqDoc.set<u64>("badgeID", SaveHandler::saveData.useBadgeOnline);
 				if (VoiceChatHandler::Initialized && !VoiceChatHandler::Error) {
 					reqDoc.set<bool>("voiceChat", true);
 				}
@@ -557,7 +559,7 @@ namespace CTRPluginFramework {
 				OSD::Notify("CTGP-7 Network is under maintenance.");
 				OSD::Notify("Falling back to Nintendo Network...");
 				useCTGP7server_apply(false);
-				return ((Result(*)(Handle, u32, const u16*, u8, u8))Net::RequestGameAuthenticationDataHook.callCode)(
+				return ((Result(*)(Handle, u32, const char16_t*, u8, u8))Net::RequestGameAuthenticationDataHook.callCode)(
 					Net::customAuthData.eventHandle, Net::customAuthData.serverID, 
 					Net::customAuthData.screenName.c_str(),
 					Net::customAuthData.sdkMajor,
@@ -586,20 +588,20 @@ namespace CTRPluginFramework {
 	}
 
 	static Task requestOnlineTokenTask{requestOnlineTokenTaskFunc, nullptr, Task::Affinity::AppCore};
-	Result Net::OnRequestGameAuthenticationData(Handle event, u32 serverID, u16* arg2, u8 arg3, u8 arg4) {
+	Result Net::OnRequestGameAuthenticationData(Handle event, u32 serverID, char16_t* arg2, u8 arg3, u8 arg4) {
 		if (SaveHandler::saveData.flags1.useCTGP7Server) {
 			if (SaveHandler::saveData.principalID == 0) {
 				return -1;
 			}
 			customAuthData.eventHandle = event;
 			customAuthData.serverID = serverID;
-			customAuthData.screenName = string16(arg2);
+			customAuthData.screenName = std::u16string(arg2);
 			customAuthData.sdkMajor = arg3;
 			customAuthData.sdkMinor = arg4;
 			requestOnlineTokenTask.Start();
 			return 0;
 		} else {
-			return ((Result(*)(Handle, u32, u16*, u8, u8))RequestGameAuthenticationDataHook.callCode)(event, serverID, arg2, arg3, arg4);
+			return ((Result(*)(Handle, u32, char16_t*, u8, u8))RequestGameAuthenticationDataHook.callCode)(event, serverID, arg2, arg3, arg4);
 		}
 	}
 
@@ -741,7 +743,22 @@ namespace CTRPluginFramework {
 		return ret;
 	}
 
-	static Net::DiscordInfo* g_keyboarddata;
+    void Net::UnlinkDiscord()
+    {
+		#if CITRA_MODE == 0
+		NetHandler::RequestHandler discordHandler;
+		{
+			minibson::document reqDoc;
+			reqDoc.set<bool>("unlink", true);
+			discordHandler.AddRequest(NetHandler::RequestHandler::RequestType::DISCORD_INFO, reqDoc);
+		}
+		
+		discordHandler.Start();
+		discordHandler.Wait();
+		#endif
+    }
+
+    static Net::DiscordInfo* g_keyboarddata;
 	void Net::DiscordLinkMenu()
 	{
 		#if CITRA_MODE == 0
@@ -790,9 +807,18 @@ namespace CTRPluginFramework {
 					kbd.GetMessage() += NAME("disc_data") + Utils::Format("\n%s#%s\n\n", info.userName.c_str(), info.userDiscrim.c_str());
 				kbd.GetMessage() += NOTE("disc_data") + Utils::Format("\n%s\n\n",info.userNick.c_str());
 				kbd.GetMessage() += info.canBeta ? NAME("disc_beta") : NOTE("disc_beta");
-				kbd.Populate({Language::MsbtHandler::GetString(2001)});
+				kbd.Populate({Language::MsbtHandler::GetString(2001), NAME("disc_unlink")});
 				kbd.CanAbort(true);
-				kbd.Open();
+				int res = kbd.Open();
+				if (res == 1) {
+					kbd.GetMessage() = NOTE("disc_unlink");
+					kbd.Populate({Language::MsbtHandler::GetString(2003), Language::MsbtHandler::GetString(2004)});
+					kbd.ChangeEntrySound(1, SoundEngine::Event::CANCEL);
+					res = kbd.Open();
+					if (res == 0) {
+						UnlinkDiscord();
+					}
+				}
 				return;
 			}
 		}

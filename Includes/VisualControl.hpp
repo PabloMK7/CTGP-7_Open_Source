@@ -19,9 +19,9 @@ namespace CTRPluginFramework {
     public:
         static void nullFunc();
         struct Message {
-            const u16* data;
+            const char16_t* data;
             Message() : data(nullptr) {}
-            Message(const u16* str) : data(str) {}
+            Message(const char16_t* str) : data(str) {}
         };
 
         struct NwlytControlSight;

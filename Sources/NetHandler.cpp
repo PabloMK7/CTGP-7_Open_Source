@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 441/530 (83.21%)
+Open source lines: 442/531 (83.24%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -43,7 +43,8 @@ namespace CTRPluginFramework {
 		"req_uniquepid",
 		"req_roomcharids",
 		"req_message",
-		"put_ultrashortcut"
+		"put_ultrashortcut",
+		"req_badges",
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)

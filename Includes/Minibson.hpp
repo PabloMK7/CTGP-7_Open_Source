@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.hpp
-Open source lines: 624/702 (88.89%)
+Open source lines: 656/734 (89.37%)
 *****************************************************/
 
 /*
@@ -42,7 +42,7 @@ namespace minibson {
 
     // Basic types
 
-    enum bson_node_type {
+    enum bson_node_type : unsigned char {
         double_node = 0x01,
         string_node = 0x02,
         document_node = 0x03,
@@ -321,31 +321,27 @@ namespace minibson {
 
             element_list(const element_list& other) { // Copy constructor
                 for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    (*this)[i->first] = i->second->copy();
+                    std::map<std::string, node*>::insert({i->first, i->second->copy()});
             }
 
             element_list(element_list&& other) noexcept { // Move constructor
-                for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    (*this)[i->first] = i->second;
-                other.erase(other.cbegin(), other.cend());
+                for (const_iterator i = other.begin(); i != other.end(); i++)
+                    std::map<std::string, node*>::insert({i->first, i->second});
+                other.std::map<std::string, node*>::clear();
             } 
 
             element_list& operator=(const element_list& other) { // Copy assignment
-                for (iterator i = begin(); i != end(); i++)
-                    delete i->second;
-                erase(begin(), end());
+                element_list::clear();
                 for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    (*this)[i->first] = i->second->copy();
+                    std::map<std::string, node*>::insert({i->first, i->second->copy()});
                 return *this;
             }
 
             element_list& operator=(element_list&& other) noexcept { // Move assignment
-                for (const_iterator i = begin(); i != end(); i++)
-                    delete i->second;
-                erase(begin(), end());
-                for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    (*this)[i->first] = i->second;
-                other.erase(other.begin(), other.end());
+                element_list::clear();
+                for (iterator i = other.begin(); i != other.end(); i++)
+                    std::map<std::string, node*>::insert({i->first, i->second});
+                other.std::map<std::string, node*>::clear();
                 return *this;
             }
 
@@ -420,19 +416,41 @@ namespace minibson {
                 return std::map<std::string, node*>::empty();
             }
 
-            bool contains(const char* key) const {
+            std::map<std::string, node*>::const_iterator find(const std::string& key) const {
+                return std::map<std::string, node*>::find(key);
+            }
+
+            std::map<std::string, node*>::iterator find(const std::string& key) {
+                return std::map<std::string, node*>::find(key);
+            }
+
+            bool contains(const std::string& key) const {
                 return (std::map<std::string, node*>::find(key) != cend());
             }
             
             template<typename T>
-            bool contains(const char* key) const {
+            bool contains(const std::string& key) const {
                 const_iterator position = std::map<std::string, node*>::find(key);
                 return (position != cend()) && (position->second->get_node_code() == type_converter<T>::node_type_code);
             }
 
-            ~element_list() {
-                for (const_iterator i = cbegin(); i != cend(); i++)
+            element_list& clear() {
+                for (iterator i = begin(); i != end(); i++)
                     delete i->second;
+                std::map<std::string, node*>::clear();
+                return (*this);
+            }
+            
+            int size() const {
+                return std::map<std::string, node*>::size();
+            }
+
+            iterator erase(const iterator& pos) {
+                return std::map<std::string, node*>::erase(pos);
+            }
+
+            ~element_list() {
+                clear();
             }
 
     };
@@ -482,121 +500,135 @@ namespace minibson {
             }          
 
             template<typename result_type>
-            const result_type get(const char* key, const result_type& _default = result_type()) const {
+            const result_type get(const std::string& key, const result_type& _default = result_type()) const {
                 const bson_node_type node_type_code = static_cast<bson_node_type>(type_converter<result_type>::node_type_code);
                 typedef typename type_converter<result_type>::node_class node_class;
 
-                std::string key_str(key);
-                if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == node_type_code))
-                    return reinterpret_cast<const node_class*>(at(key_str))->get_value();
+                auto it = find(key);
+                if ((it != cend()) && ((it->second)->get_node_code() == node_type_code))
+                    return reinterpret_cast<const node_class*>(it->second)->get_value();
                 else
                     return _default;
             }
 
-            unsigned long long int get_numerical(const char* key, const unsigned long long int& _default = 0) const {
-                if (contains<int>(key))
-                    return get<int>(key, _default);
-                else if (contains<long long int>(key))
-                    return get<long long int>(key, _default);
-                else
-                    return get<unsigned long long int>(key, _default);
+            unsigned long long int get_numerical(const std::string& key, const unsigned long long int& _default = 0) const {
+                auto it = find(key);
+                if (it == cend()) {
+                    return _default;
+                }
+                bson_node_type type = static_cast<bson_node_type>(it->second->get_node_code());
+                if (type == bson_node_type::int32_node) {
+                    typedef typename type_converter<int>::node_class node_class;
+                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
+                } else if (type == bson_node_type::int64_node) {
+                    typedef typename type_converter<long long int>::node_class node_class;
+                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
+                } else if (type == bson_node_type::uint64_node) {
+                    typedef typename type_converter<unsigned long long int>::node_class node_class;
+                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
+                }
+                
+                return _default;
             }
 
-            const binary::buffer& get_binary(const char* key, const binary::buffer& _default = binary::buffer()) const {
-                std::string key_str(key);
-                if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == binary_node)) 
-                    return reinterpret_cast<const binary*>(at(key_str))->get_value();
+            const binary::buffer& get_binary(const std::string& key, const binary::buffer& _default = binary::buffer()) const {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == binary_node)) 
+                    return reinterpret_cast<const binary*>(it->second)->get_value();
                 else
                     return _default;
             }
             
-            const document& get(const char* key, const document& _default = document()) const {
-                std::string key_str(key);
-                if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == document_node))
-                    return *reinterpret_cast<const document*>(at(key_str));
+            const document& get(const std::string& key, const document& _default = document()) const {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == document_node))
+                    return *reinterpret_cast<const document*>(it->second);
                 else
                     return _default;
             }
 
-            const std::string get(const char* key, const char* _default = "") const {
-                std::string key_str(key);
-                if ((find(key_str) != cend()) && (at(key_str)->get_node_code() == string_node))
-                    return reinterpret_cast<const string*>(at(key_str))->get_value();
+            const std::string get(const std::string& key, const char* _default = "") const {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == string_node))
+                    return reinterpret_cast<const string*>(it->second)->get_value();
                 else
                     return std::string(_default);
             }
 
             template<typename value_type>
-            document& set(const char* key, const value_type& value) {
+            document& set(const std::string& key, const value_type& value) {
                 typedef typename type_converter<value_type>::node_class node_class;
-
-                std::string key_str(key);
-                if (find(key_str) != cend())
-                    delete (*this)[key_str];
                 
-                (*this)[key_str] = new node_class(value);
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    it->second = new node_class(value);
+                } else {
+                    std::map<std::string, node*>::insert({key, new node_class(value)});
+                }
+
                 return (*this);
             }
             
-            document& set(const char* key, const char* value) {
+            document& set(const std::string& key, const char* value) {
+                
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    it->second = new string(value);
+                } else {
+                    std::map<std::string, node*>::insert({key, new string(value)});
+                }
 
-                std::string key_str(key);
-                if (find(key_str) != cend())
-                    delete (*this)[key_str];
-
-                (*this)[key_str] = new string(value);
                 return (*this);
             }
 
-            document& set(const char* key, const void* buffer, size_t bufferSize) {
+            document& set(const std::string& key, const void* buffer, size_t bufferSize) {
+                
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    it->second = new binary(buffer, bufferSize, true);
+                } else {
+                    std::map<std::string, node*>::insert({key, new binary(buffer, bufferSize, true)});
+                }
 
-                std::string key_str(key);
-                if (find(key_str) != cend())
-                    delete (*this)[key_str];
-
-                (*this)[key_str] = new binary(buffer, bufferSize, true);
-                return (*this);
-            }
-            
-            document& set(const char* key, const document& value) {
-
-                std::string key_str(key);
-                if (find(key_str) != cend())
-                    delete (*this)[key_str];
-
-                (*this)[key_str] = value.copy();
                 return (*this);
             }
             
-            document& set(const char* key) {
+            document& set(const std::string& key, const document& value) {
+                
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    it->second = value.copy();
+                } else {
+                    std::map<std::string, node*>::insert({key, value.copy()});
+                }
 
-                std::string key_str(key);
-                if (find(key_str) != cend())
-                    delete (*this)[key_str];
+                return (*this);
+            }
+            
+            document& set(const std::string& key) {
 
-                (*this)[key_str] = new null();
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    it->second = new null();
+                } else {
+                    std::map<std::string, node*>::insert({key, new null()});
+                }
+
                 return (*this);
             }
 
-            document& remove(const char* key) {
-
-                std::string key_str(key);
-                if (find(key_str) != cend()) {
-                    delete (*this)[key_str];
-                    (*this).erase(key_str);
+            document& remove(const std::string& key) {
+                auto it = find(key);
+                if (it != end()) {
+                    delete it->second;
+                    std::map<std::string, node*>::erase(it);
                 }
                 return (*this);
-            }
-
-            document& clear() {
-                for (iterator i = begin(); i != end(); i++)
-                    delete i->second;
-                erase(begin(), end());
-                return (*this);
-            }
-            
-            int count() const {
-                return (*this).size();
             }
 
             ~document() { }

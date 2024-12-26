@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2369/2732 (86.71%)
+Open source lines: 2391/2754 (86.82%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -23,6 +23,7 @@ Open source lines: 2369/2732 (86.71%)
 #include "Unicode.h"
 #include "CharacterHandler.hpp"
 #include "CwavReplace.hpp"
+#include "SequenceHandler.hpp"
 
 extern "C" {
     void coursePageInitOmakaseTfunc();
@@ -197,13 +198,14 @@ namespace CTRPluginFramework {
 
     int MenuPageHandler::MenuSingleModePage::HandleCursor(CursorMove* move, CursorItem* item) {
         CursorMove::KeyType k = move->GetDir(item);
-        const u8 moveCursorTable[6][4] = { // Down, Right, Up, Left
+        const u8 moveCursorTable[7][4] = { // Down, Right, Up, Left
             {4, 1, 4, 3},
-            {4, 2, 4, 0},
-            {5, 3, 5, 1},
-            {5, 0, 5, 2},
-            {1, 5, 1, 5},
-            {2, 4, 2, 4}
+            {5, 2, 5, 0},
+            {6, 3, 6, 1},
+            {6, 0, 6, 2},
+            {0, 5, 0, 6},
+            {1, 6, 1, 4},
+            {2, 4, 2, 5},
         };
         k = (CursorMove::KeyType)(k & 0xF);
         if (!k) return -1;
@@ -245,13 +247,18 @@ namespace CTRPluginFramework {
     }
     
     void MenuPageHandler::MenuSingleModePage::OnPageEnter(GameSequenceSection* own) {
+        MenuSingleModePage* page = (MenuSingleModePage*)own->vtable->userData;
         u32* ownU32 = (u32*)own;
         u32 selectedEntry = ((u32***)own)[0x88/4][0][0x100/4];
+
+        // Restore patch from settings button
+        page->openCTGP7Setting = false;
+        SequenceHandler::addFlowPatch(0x5B3E8654, 0x2274, 0xD, 0x1);
         
         VisualControl::GameVisualControl* movieView = (VisualControl::GameVisualControl*)ownU32[0x2E4/4];
         u32 movieViewTextElementID = ((u32*)movieView)[0x7C/4];
-        const u32 messageIDs[] = {2200, 2201, 2204, CustomTextEntries::mission, 2202, 2203};
-        const u16* textStr = Language::MsbtHandler::GetText(messageIDs[selectedEntry]);
+        const u32 messageIDs[] = {2200, 2201, 2204, CustomTextEntries::mission, 2202, 2203, CustomTextEntries::options};
+        const char16_t* textStr = Language::MsbtHandler::GetText(messageIDs[selectedEntry]);
         movieView->GetNwlytControl()->vtable->replaceMessageImpl(movieView->GetNwlytControl(), movieViewTextElementID, VisualControl::Message(textStr), nullptr, nullptr);
         
         ((void(*)(u32))GameFuncs::MenuCaptionAnimIn)(ownU32[0x2DC/4]);
@@ -274,7 +281,7 @@ namespace CTRPluginFramework {
         u32* ownU32 = (u32*)own;
 
         VisualControl::GameVisualControl* movieView = (VisualControl::GameVisualControl*)ownU32[0x2E4/4];
-        const u32 messageIDs[] = {2200, 2201, 2202, 2203, 2204, CustomTextEntries::mission};
+        const u32 messageIDs[] = {2200, 2201, 2202, 2203, 2204, CustomTextEntries::mission, CustomTextEntries::options};
 
         movieView->GetAnimationFamily(1)->ChangeAnimation(1, 0.f);
         ((u32*)movieView)[0xA8/4] = messageIDs[selected];
@@ -284,8 +291,14 @@ namespace CTRPluginFramework {
         MenuSingleModePage* page = (MenuSingleModePage*)own->vtable->userData;
         u32 selectedEntry = ((u32***)own)[0x88/4][0][0x100/4];
 
-        if (!g_isFoolActive)
+        if (!g_isFoolActive) {
             VersusHandler::OnMenuSingleOKCallback(selectedEntry);
+            
+            if (selectedEntry == 6) {
+                page->openCTGP7Setting = true;
+                SequenceHandler::addFlowPatch(0x5B3E8654, 0x2274, 0x4, 0x2); // single to single
+            }
+        }
 
         page->buttonOKBackup(own, selected);
     }
@@ -326,11 +339,14 @@ namespace CTRPluginFramework {
         VisualControl::GameVisualControl* msButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_03"));
         own->GetButtonArray(0x2C0).Push(msButton);
 
-        VisualControl::GameVisualControl* bbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_11"));
+        VisualControl::GameVisualControl* bbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_10"));
         own->GetButtonArray(0x2C0).Push(bbButton);
 
-        VisualControl::GameVisualControl* cbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_12"));
+        VisualControl::GameVisualControl* cbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_11"));
         own->GetButtonArray(0x2C0).Push(cbButton);
+
+        VisualControl::GameVisualControl* stButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_12"));
+        own->GetButtonArray(0x2C0).Push(stButton);
         IsButtonConstructing = false;
 
         VisualControl::GameVisualControl* caption = VisualControl::Build(ownU32, "caption", "caption", (VisualControl::AnimationDefineVtable*)GameFuncs::CaptionAnimationDefineVtable, (VisualControl::GameVisualControlVtable*)GameFuncs::BaseMenuViewVtable, VisualControl::ControlType::BASEMENUVIEW_CONTROL);
@@ -342,6 +358,7 @@ namespace CTRPluginFramework {
         ((u32*)msButton)[0x230/4] = 0;
         ((u32*)bbButton)[0x230/4] = !g_isFoolActive ? 2 : 0;
         ((u32*)cbButton)[0x230/4] = !g_isFoolActive ? 3 : 0;
+        ((u32*)stButton)[0x230/4] = 0;
 
         ((u32*)gpButton)[0x210/4] = 0;
         ((u32*)ttButton)[0x210/4] = !g_isFoolActive ? 1 : 0;
@@ -349,6 +366,7 @@ namespace CTRPluginFramework {
         ((u32*)msButton)[0x210/4] = 0;
         ((u32*)bbButton)[0x210/4] = !g_isFoolActive ? 2 : 0;
         ((u32*)cbButton)[0x210/4] = !g_isFoolActive ? 3 : 0;
+        ((u32*)stButton)[0x210/4] = 0;
 
         ((u32*)gpButton)[0x214/4] = 0;
         ((u32*)ttButton)[0x214/4] = 1;
@@ -356,6 +374,7 @@ namespace CTRPluginFramework {
         ((u32*)msButton)[0x214/4] = 5;
         ((u32*)bbButton)[0x214/4] = 2;
         ((u32*)cbButton)[0x214/4] = 3;
+        ((u32*)stButton)[0x214/4] = 6;
 
         setButtonTex(gpButton, 0, 2);
         setButtonTex(ttButton, 1, 2);
@@ -363,6 +382,7 @@ namespace CTRPluginFramework {
         setButtonTex(msButton, 3, 2);
         setButtonTex(bbButton, 4, 2);
         setButtonTex(cbButton, 5, 2);
+        setButtonTex(stButton, 6, 2);
 
         ((u8*)gpButton)[0x224] = 65;
         ((u8*)ttButton)[0x224] = 65;
@@ -370,6 +390,7 @@ namespace CTRPluginFramework {
         ((u8*)msButton)[0x224] = 65;
         ((u8*)bbButton)[0x224] = 65;
         ((u8*)cbButton)[0x224] = 65;
+        ((u8*)stButton)[0x224] = 65;
         
         SetCaption(gpButton, caption, 2210);
         SetCaption(ttButton, caption, 2211);
@@ -377,9 +398,10 @@ namespace CTRPluginFramework {
         SetCaption(cbButton, caption, 2213);
         SetCaption(vsButton, caption, 2214);
         SetCaption(msButton, caption, CustomTextEntries::missionDesc);
+        SetCaption(stButton, caption, CustomTextEntries::optionsDesc);
 
         SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
             ((void(*)(void*, VisualControl::GameVisualControl*))GameFuncs::ControlSliderSetSlideH)(controlSliderArray[0], own->GetButtonArray(0x2C0)[i]);
 
         u8* defaultSlider = (u8*)controlSliderArray[0];
@@ -1139,7 +1161,7 @@ namespace CTRPluginFramework {
             courseButtonDummies[i]->GetNwlytControl()->vtable->setVisibleImpl(courseButtonDummies[i]->GetNwlytControl(), courseButtonHandle, !isCupLocked);
 
             VisualControl::Message message;
-            string16 nameReplacement;
+            std::u16string nameReplacement;
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)courseButtonDummies[i]->GetMessageDataList(), nameID);
             if (courseLocked) {
                 nameReplacement = message.data;
@@ -1754,7 +1776,7 @@ namespace CTRPluginFramework {
             VisualControl::GameVisualControl** buttonArray2 = (VisualControl::GameVisualControl**)(ownU32 + 0x2DC/4);
 
             VisualControl::Message message;
-            string16 nameReplacement;
+            std::u16string nameReplacement;
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)buttonArray1[i]->GetMessageDataList(), nameID);
             if (courseLocked) {
                 nameReplacement = message.data;
@@ -1987,7 +2009,7 @@ namespace CTRPluginFramework {
         u32 currEntry = currentChoices[currDriver] + 1;
 
         std::string msg = Utils::Format("(%02d/%02d)", currEntry, totalChars);
-        string16 msg16;
+        std::u16string msg16;
         Utils::ConvertUTF8ToUTF16(msg16, msg);
         u32 textElementHandle = charCountControl->GetNwlytControl()->vtable->getElementHandle(charCountControl->GetNwlytControl(), SafeStringBase("T_mngr"), 0);
         charCountControl->GetNwlytControl()->vtable->replaceMessageImpl(charCountControl->GetNwlytControl(), textElementHandle, VisualControl::Message(msg16.c_str()), nullptr, nullptr);

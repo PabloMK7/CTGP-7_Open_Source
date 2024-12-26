@@ -309,7 +309,7 @@ namespace CTRPluginFramework {
 			static u32 getMenuData();
 			static ModeManagerData* getModeManagerData();
 			static CRaceInfo* getRaceInfo(bool global);
-			static FixedStringBase<u16, 0x20>* getPlayerNames();
+			static FixedStringBase<char16_t, 0x20>* getPlayerNames();
 			static int getCurrentRaceNumber();
 			static bool isFirstRace() {return getCurrentRaceNumber() <= 0;}
 			static KartLapInfo* getKartLapInfo(u32 playerID);
@@ -371,7 +371,7 @@ namespace CTRPluginFramework {
             static bool isGameInRace() { return isRaceState; }
 			static void onRaceEvent(u32 raceEventID);
 
-			static void changeFilePath(u16* dst, bool isDir);
+			static void changeFilePath(char16_t* dst, bool isDir);
             static void changeNumberRounds(u32 newval);
             static u32* (*getSaveManagerFuncptr)(void);
 			static void (*getMyPlayerDatafuncptr)(u32 systemEngine, SavePlayerData* data, bool something);
@@ -420,6 +420,7 @@ namespace CTRPluginFramework {
 			static DialogResult getLastDialogResult();
 			static bool isDialogOpened();
 			static void closeDialog();
+			static int playTitleFlagOpenTimer;
 			//
 			static void dialogBlackOut(const std::string& message = "");
 			static bool onNetworkErrorCheckCalc();
@@ -627,7 +628,7 @@ namespace CTRPluginFramework {
 			static void OnRaceNextMenuLoad();
 			//
 			static std::default_random_engine randomDriverChoicesGenerator;
-			static std::vector<std::pair<u8, FixedStringBase<u16, 0x20>>> onlineBotPlayerIDs;
+			static std::vector<std::pair<u8, FixedStringBase<char16_t, 0x20>>> onlineBotPlayerIDs;
 			static void AddBotPlayerOnline(int amount);
 			static int GetValidStationIDAmount();
 			static void OnWifiFinishLoadDefaultPlayerSetting(int playerID);
@@ -640,7 +641,6 @@ namespace CTRPluginFramework {
 			//
 			static u32 NetUtilStartWriteKartSendBufferAddr;
 			static u32 NetUtilEndWriteKartSendBufferAddr;
-			static StarGrade onlinePlayersStarGrade[8];
 			static void (*BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade);
 			static void BaseResultBar_SetTeam(u32 resultbar, int teamMode); // 0 -> None, 1 -> Red, 2 -> Blue
 			static void BaseResultBar_SetCTGPOnline(u32 resultBar);

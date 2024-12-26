@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3625/3731 (97.16%)
+Open source lines: 3667/3773 (97.19%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -91,6 +91,7 @@ namespace CTRPluginFramework {
 	bool (*MarioKartFramework::isDialogClosedImpl)() = nullptr;
 	bool (*MarioKartFramework::isDialogYesImpl)() = nullptr;
 	void (*MarioKartFramework::closeDialogImpl)() = nullptr;
+	int MarioKartFramework::playTitleFlagOpenTimer = 0;
 	void (*MarioKartFramework::nwlytReplaceText)(u32 a0, u32 a1, u32 msgPtr, u32 a3, u32 a4) = nullptr;
 	bool MarioKartFramework::pendingVoiceChatInit = false;
 	bool MarioKartFramework::needsOnlineCleanup = false;
@@ -174,12 +175,11 @@ namespace CTRPluginFramework {
 	u8 MarioKartFramework::lastCheckedLap = 1;
 	float MarioKartFramework::raceMusicSpeedMultiplier = 1.f;
 	std::default_random_engine MarioKartFramework::randomDriverChoicesGenerator(1);
-	std::vector<std::pair<u8, FixedStringBase<u16, 0x20>>> MarioKartFramework::onlineBotPlayerIDs;
+	std::vector<std::pair<u8, FixedStringBase<char16_t, 0x20>>> MarioKartFramework::onlineBotPlayerIDs;
 	float MarioKartFramework::rubberBandingMultiplier = 1.f; // hard 1.75 and 0.15
 	float MarioKartFramework::rubberBandingOffset = 0.0f;
 	u32 MarioKartFramework::NetUtilStartWriteKartSendBufferAddr = 0;
 	u32 MarioKartFramework::NetUtilEndWriteKartSendBufferAddr = 0;
-	StarGrade MarioKartFramework::onlinePlayersStarGrade[8];
 	void (*MarioKartFramework::BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade) = nullptr;
 	u8 MarioKartFramework::brakeDriftAllowFrames[8];
 	bool MarioKartFramework::brakeDriftAllowed = true;
@@ -244,38 +244,38 @@ namespace CTRPluginFramework {
 
 	static bool g_patchedBcsar = false;
 	static u8 g_randomChoiceTitleAlt = 0;
-	void MarioKartFramework::changeFilePath(u16* dst, bool isDir) {
-		if (!isDir && !g_patchedBcsar && strfind16(dst, (u16*)u".bcsar")) {
+	void MarioKartFramework::changeFilePath(char16_t* dst, bool isDir) {
+		if (!isDir && !g_patchedBcsar && strfind16(dst, u".bcsar")) {
 			CrashReport::stateID = CrashReport::StateID::STATE_MAIN;
 			g_patchedBcsar = true;
 			OnionFS::initGameFsFileMap();
 		}
-		if (strfind16(dst, (u16*)u"chive-")) {
+		if (strfind16(dst, u"chive-")) {
 			Language::FixRegionSpecificFile(dst);
 			return;
 		}
-		if (strfind16(dst, (u16*)u"UI/") && strfind16(dst + 12, (u16*)u"-")) {
+		if (strfind16(dst, u"UI/") && strfind16(dst + 12, u"-")) {
 
 			Language::SZSID id = Language::NONE;
-			if (strfind16(dst, (u16*)u"I/m")) id = Language::MENU;
-			else if (strfind16(dst, (u16*)u"I/co")) id = Language::COMMON;
-			else if (strfind16(dst, (u16*)u"I/r")) id = Language::RACE;
-			else if (strfind16(dst, (u16*)u"I/th")) id = Language::THANKYOU;
-			else if (strfind16(dst, (u16*)u"I/tr")) id = Language::TROPHY;
-			if (id != Language::NONE) {Language::GetLangSpecificFile(dst, id, strfind16(dst, (u16*)u"Pat")); return;}
+			if (strfind16(dst, u"I/m")) id = Language::MENU;
+			else if (strfind16(dst, u"I/co")) id = Language::COMMON;
+			else if (strfind16(dst, u"I/r")) id = Language::RACE;
+			else if (strfind16(dst, u"I/th")) id = Language::THANKYOU;
+			else if (strfind16(dst, u"I/tr")) id = Language::TROPHY;
+			if (id != Language::NONE) {Language::GetLangSpecificFile(dst, id, strfind16(dst, u"Pat")); return;}
 		}
 		int coursePos;
 		bool usingCustomCup = UserCTHandler::IsUsingCustomCup();
-		if ((usingCustomCup || CourseManager::lastLoadedCourseID < BATTLETRACKLOWER) && strfind16(dst, (u16*)u"Course/", &coursePos) && strfind16(dst, (u16*)u".szs")) {
-			if (UserCTHandler::IsUsingCustomCup() && CourseManager::lastLoadedCourseID != 0x26) UserCTHandler::GetCouseSZSPath(dst, strfind16(dst + ((coursePos >= 0) ? coursePos : 0), (u16*)u"-"));
+		if ((usingCustomCup || CourseManager::lastLoadedCourseID < BATTLETRACKLOWER) && strfind16(dst, u"Course/", &coursePos) && strfind16(dst, u".szs")) {
+			if (UserCTHandler::IsUsingCustomCup() && CourseManager::lastLoadedCourseID != 0x26) UserCTHandler::GetCouseSZSPath(dst, strfind16(dst + ((coursePos >= 0) ? coursePos : 0), u"-"));
 			else if (CourseManager::lastLoadedCourseID < BATTLETRACKLOWER) {dst[0] = '\0'; return;}
 		}
 
 		if (isDir) return;
 		
-		if (MissionHandler::isMissionMode && strfind16(dst, (u16*)u"SE_I")) {MissionHandler::LoadCoursePreview(dst); return;}
-		if (MenuPageHandler::MenuEndingPage::loadCTGPCredits && strfind16(dst, (u16*)u"RM_STA")) {strcpy16(dst, (u8*)"ram:/CTGP-7/gamefs/Sound/stream/STRM_STAFF_MOD.bcstm"); return;}
-		if (strfind16(dst, (u16*)u"RM_TI")) {
+		if (MissionHandler::isMissionMode && strfind16(dst, u"SE_I")) {MissionHandler::LoadCoursePreview(dst); return;}
+		if (MenuPageHandler::MenuEndingPage::loadCTGPCredits && strfind16(dst, u"RM_STA")) {strcpy16(dst, "ram:/CTGP-7/gamefs/Sound/stream/STRM_STAFF_MOD.bcstm"); return;}
+		if (strfind16(dst, u"RM_TI")) {
 			if (!g_randomChoiceTitleAlt) {
 				g_randomChoiceTitleAlt = (Utils::Random() & 1) + 1;
 			}
@@ -283,19 +283,19 @@ namespace CTRPluginFramework {
 				g_randomChoiceTitleAlt = 2;
 			}
 			if (SaveHandler::saveData.GetCompletedAchievementCount() != 0 && g_randomChoiceTitleAlt == 2) {
-				strcpy16(dst, (u8*)"ram:/CTGP-7/gamefs/Sound/stream/STRM_TITLE_ALT.bcstm"); return;
+				strcpy16(dst, "ram:/CTGP-7/gamefs/Sound/stream/STRM_TITLE_ALT.bcstm"); return;
 			}
 		}
-		if (CharacterHandler::customKartsEnabled && strfind16(dst, (u16*)u"fs/Ka")) {
-			string16 file(dst);
-			file = (const u16*)u"ram:/CTGP-7/MyStuff/Karts/" + file.substr(19);
+		if (CharacterHandler::customKartsEnabled && strfind16(dst, u"fs/Ka")) {
+			std::u16string file(dst);
+			file = u"ram:/CTGP-7/MyStuff/Karts/" + file.substr(19);
 			strcpy16(dst, file.c_str());
 			return;
 		}
 
-		if (!strfind16(dst, (u16*)u"RM_C")) return;
+		if (!strfind16(dst, u"RM_C")) return;
 		// Only music files at this point.
-		bool lastLap = strfind16(dst, (u16*)u"F.");
+		bool lastLap = strfind16(dst, u"F.");
 		if (lastLap && g_isFoolActive) {
 			playSirenJoke();
 		}
@@ -320,8 +320,8 @@ namespace CTRPluginFramework {
 			else {
 				filestring.append(u"gamefs/Sound/stream/STRM_C");
 			}
-			u16 tmpBuf[50];
-			strcpy16(tmpBuf, (const u8*)(*it).second.musicFileName.data());
+			char16_t tmpBuf[50];
+			strcpy16(tmpBuf, (*it).second.musicFileName.data());
 			filestring.append((char16_t*)tmpBuf);
 			if (lastLap) {
 				filestring.append(u"_F.bcstm");
@@ -329,7 +329,7 @@ namespace CTRPluginFramework {
 			else {
 				filestring.append(u"_N.bcstm");
 			}
-			strcpy16(dst, (const u16*)filestring.data());
+			strcpy16(dst, filestring.data());
 		}
 		return;
 	}
@@ -513,8 +513,8 @@ namespace CTRPluginFramework {
 			return (CRaceInfo*)(getMenuData() + 0x204); // Applies to current race
 	}
 
-	FixedStringBase<u16, 0x20>* MarioKartFramework::getPlayerNames() {
-		return (FixedStringBase<u16, 0x20>*)(getMenuData() + 0x3C0);
+	FixedStringBase<char16_t, 0x20>* MarioKartFramework::getPlayerNames() {
+		return (FixedStringBase<char16_t, 0x20>*)(getMenuData() + 0x3C0);
 	}
 
 	int MarioKartFramework::getCurrentRaceNumber() {
@@ -915,7 +915,6 @@ namespace CTRPluginFramework {
 			pitchCalculators[i].Start(false);
 			pitchCalculators[i].Stop();
 			pitchCalculators[i].SetSpeed(5.851f * 1.25f);
-			onlinePlayersStarGrade[i] = StarGrade::INVALID;
 			ItemHandler::MegaMushHandler::growMapFacePending[i] = 0;
 		}
 
@@ -1176,7 +1175,7 @@ namespace CTRPluginFramework {
 		CourseManager::BaseMenuButtonControl_setTex((u32)battleWideButtonPtr, battleTex, 2);
 		if (enabled) {
 			std::string ctdw = NAME("cntdwn");
-			string16 wctdw;
+			std::u16string wctdw;
 			Utils::ConvertUTF8ToUTF16(wctdw, ctdw);
 			u16* ptr = (u16*)wctdw.c_str();
 			u16** ptr2 = &ptr;
@@ -1215,6 +1214,9 @@ namespace CTRPluginFramework {
 				bannedUltraShortcuts.clear();
 				Net::vrMultiplier = 1.f;
 				Net::allowedTracks = "";
+				for (int i = 0; i < 8; i++) {
+					Net::othersBadgeIDs[i] = 0;
+				}
 				resetdriverchoices();
 				MarioKartFramework::SetWatchRaceMode(false);
 				MarioKartFramework::ClearCustomItemMode();
@@ -1373,6 +1375,10 @@ namespace CTRPluginFramework {
 		Net::vrMultiplier = 1.f;
 		Net::whiteListedCharacters.clear();
 		Net::allowedTracks = "";
+		for (int i = 0; i < 8; i++) {
+			Net::othersServerNames[i].clear();
+			Net::othersBadgeIDs[i] = 0;
+		}
 		VersusHandler::IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
 		MarioKartFramework::setSkipGPCoursePreview(false);
@@ -1390,6 +1396,9 @@ namespace CTRPluginFramework {
 		g_hasGameReachedTitle = true;
 		bannedUltraShortcuts.clear();
 		ClearCustomItemMode();
+		
+		StatsHandler::UploadStats();
+		BadgeManager::ClearBadgeCache();
 	}
 
 	static std::string g_build_lobby_message() {
@@ -1489,7 +1498,6 @@ namespace CTRPluginFramework {
 		// 0 -> Singleplayer, 1 -> Multiplayer, 2 -> Online, 3 -> Channel, 7 -> Demo race
 		if (option < 4) {
 			SaveHandler::SaveSettingsAll();
-			StatsHandler::UploadStats();
 		}
 		DoOnlineCleanup();
 		if (option == 2)
@@ -1501,6 +1509,13 @@ namespace CTRPluginFramework {
 	static u32 g_welccounter = 1;
 	u32 MarioKartFramework::handleTitleMenuPagePreStep(u32 timerVal)
 	{
+		if (playTitleFlagOpenTimer) {
+			playTitleFlagOpenTimer--;
+		}
+		if (playTitleFlagOpenTimer == 1) {
+			Snd::PlayMenu(Snd::SoundID::FLAG_OPEN);
+		}
+
 #ifdef BETA_BUILD
 		static bool showingBeta = true, openedFirst = false;
 		if (showingBeta) {
@@ -1549,7 +1564,9 @@ namespace CTRPluginFramework {
 			return 0;
 		} else if (SaveHandler::CheckAndShowAchievementMessages())
 			return 0;
-		if (g_isFoolActive)
+		else if (BadgeManager::CheckAndShowBadgePending())
+			return 0;
+		if (g_isFoolActive || MarioKartFramework::isDialogOpened())
 			return 0;
 #ifdef STRESS_TEST_DEMO_TITLE
 		return 10000;
@@ -1656,7 +1673,7 @@ namespace CTRPluginFramework {
 
 	void MarioKartFramework::changeButtonText(u32 button, std::string& text, const char* textElement)
 	{
-		string16 utf16;
+		std::u16string utf16;
 		Utils::ConvertUTF8ToUTF16(utf16, text);
 		changeButtonText(button, (u16*)utf16.c_str(), textElement);
 	}
@@ -1672,27 +1689,49 @@ namespace CTRPluginFramework {
 		nwlytReplaceText(layout, elementHandle, (u32)ptr2, 0, 0);
 	}
 
+	static u8 g_page_finish_counter = 0;
+	static bool g_page_finish_started_counter = false;
 	bool MarioKartFramework::onBasePageCanFinishFadeCallback(u32 page, u32 currFrame, u32 maxFrame)
 	{
 		bool ret = true;
+		MenuPageHandler::MenuSingleModePage* menuSingleMode = MenuPageHandler::GetMenuSingleModePage();
 		if (page == VersusHandler::MenuSingleClassPage) {
 			if (VersusHandler::IsVersusMode && VersusHandler::canShowVSSet) {
-				static u8 counter = 0;
-				static bool startedCounter = false;
-				if (currFrame == maxFrame && counter == 0 && !startedCounter) {
-					counter = 0x2A;
-					startedCounter = true;
+				if (currFrame == maxFrame && g_page_finish_counter == 0 && !g_page_finish_started_counter) {
+					g_page_finish_counter = 0x2A;
+					g_page_finish_started_counter = true;
 					ret = false;
 				}
-				else if (counter == 0 && currFrame != maxFrame && startedCounter) {
-					startedCounter = false;
+				else if (g_page_finish_counter == 0 && currFrame != maxFrame && g_page_finish_started_counter) {
+					g_page_finish_started_counter = false;
 					VersusHandler::canShowVSSet = false;
 				}
-				if (counter > 0) {
-					counter--;
+				if (g_page_finish_counter > 0) {
+					g_page_finish_counter--;
 					ret = false;
 				}
-				if (counter == 0x8) {
+				if (g_page_finish_counter == 0x8) {
+					VersusHandler::openSettingsKeyboardMode = 1;
+					*(PluginMenu::GetRunningInstance()) += VersusHandler::OpenSettingsKeyboardCallback;
+				}
+			}
+		} else if (menuSingleMode && (page == (u32)(menuSingleMode->gameSection))) {
+			if (menuSingleMode->openCTGP7Setting) {
+				if (currFrame == maxFrame && g_page_finish_counter == 0 && !g_page_finish_started_counter) {
+					g_page_finish_counter = 0x2A;
+					g_page_finish_started_counter = true;
+					ret = false;
+				}
+				else if (g_page_finish_counter == 0 && currFrame != maxFrame && g_page_finish_started_counter) {
+					g_page_finish_started_counter = false;
+					menuSingleMode->openCTGP7Setting = false;
+				}
+				if (g_page_finish_counter > 0) {
+					g_page_finish_counter--;
+					ret = false;
+				}
+				if (g_page_finish_counter == 0x8) {
+					VersusHandler::openSettingsKeyboardMode = 2;
 					*(PluginMenu::GetRunningInstance()) += VersusHandler::OpenSettingsKeyboardCallback;
 				}
 			}
@@ -1875,9 +1914,9 @@ namespace CTRPluginFramework {
 		RacePageInitFunctions[RacePageInitID::NAME](racePage);
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 			for (auto it = onlineBotPlayerIDs.cbegin(); it != onlineBotPlayerIDs.cend(); it++) {
-				FixedStringBase<u16, 0x20>* playerNames = getPlayerNames();
-				const u16* realName = it->second.strData;
-				strcpy16n(playerNames[it->first].strData, realName, playerNames[it->first].bufferSize * sizeof(u16));
+				FixedStringBase<char16_t, 0x20>* playerNames = getPlayerNames();
+				const char16_t* realName = it->second.strData;
+				strcpy16n(playerNames[it->first].strData, realName, playerNames[it->first].bufferSize * sizeof(char16_t));
 			}
 		}
 		onlineBotPlayerIDs.clear();
@@ -2874,10 +2913,10 @@ namespace CTRPluginFramework {
 			BasePage_SetWifiRate(playerID, baseVR);
 
 			// When the page is generating, the msbt is not available, so we need an intermediate step...
-			onlineBotPlayerIDs.push_back(std::make_pair(playerID, FixedStringBase<u16,0x20>()));
-			const u16* driverName = Language::MsbtHandler::GetText(1050 + CharacterHandler::msbtOrder[(int)driverID]);
-			strcpy16(onlineBotPlayerIDs.back().second.strData, (u16*)u"*");
-			strcpy16n(onlineBotPlayerIDs.back().second.strData + 1, driverName, 0x1F * sizeof(u16));
+			onlineBotPlayerIDs.push_back(std::make_pair(playerID, FixedStringBase<char16_t,0x20>()));
+			const char16_t* driverName = Language::MsbtHandler::GetText(1050 + CharacterHandler::msbtOrder[(int)driverID]);
+			strcpy16(onlineBotPlayerIDs.back().second.strData, u"*");
+			strcpy16n(onlineBotPlayerIDs.back().second.strData + 1, driverName, 0x1F * sizeof(char16_t));
 		}
 	}
 
@@ -3367,12 +3406,21 @@ namespace CTRPluginFramework {
 			return;
 		}
 		CRaceInfo* raceInfo = getRaceInfo(true);
-		onlinePlayersStarGrade[masterPlayerID] = Net::myGrade;
-		for (int i = 0; i < raceInfo->playerAmount; i++) {
-			if (onlinePlayersStarGrade[i] != StarGrade::INVALID) {
+		if (g_getCTModeVal != CTMode::OFFLINE) {
+			for (int i = 0; i < raceInfo->playerAmount; i++) {
 				if ((g_getCTModeVal == CTMode::ONLINE_NOCTWW) && i != masterPlayerID) BaseResultBar_SetCTGPOnline(resultBarArray[i]);
-				if (onlinePlayersStarGrade[i] >= StarGrade::CUSTOM_PLAYER && onlinePlayersStarGrade[i] <= StarGrade::CUSTOM_RAINBOW) {
-					u32 temp = (u32)onlinePlayersStarGrade[i];
+				if (Net::othersBadgeIDs[i] != 0) {
+					BadgeManager::Badge b = BadgeManager::GetBadge(Net::othersBadgeIDs[i], BadgeManager::GetBadgeMode::BOTH);
+					if (b.bID == 0 || b.icon.DataSizeNoHeader() != 0x400) {
+						u32 temp = (u32)StarGrade::BADGE_EMPTY;
+						BaseResultBar_SetGrade(resultBarArray[i], &temp);
+						continue;
+					}
+					
+					memcpy(BadgeManager::badge_slots[i].data, b.icon.data, 0x400);
+					svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)BadgeManager::badge_slots[i].data & ~0xFFF), (0x400 & ~0xFFF) + 0x2000);
+
+					u32 temp = ((u32)StarGrade::BADGE_SLOT_0) + i;
 					BaseResultBar_SetGrade(resultBarArray[i], &temp);
 				}
 			}
@@ -3464,15 +3512,9 @@ namespace CTRPluginFramework {
 
 	void MarioKartFramework::OnSendCustomKartData(int playerID, CustomCTGP7KartData& data) {
 		data.megaMushTimer = megaMushTimers[playerID] >> 2;
-		if (playerID == masterPlayerID) {
-			data.info.ctgpStarGrade = (u8)Net::myGrade;
-		}
 	}
 
 	void  MarioKartFramework::OnRecvCustomKartData(int playerID, CustomCTGP7KartData& data) {
-		if (onlinePlayersStarGrade[playerID] == StarGrade::INVALID) {
-			onlinePlayersStarGrade[playerID] = (StarGrade)data.info.ctgpStarGrade;
-		}
 		ItemHandler::MegaMushHandler::CalcNetRecv(playerID, data.megaMushTimer << 2);
 	}
 

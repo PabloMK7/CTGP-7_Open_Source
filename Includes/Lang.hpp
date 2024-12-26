@@ -58,9 +58,9 @@ namespace CTRPluginFramework
 			NONE
 		};
 
-		static void GetLangSpecificFile(u16* filename, SZSID id, bool isPatch);
+		static void GetLangSpecificFile(char16_t* filename, SZSID id, bool isPatch);
 		static bool IsLangSpecificFile(const char* file);
-		static void FixRegionSpecificFile(u16* filename);
+		static void FixRegionSpecificFile(char16_t* filename);
 		static RT_HOOK fileDeviceDoIsExistFileHook;
 		static bool OnFileDeviceDoIsExistFile(u32 own, bool* exists, SafeStringBase* file);
 
@@ -95,9 +95,9 @@ namespace CTRPluginFramework
 				u32 count;
 				u32 entries[];
 
-				u16* GetText(u32 entry) {
+				char16_t* GetText(u32 entry) {
 					if (entry < count)
-						return (u16*)((u32)this + entries[entry]);
+						return (char16_t*)((u32)this + entries[entry]);
 					else
 						return nullptr;
 				}
@@ -243,11 +243,11 @@ namespace CTRPluginFramework
 			};
 
 			struct ControlString {
-				enum class Group : u16 {
+				enum class Group : char16_t {
 					RENDERING = 0,
 					STRFORMAT = 1,
 				};
-				enum class RenderingType : u16 {
+				enum class RenderingType : char16_t {
 					RUBY_TEXT = 0,
 					FONT_SIZE = 2,
 					FONT_COLOR = 3,
@@ -260,10 +260,10 @@ namespace CTRPluginFramework
 					RESET = 0xFFFF
 				};
 				struct Header {
-					u16 magic; // Always 0xE
+					char16_t magic; // Always 0xE
 					Group group;
-					u16 type;
-					u16 argAmount;
+					char16_t type;
+					char16_t argAmount;
 				};
 				Header header;
 				u8 args[];
@@ -272,10 +272,10 @@ namespace CTRPluginFramework
 					return sizeof(Header) + header.argAmount;
 				}
 
-				bool GetChoice(u16* out, int choice) const;
+				bool GetChoice(char16_t* out, int choice) const;
 
-				static string16 GenSizeControlString(s16 size);
-				static string16 GenColorControlString(DashColor color, const Color& customColor = Color::White);
+				static std::u16string GenSizeControlString(s16 size);
+				static std::u16string GenColorControlString(DashColor color, const Color& customColor = Color::White);
 				static void GetColor(u32* out, u32 messageWritter, u16 color);
 			};
 
@@ -291,15 +291,15 @@ namespace CTRPluginFramework
 			static void ApplyCustomText();
 			static void ApplyQueuedReferenceStr();
 
-			static u32 GetTextLenNoFormatting(const u16* text);
-			static void SkipTextControlString(u16* dst, const u16* src);
-			static string16 DashTextWithTagsToString(const u16* src);
-			static const ControlString* FindControlString(const u16* text, u16 group, u16 type, const u16** nextChar = nullptr);
-			static const u16* GetText(u32 id);
-			static std::string GetString(const u16* text);
+			static u32 GetTextLenNoFormatting(const char16_t* text);
+			static void SkipTextControlString(std::u16string& dst, const char16_t* src);
+			static std::u16string DashTextWithTagsToString(const char16_t* src);
+			static const ControlString* FindControlString(const char16_t* text, u16 group, u16 type, const char16_t** nextChar = nullptr);
+			static const char16_t* GetText(u32 id);
+			static std::string GetString(const char16_t* text);
 			static std::string GetString(u32 id);
-			static void SetText(u32 id, const u16* text, bool insertFront = false, u32 textSize = 0xFFFFFFFF);
-			static void SetString(u32 id, const string16& text, bool insertFront = false) {SetText(id, text.data(), insertFront, text.size());}
+			static void SetText(u32 id, const char16_t* text, bool insertFront = false, u32 textSize = 0xFFFFFFFF);
+			static void SetString(u32 id, const std::u16string& text, bool insertFront = false) {SetText(id, text.data(), insertFront, text.size());}
 			static void SetString(u32 id, const char* text, bool insertFront = false);
 			static void SetString(u32 id, const std::string& text, bool insertFront = false) {SetString(id, text.c_str(), insertFront);}
 			static void RemoveAllString(u32 id);
@@ -313,10 +313,10 @@ namespace CTRPluginFramework
 			bool didCopy;
 			bool isEnabled;
 
-            MessageString(u16* src, bool makeCopy = false, u32 size = 0xFFFFFFFF);
+            MessageString(const char16_t* src, bool makeCopy = false, u32 size = 0xFFFFFFFF);
             MessageString(const char* str);
             MessageString(const std::string& str) : MessageString(str.c_str()) {}
-            ~MessageString() { if (didCopy) delete (u16*)message.data;}
+            ~MessageString() { if (didCopy) delete message.data;}
 
 			const VisualControl::Message* GetMessage() const {
 				if (isEnabled) return &message;

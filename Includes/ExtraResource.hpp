@@ -205,6 +205,6 @@ namespace CTRPluginFramework {
 			static u32* latestMenuSzsArchive;
 			static bool isValidMenuSzsArchive();
 		private:
-			static constexpr u32 SARCVER = 0xFABA0000;
+			static constexpr u32 SARCVER = 0xFABA0001;
 	};
 }

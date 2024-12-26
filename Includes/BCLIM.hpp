@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BCLIM.hpp
-Open source lines: 88/88 (100.00%)
+Open source lines: 96/96 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -45,6 +45,7 @@ namespace CTRPluginFramework {
             } imag;
             u32 dataLength;
         };
+        BCLIM() : data(nullptr), header(nullptr) {}
         BCLIM(void* bclimData, u32 bclimSize) : BCLIM(bclimData, (Header*)((u32)bclimData + bclimSize - 0x28)) {}
         BCLIM(void* bclimData, Header* bclimHeader) : data(bclimData), header(bclimHeader) {}
 
@@ -66,6 +67,13 @@ namespace CTRPluginFramework {
         }
 
         void Render(const Rect<int>& position, std::pair<void*, RenderBackend> backend, const Rect<int>& crop = Rect<int>(0, 0, INT32_MAX, INT32_MAX), const Rect<int>& limits = Rect<int>(0, 0, 400, 240), std::pair<bool, ColorBlendCallback> colorBlend = TransparentBlend());
+
+        u32 DataSizeNoHeader() {
+            return (u32)header - (u32)data;
+        }
+        u32 DataSize() {
+            return ((u32)header - (u32)data) + sizeof(Header);
+        }
 
         void* data;
     private:

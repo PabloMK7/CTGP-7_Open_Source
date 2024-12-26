@@ -344,7 +344,7 @@ namespace CTRPluginFramework {
 		static constexpr u32 gameBufferSize = 300000;
 
 		static bool isMissionMode;
-		static u16 cupNameFormatReplace[5];
+		static char16_t cupNameFormatReplace[5];
 		static const std::string GetMissionDirPath(u32 world);
 		static void InitializeText();
 		static void setupExtraResource();
@@ -366,8 +366,8 @@ namespace CTRPluginFramework {
 		static void OnCPUSetupParts(u32 slotID);
 		static void OnApplySettingsGP();
 		static void OnRacePageGenGP(void* racePage);
-		static void LoadCoursePreview(u16* dst);
-		static bool LoadCustomMusic(u16* dst, bool isFinalLap);
+		static void LoadCoursePreview(char16_t* dst);
+		static bool LoadCustomMusic(char16_t* dst, bool isFinalLap);
 		static bool LoadCustomMusicData(u32* out, u32 dataMode, bool isNormalLap);
 		static bool LoadCustomMusicNameAuthor(std::string& name, std::string& author);
 		static void OnKMPConstruct();

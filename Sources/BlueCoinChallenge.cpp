@@ -37,7 +37,7 @@ namespace CTRPluginFramework {
     }
 
     std::map<u32, std::pair<Vector3, u16>> BlueCoinChallenge::coinLocations;
-    string16 BlueCoinChallenge::blueCoinCollectedStr;
+    std::u16string BlueCoinChallenge::blueCoinCollectedStr;
     bool BlueCoinChallenge::coinSpawned = false;
     bool BlueCoinChallenge::coinWasSpawned = false;
     bool BlueCoinChallenge::coinDisabledCCSelector = false;
@@ -169,7 +169,7 @@ namespace CTRPluginFramework {
 		MarioKartFramework::ObjModelBaseRotate(coinObjBase, rotateProgress);
     }
 
-    static string16 g_coinCollectedText;
+    static std::u16string g_coinCollectedText;
     bool BlueCoinChallenge::closeCoinCollectedDialog(const Screen &s) {
         if (s.IsTop && BlueCoinChallenge::coinCollectedDialogFrames) {
             if (BlueCoinChallenge::coinCollectedDialogFrames < 180 && BlueCoinChallenge::coinCollectedDialogFrames > 65 && Controller::IsKeyDown(Key::Start))
@@ -214,7 +214,7 @@ namespace CTRPluginFramework {
 
             if (!coinWasCollected) {
                 if (!coinDisabledCCSelector) {
-                    g_coinCollectedText = blueCoinCollectedStr + (u16*)u"\n\n";
+                    g_coinCollectedText = blueCoinCollectedStr + u"\n\n";
                     std::string rem_text = (coinsRemaining - 1 == 0) ? NAME("blue_coin_all") : Utils::Format(NOTE("blue_coin_obtain").c_str(), coinsRemaining - 1);
                     Utils::ConvertUTF8ToUTF16(g_coinCollectedText, rem_text);
                     Language::MsbtHandler::SetString(CustomTextEntries::dialog, g_coinCollectedText);

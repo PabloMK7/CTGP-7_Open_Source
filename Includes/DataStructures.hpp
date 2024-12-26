@@ -384,10 +384,10 @@ namespace CTRPluginFramework {
 		std::string GetName()
 		{
 			if (!systemID) return "Player";
-			char tmpbuf[sizeof(name) + 2] = { 0 };
+			char16_t tmpbuf[10 + 2] = { 0 };
 			memcpy(tmpbuf, this->name, sizeof(name)); // Need to copy as it is not null terminated
             std::string ret;
-            Utils::ConvertUTF16ToUTF8(ret, (u16*)tmpbuf);
+            Utils::ConvertUTF16ToUTF8(ret, tmpbuf);
 			return ret;
 		}
 	}PACKED;
@@ -798,14 +798,16 @@ namespace CTRPluginFramework {
         STAR_1 = 4,
         STAR_2 = 5,
         STAR_3 = 6,
-        // Custom
-        CUSTOM_PLAYER = 7,
-        CUSTOM_BRONZE = 8,
-        CUSTOM_SILVER = 9,
-        CUSTOM_GOLD = 10,
-        CUSTOM_EMERALD = 11,
-        CUSTOM_DIAMOND = 12,
-        CUSTOM_RAINBOW = 13,
+        // Badges
+        BADGE_EMPTY = 7,
+        BADGE_SLOT_0 = 8,
+        BADGE_SLOT_1 = 9,
+        BADGE_SLOT_2 = 10,
+        BADGE_SLOT_3 = 11,
+        BADGE_SLOT_4 = 12,
+        BADGE_SLOT_5 = 13,
+        BADGE_SLOT_6 = 14,
+        BADGE_SLOT_7 = 15,
         // Invalid
         INVALID = 0xFF
     };
@@ -815,12 +817,11 @@ namespace CTRPluginFramework {
         u8 version;
         u8 megaMushTimer;
         struct {
-            u8 ctgpStarGrade : 4;
-            u8 reserved : 4;
+            u8 reserved : 8;
         } info;
         u8 padding[1];
 
-        static const u8 dataVersion = 1;
+        static const u8 dataVersion = 2;
 
         CustomCTGP7KartData() {
             Init();
@@ -829,7 +830,6 @@ namespace CTRPluginFramework {
         void Init() {
             version = 0;
             megaMushTimer = 0;
-            info.ctgpStarGrade = 0;
             info.reserved = 0;
             padding[0] = 0;
         }

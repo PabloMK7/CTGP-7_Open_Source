@@ -13,7 +13,7 @@ Open source lines: 22/22 (100.00%)
 namespace CTRPluginFramework {
     bool checkFoolsDay();
     void setFoolsSeed();
-    const u16* getFoolsText();
+    const char16_t* getFoolsText();
     void applyRaceJoke();
     void loadJokeResources();
     void playSirenJoke();

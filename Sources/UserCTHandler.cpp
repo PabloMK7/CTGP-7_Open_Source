@@ -280,11 +280,11 @@ namespace CTRPluginFramework {
         UpdateCurrentCourseData();
     }
 
-    void UserCTHandler::GetCouseSZSPath(u16* dst, bool withLang) {
+    void UserCTHandler::GetCouseSZSPath(char16_t* dst, bool withLang) {
         if (skipConfig.enabled && skipConfig.courseID >= 0) return;
         std::string ret = "ram:/CTGP-7/MyStuff/Courses/" + customCups[selectedCustomCup].cupName + "/" + customCups[selectedCustomCup].GetCourse(currentTrack).fileName;
         if (withLang) ret += Language::GetLanguagePostfixChar();
-        strcpy16n(dst, (u8*)ret.c_str(), 0x100 * sizeof(u16));
+        strcpy16n(dst, ret.c_str(), 0x100 * sizeof(char16_t));
     }
 
     static bool g_loadTextureLastFileFound = false;

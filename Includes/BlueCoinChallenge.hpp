@@ -20,7 +20,7 @@ namespace CTRPluginFramework {
         static u8* blueCoinSound;
         static u32 coinCollectedDialogFrames;
         static std::map<u32, std::pair<Vector3, u16>> coinLocations;
-        static string16 blueCoinCollectedStr;
+        static std::u16string blueCoinCollectedStr;
         static void InitCoinLocations();
         static void SetCoinCollected(u32 courseID);
         static bool closeCoinCollectedDialog(const Screen &s);

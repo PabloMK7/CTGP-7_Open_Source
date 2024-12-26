@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CustomTextEntries.hpp
-Open source lines: 28/28 (100.00%)
+Open source lines: 30/30 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -24,5 +24,7 @@ namespace CTRPluginFramework {
         static constexpr u32 courseDisplay = 720003; // 6 of them
         static constexpr u32 demoRaceTextTop = 720009;
         static constexpr u32 demoRaceTextBot = 720010;
+        static constexpr u32 options = 720011;
+        static constexpr u32 optionsDesc = 720012;
     };
 }

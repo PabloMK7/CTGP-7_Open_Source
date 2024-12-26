@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 206/210 (98.10%)
+Open source lines: 208/212 (98.11%)
 *****************************************************/
 
 #pragma once
@@ -98,7 +98,7 @@ namespace CTRPluginFramework {
 			// Input
 			Handle eventHandle{};
 			u32 serverID;
-			string16 screenName;
+			std::u16string screenName;
 			u8 sdkMajor;
 			u8 sdkMinor;
 
@@ -126,7 +126,7 @@ namespace CTRPluginFramework {
 		static RT_HOOK GetMyPasswordHook;
 		static Result OnGetMyPassword(char* passwordOut, u32 maxPasswordSize);
 		static RT_HOOK RequestGameAuthenticationDataHook;
-		static Result OnRequestGameAuthenticationData(Handle event, u32 serverID, u16* arg2, u8 arg3, u8 arg4);
+		static Result OnRequestGameAuthenticationData(Handle event, u32 serverID, char16_t* arg2, u8 arg3, u8 arg4);
 		static RT_HOOK GetGameAuthenticationDataHook;
 		static Result OnGetGameAuthenticationData(GameAuthenticationData* data);
 		static RT_HOOK wrapMiiDataHook;
@@ -162,6 +162,7 @@ namespace CTRPluginFramework {
 		};
 		
 		static DiscordInfo GetDiscordInfo(bool requestLink);
+		static void UnlinkDiscord();
 		static void DiscordLinkMenu();
 
 		static int lastPressedOnlineModeButtonID;
@@ -177,6 +178,7 @@ namespace CTRPluginFramework {
 		static std::vector<u64> whiteListedCharacters;
 		static std::string myServerName;
 		static std::string othersServerNames[8];
+		static u64 othersBadgeIDs[8];
 
 		static bool IsCharacterBlocked(EDriverID driverID, u64 characterID);
 

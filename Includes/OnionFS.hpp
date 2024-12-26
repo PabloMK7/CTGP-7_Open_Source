@@ -21,7 +21,7 @@ namespace CTRPluginFramework::OnionFS {
 		UNKNOWN = 2
 	};
 	void initGameFsFileMap();
-	GameFSFileState CheckGameFSFileExists(const u16* file);
+	GameFSFileState CheckGameFSFileExists(const char16_t* file);
 	void InitFSFileMapThread();
 	bool initOnionFSHooks(u32 textSize);
 }

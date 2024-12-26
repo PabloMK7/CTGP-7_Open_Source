@@ -208,7 +208,7 @@ namespace CTRPluginFramework {
         }
         if (textChanged) {
             textChanged = false;
-            string16 out;
+            std::u16string out;
             Utils::ConvertUTF8ToUTF16(out, currText);
             auto nwlyt = parent->control->GetGameVisualControl()->GetNwlytControl();
             nwlyt->vtable->replaceMessageImpl(nwlyt, elementHandle, VisualControl::Message(out.c_str()), nullptr, nullptr);
@@ -218,7 +218,7 @@ namespace CTRPluginFramework {
 
     void StaffRoll::StaffRollText::StaffRollTextHandler::ClearText() {
         auto nwlyt = parent->control->GetGameVisualControl()->GetNwlytControl();
-        nwlyt->vtable->replaceMessageImpl(nwlyt, elementHandle, VisualControl::Message((u16*)u""), nullptr, nullptr);
+        nwlyt->vtable->replaceMessageImpl(nwlyt, elementHandle, VisualControl::Message(u""), nullptr, nullptr);
         currText.clear();
         textChanged = false;
     }

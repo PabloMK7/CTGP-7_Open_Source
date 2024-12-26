@@ -471,17 +471,17 @@ namespace CTRPluginFramework
 		for (int i = 0; i < 8; i++) {
 			for (int j = 0; j < 4; j++) {
 				u32 origId = Sequence_GetGPCourseNameID(i, j | 0x80000000);
-				const u16* origText = Language::MsbtHandler::GetText(origId);
+				const char16_t* origText = Language::MsbtHandler::GetText(origId);
 				u32 newID = getCourseGlobalIDName(i, j, true);
 				Language::MsbtHandler::SetText(newID, origText);
 			}
 			u32 id = 1500 + i;
-			const u16* origText = Language::MsbtHandler::GetText(id);
+			const char16_t* origText = Language::MsbtHandler::GetText(id);
 			Language::MsbtHandler::SetText(CustomTextEntries::customCupStart + i, origText);
 		}
 		const u32 battleTranslate[] = { 0x21, 0x22, 0x20, 0x25, 0x24, 0x23 };
 		for (int i = 0; i < 6; i++) {
-			const u16* origText = Language::MsbtHandler::GetText(1800 + i);
+			const char16_t* origText = Language::MsbtHandler::GetText(1800 + i);
 			Language::MsbtHandler::SetText(CustomTextEntries::customTrackStart + battleTranslate[i], origText);
 		}
 		UserCTHandler::FixNames();
@@ -648,7 +648,7 @@ namespace CTRPluginFramework
 			0x41
 		},{ //0x0E Spring Cup
 			0x43,
-			0x3A,
+			0x4B,
 			0x42,
 			0x45
 		},{ //0x0F Egg Cup
@@ -668,7 +668,7 @@ namespace CTRPluginFramework
 			0x61
 		},{ //0x12 Blooper Cup
 			0x4A,
-			0x4B,
+			0x3A,
 			0x4C,
 			0x4D
 		},{ //0x13 Feather Cup
@@ -800,7 +800,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_BanshBoardT", 0x0E, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x37
 			{&globalNameData.f, "Ctgp_CortexCastleeee", 0x06, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x38
 			{&globalNameData.f, "Ctgp_GhostValleyT", 0x14, 0x03, MarioKartTimer::ToFrames(1,45)},				//0x39
-			{&globalNameData.f, "Ctgp_MelodSanc", 0x0F, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x3A
+			{&globalNameData.f, "Ctgp_JungleRuins", 0x18, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x3A
 			{&globalNameData.f, "Ctgp_MarioRacewa", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x3B
 			{&globalNameData.f, "Ctgp_WarpPipeIsland", 0x11, 0x03, MarioKartTimer::ToFrames(1, 50)},		    //0x3C
 			{&globalNameData.f, "Gsfc_ChocoIsland", 0x1E, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x3D
@@ -817,7 +817,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_GCBowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x48
 			{&globalNameData.f, "Ctgp_MikuBirtSpe2", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x49
 			{&globalNameData.f, "Ctgp_SandCastle", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x4A
-			{&globalNameData.f, "Ctgp_MarioCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4B
+			{&globalNameData.f, "Ctgp_GCMushroomBridge", 0x19, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x4B
 			{&globalNameData.f, "Gcn_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4C
 			{&globalNameData.f, "Ctgp_VolcanoBeachRuins", 0x02, 0x02, MarioKartTimer::ToFrames(2, 0)},		//0x4D
 			{&globalNameData.f, "Gcn_YoshiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4E
@@ -832,7 +832,7 @@ namespace CTRPluginFramework
 			{&globalNameData.f, "Ctgp_ErmiiCir", 0x1A, 0x05, MarioKartTimer::ToFrames(1,30)},                 //0x57
 			{&globalNameData.f, "Ggcn_BabyParkNin", 0x00, 0x07, MarioKartTimer::ToFrames(1,15)},				//0x58
 			{&globalNameData.f, "Ctgp_RevoCircuit", 0x00, 0x03, MarioKartTimer::ToFrames(1, 30)},				//0x59
-			{&globalNameData.f, "Gsfc_MarioCircTh", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x5A
+			{&globalNameData.f, "Ctgp_MarioCircTh", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x5A
 			{&globalNameData.f, "Ctgp_BigBlueFZero1", 0x00, 0x03, MarioKartTimer::ToFrames(1, 15)},			//0x5B
 			{&globalNameData.f, "Ggba_ShyGuyBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x5C
 			{&globalNameData.f, "Ctgp_BingoPartyyyy", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x5D

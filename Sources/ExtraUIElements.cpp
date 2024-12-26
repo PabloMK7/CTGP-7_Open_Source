@@ -107,7 +107,7 @@ namespace CTRPluginFramework {
         own->number3Handle = layout->vtable->getElementHandle(layout, SafeStringBase("P_speed-03"), 0);
 
         u32 textHandle = layout->vtable->getElementHandle(layout, SafeStringBase("T_unit"), 0);
-        const u16* units[] = {(u16*)u"km/h", (u16*)u"mph"};
+        const char16_t* units[] = {u"km/h", u"mph"};
         VisualControl::Message msg(units[(u32)own->GetUnit()]);
         layout->vtable->replaceMessageImpl(layout, textHandle, msg, nullptr, nullptr);
     }
@@ -184,12 +184,12 @@ namespace CTRPluginFramework {
         own->rotationHandle = layout->vtable->getElementHandle(layout, SafeStringBase("N_rot"), 0);
 
         u32 textHandle = layout->vtable->getElementHandle(layout, SafeStringBase("T_unit"), 0);
-        const u16* units[] = {(u16*)u"km/h", (u16*)u"mph"};
+        const char16_t* units[] = {u"km/h", u"mph"};
         VisualControl::Message msg(units[(u32)own->GetUnit()]);
         layout->vtable->replaceMessageImpl(layout, textHandle, msg, nullptr, nullptr);
         if (own->GetUnit() == SpeedUnit::MPH) {
             const char* elements[] = {"T_01", "T_02", "T_03", "T_04", "T_05", "T_06"};
-            const u16* units[] = {(u16*)u"15", (u16*)u"30", (u16*)u"45", (u16*)u"60", (u16*)u"75", (u16*)u"90"};
+            const char16_t* units[] = {u"15", u"30", u"45", u"60", u"75", u"90"};
             for (int i = 0; i < 6; i++) {
                 textHandle = layout->vtable->getElementHandle(layout, SafeStringBase(elements[i]), 0);
                 msg = VisualControl::Message(units[i]);
@@ -605,7 +605,7 @@ namespace CTRPluginFramework {
 
             if (!name.empty()) {
                 u32 nameTextHandle = layout->vtable->getElementHandle(layout, SafeStringBase("T_name"), 0);
-                string16 out;
+                std::u16string out;
                 Utils::ConvertUTF8ToUTF16(out, name);
                 VisualControl::Message nameMsg(out.c_str());
                 layout->vtable->replaceMessageImpl(layout, nameTextHandle, nameMsg, nullptr, nullptr);
