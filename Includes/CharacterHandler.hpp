@@ -79,7 +79,7 @@ namespace CTRPluginFramework {
         static std::unordered_map<u64, CharacterEntry>& GetCharEntries() {
             return charEntries;
         }
-        static u64 SelectRandomCharacter(EDriverID driverID, bool includeVanilla);
+        static u64 SelectRandomCharacter(EDriverID driverID, bool includeVanilla, bool isCredits = false);
         static void ConfirmCharacters();
         static void ResetCharacters();
 

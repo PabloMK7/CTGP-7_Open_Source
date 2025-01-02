@@ -46,13 +46,13 @@ namespace CTRPluginFramework {
         int GetTarget() {return currentTarget;}
     private:
         bool loaded = false;
-        static bool globalLoaded;
+        static CTPreview* globalLoaded;
         std::vector<VisualControl::GameVisualControl*> control;
         static VisualControl::GameVisualControlVtable* controlVtable;
         static VisualControl::AnimationDefineVtable animDefineVtable;
-        ExtraResource::StreamedSarc* sarc;
+        ExtraResource::StreamedSarc* sarc = nullptr;
         static Task* fileReplaceTask;
-        ReplaceTarget* replaceTargets[2];
+        ReplaceTarget* replaceTargets[2] = {0};
         static s32 fileReplaceFunc(void* args);
         static void defineAnimation(VisualControl::AnimationDefine* animDefine);
         void ChangeAnim(int ID);

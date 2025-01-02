@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTPreview.cpp
-Open source lines: 188/188 (100.00%)
+Open source lines: 196/196 (100.00%)
 *****************************************************/
 
 #include "CTPreview.hpp"
@@ -15,9 +15,9 @@ Open source lines: 188/188 (100.00%)
 
 namespace CTRPluginFramework {
 
-    VisualControl::GameVisualControlVtable* CTPreview::controlVtable;
+    VisualControl::GameVisualControlVtable* CTPreview::controlVtable = nullptr;
     VisualControl::AnimationDefineVtable CTPreview::animDefineVtable = {CTPreview::defineAnimation, 0, 0};
-    bool CTPreview::globalLoaded = false;
+    CTPreview* CTPreview::globalLoaded = nullptr;
     Task* CTPreview::fileReplaceTask = nullptr;
 
     CTPreview::ReplaceTarget::ReplaceTarget(ExtraResource::MultiSARC& sarc, const std::string& base, int targetID) {
@@ -79,8 +79,14 @@ namespace CTRPluginFramework {
     }
 
     void CTPreview::Load() {
-        if (loaded || globalLoaded)
+        if (loaded)
             return;
+        
+        if (globalLoaded) {
+            globalLoaded->Unload();
+            globalLoaded = nullptr;
+        }
+        
         sarc = new ExtraResource::StreamedSarc("/CTGP-7/resources/coursePreviews.sarc");
         if (!sarc->processed) {
             delete sarc;
@@ -101,12 +107,12 @@ namespace CTRPluginFramework {
         }
         if (!fileReplaceTask)
         #if CITRA_MODE == 0
-            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::SysCores);
+            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::AppCores);
         #else
-            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::SysCore);
+            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::AppCore);
         #endif
         loaded = true;
-        globalLoaded = true;
+        globalLoaded = this;
     }
 
     void CTPreview::Unload() {
@@ -119,7 +125,9 @@ namespace CTRPluginFramework {
         delete replaceTargets[0];
         delete replaceTargets[1];
         loaded = false;
-        globalLoaded = false;
+        if (globalLoaded == this) {
+            globalLoaded = nullptr;
+        }
     }
 
     void CTPreview::SetPreview(int cup, int track, bool throughBlack) {
@@ -163,13 +171,13 @@ namespace CTRPluginFramework {
         currentTarget = target;
         ChangeAnim((currentTarget ? 1 : 0) + 1);
     }
+
     s32 CTPreview::fileReplaceFunc(void* args) {
         CTPreview* own = static_cast<CTPreview*>(args);
         std::string toReplace;
         while (own->fetchTaskData(toReplace)) {
             if (own->replaceTargets[(!own->currentTarget) ? 1 : 0]->Replace(*own->sarc, toReplace, &own->cancelReplaceTask))
             {
-                Lock lock(own->taskDataMutex);
                 if (!own->cancelReplaceTask) {
                     own->SetTarget(!own->currentTarget);
                 }

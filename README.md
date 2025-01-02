@@ -3,7 +3,7 @@
 <table align="center">
 <tr>
 <td>Total open source lines:</td>
-<td>36992 / 49317 (75.01%)</td>
+<td>37002 / 49348 (74.98%)</td>
 </tr>
 <tr>
 <td>Total open source files:</td>
@@ -11,7 +11,7 @@
 </tr>
 <tr>
 <td>Total open source lines, excluding<br/>closed source files from total:</td>
-<td>36992 / 41661 (88.79%)</td>
+<td>37002 / 41680 (88.78%)</td>
 </tr>
 </table>
 
@@ -21,7 +21,7 @@ The purpose of this repository is to allow people who are curious seeing the inn
 
 # License
 
-Copyright 2015-2024 PabloMK7
+Copyright 2015-2025 PabloMK7
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

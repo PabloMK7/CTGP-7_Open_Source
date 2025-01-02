@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2146/2149 (99.86%)
+Open source lines: 2148/2151 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -573,12 +573,14 @@ namespace CTRPluginFramework {
 		return selectedCharaceters[playerID];
 	}
 
-	u64 CharacterHandler::SelectRandomCharacter(EDriverID driverID, bool includeVanilla) {
+	u64 CharacterHandler::SelectRandomCharacter(EDriverID driverID, bool includeVanilla, bool isCredits) {
 		auto& entries = charEntriesPerDriverID[(int)driverID];
 		if (entries.size() == 0)
 			return 0;
 		std::map<int, std::vector<CharacterEntry*>> entriesPerGroup;
 		for (auto it = entries.begin(); it != entries.end(); it++) {
+			if (isCredits && !(*it)->creditsAllowed)
+				continue;
 			entriesPerGroup[(*it)->groupID].push_back(*it);
 		}
 		u32 max = entriesPerGroup.size() - (includeVanilla ? 0 : 1);
@@ -1208,7 +1210,7 @@ namespace CTRPluginFramework {
 		}
 
 		if (lastFileLoadInfo.isCredits && info.kind == ResourceInfo::Kind::EMBLEM_MODEL) {
-			g_ThankYouChosenCharacter = SelectRandomCharacter((EDriverID)info.id, false);
+			g_ThankYouChosenCharacter = SelectRandomCharacter((EDriverID)info.id, false, true);
 		}
 
 		WaitOnlineLock();
