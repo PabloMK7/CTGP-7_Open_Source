@@ -319,7 +319,7 @@ namespace CTRPluginFramework {
 
 			static CRaceMode currentRaceMode;
 			static void (*BasePage_SetRaceMode)(CRaceMode* mode);
-			static EPlayerInfo playerInfos[8];
+			static EPlayerInfo playerInfos[MAX_PLAYER_AMOUNT];
 			static u32 currGatheringID;
 			static u8 myRoomPlayerID;
 			static bool allowOpenCTRPFMenu();
@@ -501,7 +501,7 @@ namespace CTRPluginFramework {
 			static u8 realResultBarAmount;
 			static u32 getResultBarAmount(u32 amount);
 			using BaseResultBar = u32;
-			static BaseResultBar resultBarArray[8];
+			static BaseResultBar resultBarArray[MAX_PLAYER_AMOUNT];
 			static bool resultBarHideRank;
 			static void(*BaseResultBar_setName)(BaseResultBar bar, u16** name);
 			//static void(*BaseResultBar_setCharaTex)(BaseResultBar bar, u32* driverID, int driverSkin, bool unknown);
@@ -554,10 +554,10 @@ namespace CTRPluginFramework {
 			//
 			static void(*SndActorKArt_PlayDriverVoice)(u32* sndActorKart, EVoiceType voice);
 			static void OnSndActorKartPlayDriverVoice(u32* sndActorKart, EVoiceType voice);
-			static MarioKartTimer loopVoiceCooldown[8];
+			static MarioKartTimer loopVoiceCooldown[MAX_PLAYER_AMOUNT];
 			static bool loopMasterWPSoundEffectPlayed;
 			//
-			static ImprovedTrickInfo trickInfos[8];
+			static ImprovedTrickInfo trickInfos[MAX_PLAYER_AMOUNT];
 			static bool improvedTricksAllowed;
 			static bool improvedTricksForced;
 			static void resetTrickInfos(int playerID, u32 kartUnitObj);
@@ -650,7 +650,7 @@ namespace CTRPluginFramework {
 			static void OnSendCustomKartData(int playerID, CustomCTGP7KartData& data);
 			static void OnRecvCustomKartData(int playerID, CustomCTGP7KartData& data);
 			//
-			static u8 brakeDriftAllowFrames[8];
+			static u8 brakeDriftAllowFrames[MAX_PLAYER_AMOUNT];
 			static bool brakeDriftAllowed;
 			static bool brakeDriftForced;
 			static bool brakeDriftingAllowed();
@@ -663,12 +663,12 @@ namespace CTRPluginFramework {
 			static u32 VehicleReact_ReactPressMapObjAddr;
 			static void handleThunderResize(u32* thunderdata, u32* staticdata, u32* vehicleMove, float* currSize);
 			static void startSizeChangeAnimation(int playerID, float targetSize, bool isGrowing);
-			static ResizeInfo resizeInfos[8];
-			static int megaMushTimers[8];
-			static int packunStunCooldownTimers[8];
+			static ResizeInfo resizeInfos[MAX_PLAYER_AMOUNT];
+			static int megaMushTimers[MAX_PLAYER_AMOUNT];
+			static int packunStunCooldownTimers[MAX_PLAYER_AMOUNT];
 			static bool calculatePressReact(u32* vehicleMove1, u32* vehicleMove2, int someValueSP);
 			static u32* sndActorKartCalcEnemyStar(u32* sndActorKart);
-			static SndLfoSin pitchCalculators[8];
+			static SndLfoSin pitchCalculators[MAX_PLAYER_AMOUNT];
 			static void OnSndActorKartCalcInner(u32* sndActorKart);
 			static bool OnThunderAttackKart(u32* vehicleMove);
 			static void OnStartKiller(u32* vehicleMove);
@@ -710,7 +710,7 @@ namespace CTRPluginFramework {
         	static RT_HOOK loadResGraphicFileHook;
 			//
 			static u64 rotateCharacterID;
-			static u8 characterRotateAmount[8];
+			static u8 characterRotateAmount[MAX_PLAYER_AMOUNT];
 			static void OnKartUnitCalcDrawKartOn(u32 kartUnit, float* transformMatrix);
 			//
 			static RT_HOOK jugemSwitchReverseUpdateHook;

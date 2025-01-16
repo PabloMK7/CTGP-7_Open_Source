@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 692/700 (98.86%)
+Open source lines: 734/742 (98.92%)
 *****************************************************/
 
 #include "types.h"
@@ -31,6 +31,7 @@ Open source lines: 692/700 (98.86%)
 #include "mallocDebug.hpp"
 #include "ExtraUIElements.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "QrCode.hpp"
 
 u32 g_currMenuVal = 0;
 u8 g_isOnlineMode = (CTRPluginFramework::Utils::Random() | 2) & ~0x1;
@@ -455,6 +456,9 @@ namespace CTRPluginFramework
 		}
 	} 
 
+	static bool g_showingQR = false;
+	static qrcodegen::QrCode* g_currQR = nullptr;
+	static const char* g_consoleIDStr = nullptr;
 	void serverEntryHandler(MenuEntry* entry)
 	{
 		Keyboard kbd("dummy");
@@ -465,6 +469,41 @@ namespace CTRPluginFramework
 		int opt = -1;
 		std::string enSlid = Color::LimeGreen << "\u2282\u25CF";
 		std::string disSlid = Color::Red << "\u25CF\u2283";
+		std::string consoleID = Utils::Format("%016llX", NetHandler::GetConsoleUniqueHash());
+		g_consoleIDStr = consoleID.c_str();
+		g_currQR = new qrcodegen::QrCode(qrcodegen::QrCode::encodeText(g_consoleIDStr, qrcodegen::QrCode::Ecc::QUARTILE));
+		kbd.OnKeyboardEvent([](Keyboard& k, KeyboardEvent& event) {
+			if (event.type == KeyboardEvent::EventType::KeyPressed && event.affectedKey & Key::X) {
+				g_showingQR = !g_showingQR;
+			}
+			if (event.type == KeyboardEvent::EventType::FrameTop && g_showingQR) {
+				int qrSize = g_currQR->getSize();
+				if (qrSize != 21) return;
+				float pixelsPerModule = 4;
+				float drawStartX = 158, drawStartY = 78;
+				int qrx = 0, qry = 0;
+				event.renderInterface->DrawRect({142, 26, 116, 188}, Color::White);
+				event.renderInterface->DrawRect({141, 25, 117, 189}, Color::Black, false);
+				while (qrx < qrSize)
+				{ 
+					qry = 0;
+					drawStartY = 78;
+					while (qry < qrSize)
+					{
+						u32 drawSizeX = (u32)(drawStartX + pixelsPerModule) - (u32)drawStartX;
+						u32 drawSizeY = (u32)(drawStartY + pixelsPerModule) - (u32)drawStartY;
+						event.renderInterface->DrawRect({(int)drawStartX, (int)drawStartY, (int)drawSizeX, (int)drawSizeY}, g_currQR->getModule(qrx, qry) ? Color::Black : Color::White);
+						qry++;
+						drawStartY += pixelsPerModule;
+					}
+					qrx++;
+					drawStartX += pixelsPerModule;
+				}
+				event.renderInterface->DrawLinuxString("  DO NOT SHARE  ", 152 - 2, 42, Color::Black, Color::White);
+				event.renderInterface->DrawLinuxString("PRESS X TO CLOSE", 152 - 2, 52, Color::Black, Color::White);
+				event.renderInterface->DrawLinuxString(g_consoleIDStr, 152 - 2, 183, Color::Black, Color::White);
+			}
+		});
 		do {
 			topStr = NAME("servsett") + "\n\nVR:\n";
 			if (Net::vrPositions[0] > 0)
@@ -475,7 +514,7 @@ namespace CTRPluginFramework
 				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " " + NAME("vr") + " (" + Language::GenerateOrdinal(Net::vrPositions[1]) + ")\n";
 			else
 				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " " + NAME("vr") + "\n";
-			topStr += NAME("serv_consID") + ":\n  " + Utils::Format("0x%016llX", NetHandler::GetConsoleUniqueHash()) + "\n\n";
+			topStr += NAME("serv_consID") + ":\n  " + NAME("serv_qrshow") + "\n\n";
 			topStr += "1. " + NAME("serv_statsupl") + ":\n  " + ((SaveHandler::saveData.flags1.uploadStats) ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 			topStr += "2. " + NAME("serv_displname") + ":\n  ";
 			switch (SaveHandler::saveData.serverDisplayNameMode)
@@ -521,6 +560,9 @@ namespace CTRPluginFramework
 				break;
 			}
 		} while (opt >= 0);
+		delete g_currQR;
+		g_currQR = nullptr;
+		g_consoleIDStr = nullptr;
 	}
 
 	void useCTGP7server_apply(bool useCTGP7) {

@@ -320,13 +320,13 @@ namespace CTRPluginFramework {
 	};
 
 	bool CharacterHandler::updateRaceCharaNamePending = false;
-	std::array<u64, 8> CharacterHandler::selectedCharaceters{};
+	std::array<u64, MAX_PLAYER_AMOUNT> CharacterHandler::selectedCharaceters{};
 	u64 CharacterHandler::selectedMenuCharacter{};
 	std::vector<std::string> CharacterHandler::authorNames;
 	std::array<std::string, EDriverID::DRIVER_SIZE> CharacterHandler::origCharNames;
     std::unordered_map<u64, CharacterHandler::CharacterEntry> CharacterHandler::charEntries;
 	std::array<std::vector<CharacterHandler::CharacterEntry*>, EDriverID::DRIVER_SIZE> CharacterHandler::charEntriesPerDriverID{};
-	std::array<std::array<u8*, 8>, 4> CharacterHandler::textureDataPointers{};
+	std::array<std::array<u8*, MAX_PLAYER_AMOUNT>, 4> CharacterHandler::textureDataPointers{};
     std::array<u8*, EDriverID::DRIVER_SIZE> CharacterHandler::menuSelectTextureDataPointers{};
     std::array<u8*, EDriverID::DRIVER_SIZE> CharacterHandler::originalSelectUIfiles;
 	CharacterHandler::CharacterEntry CharacterHandler::defaultCharEntry{};
@@ -639,7 +639,7 @@ namespace CTRPluginFramework {
 				}
 			}
 		} while (false);
-		for (int i = 0; i < 8; i++) {
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 			auto it = charEntries.find(selectedCharaceters[i]);
 			if (it == charEntries.end())
 				continue;
@@ -653,7 +653,7 @@ namespace CTRPluginFramework {
 
 	void CharacterHandler::ResetCharacters() {
 		updateRaceCharaNamePending = false;
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++)
 			selectedCharaceters[i] = 0;
 	}
 
@@ -821,7 +821,7 @@ namespace CTRPluginFramework {
 
 	void CharacterHandler::setupExtraResource() {
 		soundHeap = GameAlloc::BasicHeap(3'500'000);
-		for (int i = 0; i < 8; i++) {
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 			for (int j = 0; j < 4; j++) {
 				GetTexturePointer((ECharaIconType)j, i);
 			}
@@ -932,7 +932,7 @@ namespace CTRPluginFramework {
 		/*bool isHiRes = forceHiRes || 
 			(raceInfo.kartInfos[playerID].playerType == EPlayerType::TYPE_USER || raceInfo.kartInfos[playerID].playerType == EPlayerType::TYPE_UNKNOWN) ||
 			raceInfo.masterID == playerID || raceInfo.raceMode.mode == 4;*/
-		
+
 		lastFileLoadInfo.allow = true;
 		lastFileLoadInfo.isMenu = false;
 		lastFileLoadInfo.playerID = playerID;
@@ -1395,7 +1395,7 @@ namespace CTRPluginFramework {
 		minibson::document resDoc;
 		if (netRequestHandler.GetResult(NetHandler::RequestHandler::RequestType::ROOM_CHAR_IDS, &resDoc) == 0) {
 			const minibson::document& charIDs = resDoc.get("charIDs", minibson::document());
-			for (int i = 0; i < 8; i++) {
+			for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 				if (!MarioKartFramework::isWatchRaceMode && i == MarioKartFramework::masterPlayerID)
 					continue;
 				u16 key = '0' + i;
@@ -1408,14 +1408,14 @@ namespace CTRPluginFramework {
 			}
 			if (VoiceChatHandler::Initialized) {
 				const minibson::document& names = resDoc.get("names", minibson::document());
-				for (int i = 0; i < 8; i++) {
+				for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 					u16 key = '0' + i;
 					Net::othersServerNames[i] = names.get((char*)&key, "");
 				}
 				VoiceChatHandler::UpdatePlayerNames();
 			}
 			const minibson::document& badgeIDs = resDoc.get("badgeIDs", minibson::document());
-			for (int i = 0; i < 8; i++) {
+			for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 				u16 key = '0' + i;
 				Net::othersBadgeIDs[i] = badgeIDs.get_numerical((char*)&key, 0);
 			}

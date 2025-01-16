@@ -227,7 +227,7 @@ namespace CTRPluginFramework {
         static bool allowFasterItemDisappear;
         static void ItemObjTailStateUse(u32 itemObjTail);
 
-	    static u32 kartHoldItemFrames[8];
+	    static u32 kartHoldItemFrames[MAX_PLAYER_AMOUNT];
         static RT_HOOK kartItemCalcAfterStructureHook;
         static void OnKartItemCalcAfterStructure(u32 kartItem);
         static void OnVehicleInit(u32 vehicle);
@@ -366,7 +366,7 @@ namespace CTRPluginFramework {
             static void End(int playerID, bool resetState);
             static void CalcNetRecv(int playerID, int frames);
             
-            static u8 growMapFacePending[8];
+            static u8 growMapFacePending[MAX_PLAYER_AMOUNT];
         private:
             friend class ItemHandler;
             static ItemDirectorVtable* directorVtable;

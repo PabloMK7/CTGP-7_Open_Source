@@ -106,7 +106,7 @@ namespace CTRPluginFramework
 	#ifdef INSTRUMENT_FUNCTIONS
 	void init_instrumentation();
 	#endif
-
+	void UseGameStackToInit() {}
     void  PatchProcess(FwkSettings &settings)
     {
 		#ifdef INSTRUMENT_FUNCTIONS

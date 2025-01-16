@@ -34,8 +34,8 @@ namespace CTRPluginFramework {
 	float Net::vrMultiplier = 1.f;
 	std::vector<u64> Net::whiteListedCharacters;
 	std::string Net::myServerName;
-	std::string Net::othersServerNames[8];
-	u64 Net::othersBadgeIDs[8];
+	std::string Net::othersServerNames[MAX_PLAYER_AMOUNT];
+	u64 Net::othersBadgeIDs[MAX_PLAYER_AMOUNT];
 	NetHandler::RequestHandler Net::netRequests;
 	Net::CTWWLoginStatus Net::lastLoginStatus = Net::CTWWLoginStatus::NOTLOGGED;
 	Net::OnlineStateMachine Net::currState = Net::OnlineStateMachine::OFFLINE;

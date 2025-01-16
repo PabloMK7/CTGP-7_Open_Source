@@ -4,12 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.hpp
-Open source lines: 911/911 (100.00%)
+Open source lines: 913/913 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "Math.hpp"
+
+#define MAX_PLAYER_AMOUNT 8
 
 namespace CTRPluginFramework {
 

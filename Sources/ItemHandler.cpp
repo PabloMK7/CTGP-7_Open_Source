@@ -28,7 +28,7 @@ namespace CTRPluginFramework {
     RT_HOOK ItemHandler::itemObjTailStateUseHook = { 0 };
     bool ItemHandler::allowFasterItemDisappear = true;
 
-    u32 ItemHandler::kartHoldItemFrames[8];
+    u32 ItemHandler::kartHoldItemFrames[MAX_PLAYER_AMOUNT];
     RT_HOOK ItemHandler::kartItemCalcAfterStructureHook = { 0 };
 
     ItemHandler::ItemDirectorVtable* ItemHandler::FakeBoxHandler::directorVtable = nullptr;
@@ -81,7 +81,7 @@ namespace CTRPluginFramework {
     void* ItemHandler::MegaMushHandler::growSound = nullptr;
     void* ItemHandler::MegaMushHandler::shrinkSound = nullptr;
     void* ItemHandler::MegaMushHandler::megaTheme = nullptr;
-    u8 ItemHandler::MegaMushHandler::growMapFacePending[8] = {0};
+    u8 ItemHandler::MegaMushHandler::growMapFacePending[MAX_PLAYER_AMOUNT] = {0};
 
     void ItemHandler::Initialize() {
         FakeBoxHandler::Initialize();
@@ -1192,8 +1192,8 @@ namespace CTRPluginFramework {
         return false;
     }
 
-    static u32 g_starthemeunholdframesEnemy[8];
-    static bool g_wasStarThemeEnemy[8];
+    static u32 g_starthemeunholdframesEnemy[MAX_PLAYER_AMOUNT];
+    static bool g_wasStarThemeEnemy[MAX_PLAYER_AMOUNT];
     u32* ItemHandler::MegaMushHandler::CalcEnemyMegaTheme(u32* sndActorKart) {
         u32* vehicle = (u32*)sndActorKart[0x1E0/4];
         int playerID = vehicle[0x21];

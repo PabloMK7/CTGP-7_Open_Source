@@ -52,7 +52,7 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::baseAllPointer = 0;
 	MarioKartFramework::CRaceMode MarioKartFramework::currentRaceMode;
 	void (*MarioKartFramework::BasePage_SetRaceMode)(MarioKartFramework::CRaceMode* mode) = nullptr;
-	MarioKartFramework::EPlayerInfo MarioKartFramework::playerInfos[8];
+	MarioKartFramework::EPlayerInfo MarioKartFramework::playerInfos[MAX_PLAYER_AMOUNT];
 	u32 MarioKartFramework::currGatheringID;
 	u8 MarioKartFramework::myRoomPlayerID = -1;
 	u8* MarioKartFramework::_currgamemode = nullptr;
@@ -123,7 +123,7 @@ namespace CTRPluginFramework {
 	bool MarioKartFramework::allowWigglerAngry = true;
 	s8 MarioKartFramework::forcedResultBarAmount = -1;
 	u8 MarioKartFramework::realResultBarAmount = 8;
-	MarioKartFramework::BaseResultBar MarioKartFramework::resultBarArray[8] = { 0 };
+	MarioKartFramework::BaseResultBar MarioKartFramework::resultBarArray[MAX_PLAYER_AMOUNT] = { 0 };
 	bool MarioKartFramework::resultBarHideRank = false;
 	void (*MarioKartFramework::BaseResultBar_setName)(MarioKartFramework::BaseResultBar, u16**) = nullptr;
 	//void (*MarioKartFramework::BaseResultBar_setCharaTex)(BaseResultBar, u32*, int, bool) = (void(*)(u32, u32*, int, bool))0x001525D8;
@@ -145,9 +145,9 @@ namespace CTRPluginFramework {
 	u8 MarioKartFramework::numberPlayersRace = 0;
 	std::vector<std::pair<u32, u32>> MarioKartFramework::carRouteControllerPair;
 	void (*MarioKartFramework::kartStartTwist)(u32 kartVehicleMoveObj, u32 restartBool) = nullptr;
-	MarioKartTimer MarioKartFramework::loopVoiceCooldown[8];
+	MarioKartTimer MarioKartFramework::loopVoiceCooldown[MAX_PLAYER_AMOUNT];
 	bool MarioKartFramework::loopMasterWPSoundEffectPlayed;
-	MarioKartFramework::ImprovedTrickInfo MarioKartFramework::trickInfos[8];
+	MarioKartFramework::ImprovedTrickInfo MarioKartFramework::trickInfos[MAX_PLAYER_AMOUNT];
 	bool MarioKartFramework::improvedTricksAllowed = true;
 	bool MarioKartFramework::improvedTricksForced = false;
 	u32 MarioKartFramework::nexNetworkInstance = 0;
@@ -181,17 +181,17 @@ namespace CTRPluginFramework {
 	u32 MarioKartFramework::NetUtilStartWriteKartSendBufferAddr = 0;
 	u32 MarioKartFramework::NetUtilEndWriteKartSendBufferAddr = 0;
 	void (*MarioKartFramework::BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade) = nullptr;
-	u8 MarioKartFramework::brakeDriftAllowFrames[8];
+	u8 MarioKartFramework::brakeDriftAllowFrames[MAX_PLAYER_AMOUNT];
 	bool MarioKartFramework::brakeDriftAllowed = true;
 	bool MarioKartFramework::brakeDriftForced = false;
 	u32 MarioKartFramework::playjumpeffectAddr = 0;
 	u32 MarioKartFramework::playcoineffectAddr = 0;
 	u32 MarioKartFramework::VehicleMove_StartPressAddr = 0;
 	u32 MarioKartFramework::VehicleReact_ReactPressMapObjAddr = 0;
-	ResizeInfo MarioKartFramework::resizeInfos[8];
-	int MarioKartFramework::megaMushTimers[8] = { 0 };
-	int MarioKartFramework::packunStunCooldownTimers[8] = { 0 };
-	SndLfoSin MarioKartFramework::pitchCalculators[8];
+	ResizeInfo MarioKartFramework::resizeInfos[MAX_PLAYER_AMOUNT];
+	int MarioKartFramework::megaMushTimers[MAX_PLAYER_AMOUNT] = { 0 };
+	int MarioKartFramework::packunStunCooldownTimers[MAX_PLAYER_AMOUNT] = { 0 };
+	SndLfoSin MarioKartFramework::pitchCalculators[MAX_PLAYER_AMOUNT];
 	bool MarioKartFramework::ignoreKartAccident = false;
 	u32 MarioKartFramework::SndActorBase_SetCullingSafeDistVolRatioAddr = 0;
 	float MarioKartFramework::playerMegaCustomFov = 0.f;
@@ -202,7 +202,7 @@ namespace CTRPluginFramework {
 	u8 MarioKartFramework::onMasterStartKillerPosition;
 	RT_HOOK MarioKartFramework::loadResGraphicFileHook = { 0 };
 	u64 MarioKartFramework::rotateCharacterID = false;
-	u8 MarioKartFramework::characterRotateAmount[8];
+	u8 MarioKartFramework::characterRotateAmount[MAX_PLAYER_AMOUNT];
 	RT_HOOK MarioKartFramework::jugemSwitchReverseUpdateHook = {0};
 	bool MarioKartFramework::useCustomItemProbability = false;
 	bool MarioKartFramework::customItemProbabilityRandom = false;
@@ -908,7 +908,7 @@ namespace CTRPluginFramework {
 		if (entrycount > 0)
 			lastPolePositionLeft = (*stginfo)[0].PolePosition == 1;
 
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++)
 		{
 			megaMushTimers[i] = 0;
 			packunStunCooldownTimers[i] = 0;
@@ -1214,7 +1214,7 @@ namespace CTRPluginFramework {
 				bannedUltraShortcuts.clear();
 				Net::vrMultiplier = 1.f;
 				Net::allowedTracks = "";
-				for (int i = 0; i < 8; i++) {
+				for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 					Net::othersBadgeIDs[i] = 0;
 				}
 				resetdriverchoices();
@@ -1375,7 +1375,7 @@ namespace CTRPluginFramework {
 		Net::vrMultiplier = 1.f;
 		Net::whiteListedCharacters.clear();
 		Net::allowedTracks = "";
-		for (int i = 0; i < 8; i++) {
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 			Net::othersServerNames[i].clear();
 			Net::othersBadgeIDs[i] = 0;
 		}
@@ -1879,7 +1879,7 @@ namespace CTRPluginFramework {
 	}
 
 	void MarioKartFramework::BasePage_SetWifiRate(int slot, u32 vrAmount) {
-		if (slot < 8) {
+		if (slot < MAX_PLAYER_AMOUNT) {
 			getRaceInfo(true)->kartInfos[slot].vr = vrAmount;
 		}
 	}
@@ -1982,7 +1982,7 @@ namespace CTRPluginFramework {
 
 	bool MarioKartFramework::userCanControlKart()
 	{
-		for (int i = 0; i < numberPlayersRace && i < 8; i++)
+		for (int i = 0; i < numberPlayersRace && i < MAX_PLAYER_AMOUNT; i++)
 			if (playerInfos[i].type == EPlayerType::TYPE_USER)
 				return true;
 		return false;
@@ -2081,7 +2081,7 @@ namespace CTRPluginFramework {
 
 	void MarioKartFramework::raceTimerOnFrame()
 	{
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++)
 		{
 			if (trickInfos[i].trickCooldown > MarioKartTimer(0)) {
 				--trickInfos[i].trickCooldown;

@@ -177,8 +177,8 @@ namespace CTRPluginFramework {
 		static float vrMultiplier;
 		static std::vector<u64> whiteListedCharacters;
 		static std::string myServerName;
-		static std::string othersServerNames[8];
-		static u64 othersBadgeIDs[8];
+		static std::string othersServerNames[MAX_PLAYER_AMOUNT];
+		static u64 othersBadgeIDs[MAX_PLAYER_AMOUNT];
 
 		static bool IsCharacterBlocked(EDriverID driverID, u64 characterID);
 

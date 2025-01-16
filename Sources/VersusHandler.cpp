@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.cpp
-Open source lines: 692/692 (100.00%)
+Open source lines: 696/696 (100.00%)
 *****************************************************/
 
 #include "VersusHandler.hpp"
@@ -170,6 +170,10 @@ namespace CTRPluginFramework {
 			cupKbd.ChangeEntrySound(8, SoundEngine::Event::SELECT);
 			cupKbd.ChangeEntrySound(11, SoundEngine::Event::SELECT);
 			cupKbd.ChangeSelectedEntry((isArrow) ? isArrow - 1 : *selectedCupButton);
+			KeyboardEvent e;
+			e.type = KeyboardEvent::EventType::SelectionChanged;
+			e.selectedIndex = (isArrow) ? isArrow - 1 : *selectedCupButton;
+			CupKeyboardCallback(cupKbd, e);
 			if (isArrow == 1) { // Update callback isn't called when the index is 0, for whatever reason
 				int tempval = ((*keyboardArgs.startCupButton)) % (maxButton / 2);
 				getCupKeyboardText(cupKbd.GetMessage(), tempval, *keyboardArgs.topMessage);

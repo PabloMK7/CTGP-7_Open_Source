@@ -220,13 +220,13 @@ namespace CTRPluginFramework {
         static CharacterEntry defaultCharEntry;
         
         static bool updateRaceCharaNamePending;
-        static std::array<u64, 8> selectedCharaceters;
+        static std::array<u64, MAX_PLAYER_AMOUNT> selectedCharaceters;
         static u64 selectedMenuCharacter;
 		static std::vector<std::string> authorNames;
 	    static std::array<std::string, EDriverID::DRIVER_SIZE> origCharNames;
         static std::unordered_map<u64, CharacterEntry> charEntries;
         static std::array<std::vector<CharacterEntry*>, EDriverID::DRIVER_SIZE> charEntriesPerDriverID;
-        static std::array<std::array<u8*, 8>, ECharaIconType::CHARAICONTYPE_SIZE> textureDataPointers;
+        static std::array<std::array<u8*, MAX_PLAYER_AMOUNT>, ECharaIconType::CHARAICONTYPE_SIZE> textureDataPointers;
         static std::array<u8*, EDriverID::DRIVER_SIZE> menuSelectTextureDataPointers;
         static std::array<u8*, EDriverID::DRIVER_SIZE> originalSelectUIfiles;
         static u8* menuKartTextureDataPointers[3][EBodyID::BODY_SIZE][EDriverID::DRIVER_SIZE];

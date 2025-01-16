@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1552/1563 (99.30%)
+Open source lines: 1556/1567 (99.30%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -544,6 +544,10 @@ namespace CTRPluginFramework {
         if (firstEntry < 0) panic("The selected world is empty.");
         kbd.Populate(opts);
         kbd.ChangeSelectedEntry(firstEntry);
+        KeyboardEvent e;
+        e.type = KeyboardEvent::EventType::SelectionChanged;
+        e.selectedIndex = firstEntry;
+        OnKbdEvent(kbd, e);
         int choose = -1;
         do {
             choose = kbd.Open();
