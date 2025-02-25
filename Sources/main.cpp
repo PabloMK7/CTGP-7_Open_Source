@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 400/413 (96.85%)
+Open source lines: 418/431 (96.98%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -106,12 +106,30 @@ namespace CTRPluginFramework
 	#ifdef INSTRUMENT_FUNCTIONS
 	void init_instrumentation();
 	#endif
+	
+	class CustomRandomBackend : public Utils::RandomBackend {
+	public:
+		void Seed(u64 seed) override {
+			random.Init((u32)(seed >> 32));
+			random.Init(random.Get() ^ ((u32)(seed)));
+		}
+        u32 Random(void) override {
+			return random.Get();
+		}
+	private:
+		SeadRandom random{};
+	};
+	static CustomRandomBackend g_rnd;
+
 	void UseGameStackToInit() {}
     void  PatchProcess(FwkSettings &settings)
     {
 		#ifdef INSTRUMENT_FUNCTIONS
 		init_instrumentation();
 		#endif
+		Utils::UseRandomBackend(&g_rnd);
+		Utils::AutoSeedRandom();
+
 		CrashReport::stateID = CrashReport::StateID::STATE_PATCHPROCESS;
 
 		BootSceneHandler::Initialize();
@@ -372,7 +390,7 @@ namespace CTRPluginFramework
         // Run menu
 		LightEvent_Wait(&mainEvent1);
 		mainPluginMenu->Run();
-        delete mainPluginMenu;
+        // delete mainPluginMenu; <</ Crashes
 
         // Exit plugin
         return (0);

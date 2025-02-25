@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 1046/1046 (100.00%)
+Open source lines: 1064/1066 (99.81%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -71,10 +71,16 @@ namespace CTRPluginFramework {
 
 	void BadgeManager::Initialize()
 	{
+		saved_badges.clear();
 		SaveHandler::SaveFile::LoadStatus status;
-		saved_badges = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::BADGES, status);
-		if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS) {
-			saved_badges.clear();
+		minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::BADGES, status);
+		u64 scID = doc.get<u64>("cID", 0);
+		if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
+		#ifdef ALLOW_SAVES_FROM_OTHER_CID
+		|| true
+		#endif
+		)) {
+			saved_badges = doc;
 		}
 	}
 
@@ -82,6 +88,7 @@ namespace CTRPluginFramework {
     {
         std::vector<std::pair<u64, u64>> temp;
 		for (auto it = saved_badges.begin(); it != saved_badges.end(); it++) {
+			if (it->first == "cID") continue;
 			u64 key = std::strtoll(it->first.c_str(), NULL, 10);
 			u64 time = 0;
 			if (it->second->get_node_code() == minibson::bson_node_type::document_node) {
@@ -138,6 +145,7 @@ namespace CTRPluginFramework {
 		}
 
 		for (auto it = saved_badges.begin(); it != saved_badges.end(); it++) {
+			if (it->first == "cID") continue;
 			u64 key = std::strtoll(it->first.c_str(), NULL, 10);
 			my_badges.insert(key);
 		}
@@ -362,6 +370,7 @@ namespace CTRPluginFramework {
 
     void BadgeManager::CommitToFile()
     {
+		saved_badges.set("cID", NetHandler::GetConsoleUniqueHash());
 		SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::BADGES, saved_badges);
     }
 
@@ -503,10 +512,17 @@ namespace CTRPluginFramework {
 
     void StatsHandler::Initialize()
     {
-		SaveHandler::SaveFile::LoadStatus status;
-		statsDoc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::STATS, status);
-		if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS) {
-			statsDoc.clear();
+		{
+			SaveHandler::SaveFile::LoadStatus status;
+			minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::STATS, status);
+			u64 scID = doc.get<u64>("cID", 0);
+			if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
+			#ifdef ALLOW_SAVES_FROM_OTHER_CID
+			|| true
+			#endif
+			)) {
+				statsDoc = doc;
+			}
 		}
 
 		if (!statsDoc.contains<minibson::document>("Uploaded")) {
@@ -549,6 +565,7 @@ namespace CTRPluginFramework {
 	{
 		{
 			Lock lock(statsDocMutex);
+			statsDoc.set("cID", NetHandler::GetConsoleUniqueHash());
 			SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::STATS, statsDoc);
 		}
 		BadgeManager::CommitToFile();
@@ -586,6 +603,7 @@ namespace CTRPluginFramework {
 		ret.set<bool>("all10pts", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
 		ret.set<bool>("vr5000", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
 		ret.set<bool>("bluecoin", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
+		ret.set<bool>("watchedcredits", SaveHandler::saveData.flags1.creditsWatched);
 
 		ret.set<int>("version", achievementReportVersion);
 		return ret;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.cpp
-Open source lines: 38/38 (100.00%)
+Open source lines: 66/66 (100.00%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -34,5 +34,33 @@ namespace CTRPluginFramework {
         if (keyData & 0x8 || keyData & 0x2000)
             ret.item = true;
         return ret;
+    }
+
+    void SeadRandom::Init(u32 seed)
+    {
+        elements[0] = multValue * (seed ^ (seed >> 30)) + 1;
+        elements[1] = multValue * (elements[0] ^ (elements[0] >> 30)) + 1;
+        elements[2] = multValue * (elements[1] ^ (elements[1] >> 30)) + 1;
+        elements[3] = multValue * (elements[2] ^ (elements[2] >> 30)) + 1;
+    }
+    u32 SeadRandom::Get()
+    {
+        u32 el0 = elements[0];
+        u32 el1 = elements[1];
+        u32 el2 = elements[2];
+        u32 el3 = elements[3];
+        u32 ret = el0 ^ (el0 << 11) ^ ((el0 ^ (el0 << 11)) >> 8) ^ el3 ^ (el3 >> 19);
+        elements[0] = el1;
+        elements[1] = el2;
+        elements[2] = el3;
+        elements[3] = ret;
+        return ret;
+    }
+    u32 SeadRandom::Get(u32 low, u32 high)
+    {
+        u32 random = Get();
+        u32 size = high - low;
+        u32 chosen = (u32)(((u64)random * (u64)size) >> 32);
+        return chosen + low;
     }
 }

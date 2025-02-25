@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 734/742 (98.92%)
+Open source lines: 735/743 (98.92%)
 *****************************************************/
 
 #include "types.h"
@@ -34,7 +34,7 @@ Open source lines: 734/742 (98.92%)
 #include "QrCode.hpp"
 
 u32 g_currMenuVal = 0;
-u8 g_isOnlineMode = (CTRPluginFramework::Utils::Random() | 2) & ~0x1;
+u8 g_isOnlineMode = 2;
 
 
 
@@ -542,6 +542,7 @@ namespace CTRPluginFramework
 			kbd.ChangeEntrySound(0, (SaveHandler::saveData.flags1.uploadStats) ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			kbd.ChangeEntrySound(3, SoundEngine::Event::CANCEL);
 			opt = kbd.Open();
+			g_showingQR = false;
 			switch (opt)
 			{
 			case 0:

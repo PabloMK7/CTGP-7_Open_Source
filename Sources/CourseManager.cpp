@@ -36,8 +36,8 @@ namespace CTRPluginFramework
 {
 	u32 CourseManager::lastLoadedCourseID = 0;
 	bool CourseManager::getBGMFromNormalLap = true;
-	u8 CourseManager::customTracksAllowedFlag = (Utils::Random() | 1) & ~0x2;
-	u8 CourseManager::originalTracksAllowedFlag = (Utils::Random() | 1) & ~0x2;
+	u8 CourseManager::customTracksAllowedFlag = 1;
+	u8 CourseManager::originalTracksAllowedFlag = 1;
 	void (*CourseManager::BaseMenuButtonControl_setTex)(u32 buttonObject, u32 texPtrn, u32 texID) = NULL;
 	void (*CourseManager::MenuSingle_CupBase_buttonHandler_OK)(u32 menuObject, u32 cupID) = NULL;
 	u32  (*CourseManager::Sequence_GetGPCourseNameID)(u32 cup, u32 track) = NULL;

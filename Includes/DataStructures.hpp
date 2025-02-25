@@ -4,12 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.hpp
-Open source lines: 913/913 (100.00%)
+Open source lines: 924/924 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "Math.hpp"
+#include <array>
 
 #define MAX_PLAYER_AMOUNT 8
 
@@ -910,4 +911,14 @@ namespace CTRPluginFramework {
         friend void initPatches();
         static void (*CalcImpl)(SndLfoSin* myself);
      };
+
+    class SeadRandom {
+    public:
+        void Init(u32 seed);
+        u32 Get();
+        u32 Get(u32 low, u32 high); // [low, high)
+    private:
+        static constexpr u32 multValue = 0x6C078965;
+        std::array<u32, 4> elements;
+    };
 }
