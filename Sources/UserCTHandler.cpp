@@ -320,14 +320,14 @@ namespace CTRPluginFramework {
     void UserCTHandler::initSkipConfig() {
 #ifdef GOTO_TOADCIRCUIT
         skipConfig.enabled = true;
-        skipConfig.skipCoursePreview = false;
-        skipConfig.cpuAmount = 1;
+        skipConfig.skipCoursePreview = true;
+        skipConfig.cpuAmount = 8;
         skipConfig.driverID = EDriverID::DRIVER_YOSHI;
         skipConfig.bodyID = EBodyID::BODY_DSH;
         skipConfig.tireID = ETireID::TIRE_BIGRED;
         skipConfig.wingID = EWingID::WING_BASA;
-        skipConfig.itemID = EItemSlot::ITEM_KOURAB;
-        skipConfig.useLeftToFinish = true;
+        skipConfig.itemID = -1;
+        skipConfig.useLeftToFinish = false;
         skipConfig.courseID = 4;
 #else
         skipConfig.enabled = false;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandlerInfos.hpp
-Open source lines: 153/153 (100.00%)
+Open source lines: 156/156 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -66,6 +66,7 @@ namespace CTRPluginFramework {
 		"_8",   // VOICE_CHAT_SERVER
 		"_9",   // USE_BADGE_ONLINE
 		"_a",   // NEEDS_BADGE_OBTAINED_MSG
+		"_b",   // BLUE_SHELL_DODGE_AMOUNT
 	};
 
 	class CTGP7SaveInfo
@@ -142,6 +143,8 @@ namespace CTRPluginFramework {
 
 			USE_BADGE_ONLINE,
 			NEEDS_BADGE_OBTAINED_MSG,
+
+			BLUE_SHELL_DODGE_AMOUNT,
 		};
 
 		static constexpr const char* getSaveCode(CTGP7SaveCode saveCode) {

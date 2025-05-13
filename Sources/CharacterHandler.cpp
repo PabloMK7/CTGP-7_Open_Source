@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2148/2151 (99.86%)
+Open source lines: 2156/2159 (99.86%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -446,6 +446,7 @@ namespace CTRPluginFramework {
 		
 		newEntry.creditsAllowed = parser.getEntry("allowThankYou") == "true";
 		newEntry.rotateChara = parser.getEntry("rotate") == "true";
+		newEntry.syncJumpVoiceAnim = parser.getEntry("syncJumpVoiceAnim") == "true";
 
 		newEntry.achievementLevel = 0;
 		std::string achievementLevel = parser.getEntry("achievementLevel");
@@ -602,6 +603,7 @@ namespace CTRPluginFramework {
 	void CharacterHandler::ConfirmCharacters() {
 		MarioKartFramework::allowWigglerAngry = true;
 		MarioKartFramework::rotateCharacterID = 0;
+		MarioKartFramework::syncJumpVoiceCharacterID = 0;
 		if (!MarioKartFramework::isLoadingAward) do {
 			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 				ApplyOnlineSelectedCharacters();
@@ -647,6 +649,8 @@ namespace CTRPluginFramework {
 				MarioKartFramework::allowWigglerAngry = false;
 			if (it->second.rotateChara && MarioKartFramework::rotateCharacterID == 0 && (i == MarioKartFramework::masterPlayerID || MarioKartFramework::isLoadingAward))
 				MarioKartFramework::rotateCharacterID = selectedCharaceters[i];
+			if (i == MarioKartFramework::masterPlayerID && it->second.syncJumpVoiceAnim)
+				MarioKartFramework::syncJumpVoiceCharacterID = selectedCharaceters[i];
 		}
 		DisableOnlineLock();
 	}
@@ -1110,6 +1114,8 @@ namespace CTRPluginFramework {
 			}
 			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::ALL_BLUE_COINS] = CryptoResource::GetKnownFileIDAllowed(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN);
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, true);
+			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL] = CryptoResource::GetKnownFileIDAllowed(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE);
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, true);
 		} else if (!enabled && g_watchAchievCharsPopulated) {
 			g_watchAchievCharsPopulated = false;
 			for (int i = 0; i < SaveHandler::TOTAL_ACHIEVEMENTS; i++) {
@@ -1119,6 +1125,8 @@ namespace CTRPluginFramework {
 			}
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::ALL_BLUE_COINS]);
 			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::ALL_BLUE_COINS] = false;
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL]);
+			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL] = false;
 		}
 	}
 

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2391/2754 (86.82%)
+Open source lines: 2393/2756 (86.83%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -84,6 +84,7 @@ namespace CTRPluginFramework {
     std::array<int, EDriverID::DRIVER_SIZE> MenuPageHandler::MenuCharaBasePage::currentChoices{};
     void (*MenuPageHandler::MenuCharaBasePage::deallocateBackup)(GameSequenceSection* own) = nullptr;
     void (*MenuPageHandler::MenuCharaBasePage::multiOnTimeUpCompleteStepBackup)(GameSequenceSection* own, int unk) = nullptr;
+    EDriverID MenuPageHandler::MenuCharaBasePage::lastSelectedDriverID = EDriverID::DRIVER_SIZE;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::destructorHook;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::initControlHook;
     RT_HOOK MenuPageHandler::MenuCharaBasePage::pageEnterHook;
@@ -2091,6 +2092,7 @@ namespace CTRPluginFramework {
 		CharacterHandler::potentialCrashReason = "";
         for (int i = 0; i < EDriverID::DRIVER_SIZE; i++)
             page->UpdateDriverIcon((EDriverID)i, true);
+        lastSelectedDriverID = GetSelectedDriverID(own);
         ((void(*)(GameSequenceSection*))pageExitHook.callCode)(own);
     }
 

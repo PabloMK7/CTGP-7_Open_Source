@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 208/212 (98.11%)
+Open source lines: 212/216 (98.15%)
 *****************************************************/
 
 #pragma once
@@ -175,7 +175,10 @@ namespace CTRPluginFramework {
 		static std::string allowedTracks;
 		static std::string allowedItems;
 		static float vrMultiplier;
+		static float specialCharVrMultiplier; //NOTE: Does not sync properly
+		static bool useSpecialCharVRMultiplier;
 		static std::vector<u64> whiteListedCharacters;
+		static std::vector<u64> specialVRCharacters;
 		static std::string myServerName;
 		static std::string othersServerNames[MAX_PLAYER_AMOUNT];
 		static u64 othersBadgeIDs[MAX_PLAYER_AMOUNT];
@@ -194,6 +197,7 @@ namespace CTRPluginFramework {
 
 		static void applyAllowedItems();
 		static void applyBlockedTrackList();
+		static void applySpecialCharVRMultiplayer();
 
 		static s32 reportUltraShortcutTaskfunc(void* arg);
 

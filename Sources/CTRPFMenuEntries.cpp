@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 735/743 (98.92%)
+Open source lines: 744/752 (98.94%)
 *****************************************************/
 
 #include "types.h"
@@ -576,7 +576,7 @@ namespace CTRPluginFramework
 	void achievementsEntryHandler(MenuEntry* entry) {
 		bool wasMissionMode = MissionHandler::isMissionMode;
 		MissionHandler::isMissionMode = false;
-		constexpr int normalPages = 3;
+		constexpr int normalPages = 5;
 		auto generateAchievementsText = [](int page, int totalMenu) -> std::string {
 			auto genTextAchv = [](const std::string& text, bool completed) -> std::string {
 				std::string ret = "- ";
@@ -607,9 +607,13 @@ namespace CTRPluginFramework
 				topStr += genTextAchv(NAME("3star_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_THREE_STAR));
 				topStr += genTextAchv(NAME("10pts_msn_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
 				topStr += genTextAchv(NAME("5000vr_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
-				topStr += std::string("\n") + NOTE("types_achievs") + ":" + "\n";
-				topStr += genTextAchv(NAME("blue_coin_achiev"), SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
 			} else if (page == 1) {
+				topStr += "\n" + CenterAlign( ToggleDrawMode(Render::UNDERLINE) + NAME("summary") + ToggleDrawMode(Render::UNDERLINE)) + "\n";
+				topStr += NOTE("types_achievs") + ":" + "\n";
+				topStr += genTextAchv(NAME("blue_coin_achiev"), SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
+				topStr += "\n" + NAME("types_achievs_optional") + ":" + "\n";
+				topStr += genTextAchv(NAME("dodged_blue_achiev"), SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL));
+			} else if (page == 2) {
 				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("custom_track_cups") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
 				auto progressGold = SaveHandler::CupRankSave::CheckModSatisfyProgress(SaveHandler::CupRankSave::SatisfyCondition::GOLD);
 				auto progress1Star = SaveHandler::CupRankSave::CheckModSatisfyProgress(SaveHandler::CupRankSave::SatisfyCondition::ONE_STAR);
@@ -637,7 +641,7 @@ namespace CTRPluginFramework
 				topStr += star3 + SkipToPixel(120) + cc50 + ": " + genProgressString(progress3Star.second[0], tot) + ", " + cc100 + ": " + genProgressString(progress3Star.second[1], tot) + "\n" +
 							SkipToPixel(120) + cc150 + ": " + genProgressString(progress3Star.second[2], tot) + ", " + ccMirror + ": " + genProgressString(progress3Star.second[3], tot);
 				
-			} else if (page == 2) {
+			} else if (page == 3) {
 				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("ms_miss") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
 				auto prog = MissionHandler::SaveData::GetAllFullGradeFlag();
 				topStr += ((prog.second >= prog.first) ? (std::string() << Color::Lime) : "") + NAME("tro_10pts") + ResetColor() + ":";
@@ -651,6 +655,11 @@ namespace CTRPluginFramework
 				topStr += ((maxVR >= totalVR) ? (std::string() << Color::Lime) : "") + NAME("vr") + ResetColor() + ":";
 				topStr += SkipToPixel(120) + NAME("ctww") + ": " + genProgressString(ctwwVR, totalVR) + "\n" +
 							SkipToPixel(120) + NAME("cntdwn") + ": " + genProgressString(cdVR, totalVR);
+			} else if (page == 4) {
+				topStr += "\n\n";
+				topStr += ((SaveHandler::saveData.blueShellDodgeAmount >= SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT) ? (std::string() << Color::Lime) : "") + NAME("dodged_blue_amount") + ResetColor() + ":";
+				topStr += SkipToPixel(240) + genProgressString(SaveHandler::saveData.blueShellDodgeAmount, SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT);
+				topStr += HorizontalSeparator();
 			} else if (page >= normalPages) {
 				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("blue_coins") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
 				u32 curr = BlueCoinChallenge::GetCollectedCoinCount();

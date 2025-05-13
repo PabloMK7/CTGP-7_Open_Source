@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.cpp
-Open source lines: 1330/1332 (99.85%)
+Open source lines: 1412/1414 (99.86%)
 *****************************************************/
 
 #include "ItemHandler.hpp"
@@ -15,12 +15,13 @@ Open source lines: 1330/1332 (99.85%)
 #include "main.hpp"
 #include "CwavReplace.hpp"
 #include "ExtraUIElements.hpp"
+#include "SaveHandler.hpp"
 
 namespace CTRPluginFramework {
 
-    u32 ItemHandler::extraKouraG = 0;
-    u32 ItemHandler::extraKouraR = 0;
-    u32 ItemHandler::extraKouraB = 0;
+    s32 ItemHandler::extraKouraG = 0;
+    s32 ItemHandler::extraKouraR = 0;
+    s32 ItemHandler::extraKouraB = 0;
 
     u32 ItemHandler::fakeBoxDirector = 0;
     u32 ItemHandler::megaMushDirector = 0;
@@ -30,6 +31,9 @@ namespace CTRPluginFramework {
 
     u32 ItemHandler::kartHoldItemFrames[MAX_PLAYER_AMOUNT];
     RT_HOOK ItemHandler::kartItemCalcAfterStructureHook = { 0 };
+
+    MarioKartTimer ItemHandler::blueShellDodgeTimer[8] = {0};
+    bool ItemHandler::blueShellDodged[8] = {0};
 
     ItemHandler::ItemDirectorVtable* ItemHandler::FakeBoxHandler::directorVtable = nullptr;
     ItemHandler::FakeBoxHandler::FakeBoxData* ItemHandler::FakeBoxHandler::fakeBoxData[FakeBoxAmount];
@@ -71,6 +75,8 @@ namespace CTRPluginFramework {
 
     u32 ItemHandler::GameAddr::itemObjStateInitUse = 0;
 
+    u32 ItemHandler::GameAddr::itemDirectorClearItem = 0;
+
     ItemHandler::ItemObjVtable* ItemHandler::GameAddr::starVtable = (decltype(ItemHandler::GameAddr::starVtable))0x625F14;
     ItemHandler::ItemDirectorVtable* ItemHandler::GameAddr::starDirectorVtable = (decltype(ItemHandler::GameAddr::starDirectorVtable))0x00626E5C;
 
@@ -82,6 +88,22 @@ namespace CTRPluginFramework {
     void* ItemHandler::MegaMushHandler::shrinkSound = nullptr;
     void* ItemHandler::MegaMushHandler::megaTheme = nullptr;
     u8 ItemHandler::MegaMushHandler::growMapFacePending[MAX_PLAYER_AMOUNT] = {0};
+
+    bool ItemHandler::isBlueShellShowdown = false;
+    bool ItemHandler::isLessThan30Seconds = false;
+    bool ItemHandler::nextForcedIBStop = false;
+
+    void ItemHandler::SetBlueShellShowdown(bool enable) {
+        isBlueShellShowdown = enable;
+        if (enable) {
+            extraKouraG = extraKouraR = -4;
+            extraKouraB = 8;
+        } else {
+            extraKouraB = extraKouraG = extraKouraR = 0;
+            isLessThan30Seconds = false;
+            nextForcedIBStop = false;
+        }
+    }
 
     void ItemHandler::Initialize() {
         FakeBoxHandler::Initialize();
@@ -619,6 +641,21 @@ namespace CTRPluginFramework {
             SeadArrayPtr<u32*>& kartItems = *(SeadArrayPtr<u32*>*)(itemDirector + 0xC0);
             UseItem(itemDirector, EItemSlot::ITEM_TEST4, kartItems[playerID]);
         }*/
+        if (iType == EItemType::ITYPE_KOURAB) {
+            u32 targetPlayerID = ((u32*)objBase)[0x28C/4];
+            if (playerID == targetPlayerID) {
+                u8 colType = objBase[0x2C8];
+                if (colType != 0) {
+                    bool isDodging = objBase[0x2F8] != 0;
+                    if (blueShellDodgeTimer[playerID] == 0) {
+                        blueShellDodged[playerID] = isDodging;
+                    } else {
+                        if (!isDodging) blueShellDodged[playerID] = false;
+                    }
+                    blueShellDodgeTimer[playerID] = MarioKartTimer(2);
+                }
+            }
+        }
         return iType;
     }
 
@@ -685,6 +722,51 @@ namespace CTRPluginFramework {
         kartHoldItemFrames[playerID] = 0;
         MarioKartFramework::packunStunCooldownTimers[playerID] = 0;
         MarioKartFramework::loopVoiceCooldown[playerID] = 0;
+        blueShellDodgeTimer[playerID] = 0;
+        blueShellDodged[playerID] = false;
+    }
+
+    void ItemHandler::OnVehicleCalc(u32 vehicle) {
+        int playerID = ((u32*)vehicle)[0x84/4];
+        if (blueShellDodgeTimer[playerID] != 0) {
+            if (--blueShellDodgeTimer[playerID] == 0 && blueShellDodged[playerID]) {
+                if (playerID == MarioKartFramework::masterPlayerID) {
+                    if (SaveHandler::saveData.blueShellDodgeAmount < SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT) {
+                        Snd::PlayMenu(Snd::PAUSE_OFF);
+                    }
+                    SaveHandler::saveData.blueShellDodgeAmount++;
+                }
+            }
+        }
+        if (isBlueShellShowdown && playerID == MarioKartFramework::masterPlayerID) {
+            if (Controller::IsKeyPressed(Key::DPadLeft)) {
+                ItemSlotStatus status = GetItemSlotStatus(playerID);
+                if (status.mode == ItemSlotStatus::MODE_DECIDED && status.item == EItemSlot::ITEM_KOURAB) {
+                    ((void(*)(u32, int))GameAddr::itemDirectorClearItem)(MarioKartFramework::getItemDirector(), playerID);
+                    MarioKartFramework::nextForcedItem = EItemSlot::ITEM_KINOKO;
+                    nextForcedIBStop = true;
+                    MarioKartFramework::startItemSlot(playerID, 0);
+                }
+            }
+        }
+    }
+
+    ItemHandler::ItemSlotStatus ItemHandler::GetItemSlotStatus(int playerID)
+    {
+        ItemSlotStatus ret{};
+        u32 itemDirector = MarioKartFramework::getItemDirector();
+        SeadArrayPtr<u32*>& kartItemArray = *(SeadArrayPtr<u32*>*)(itemDirector + 0xC0);
+        u32* kartItem = kartItemArray[playerID];
+        if (kartItem == nullptr) {
+            return ret;
+        }
+        ret.goldenTimer = ((int*)kartItem)[0x54/4];
+        u32 itemSlot = kartItem[0x34/4];
+        u8 mode = ((u8*)itemSlot)[0x10];
+        EItemSlot item = ((EItemSlot*)itemSlot)[0x30/4];
+        ret.mode = mode;
+        ret.item = item;
+        return ret;
     }
 
     void ItemHandler::FakeBoxHandler::Initialize() {

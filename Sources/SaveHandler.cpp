@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 532/535 (99.44%)
+Open source lines: 552/555 (99.46%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -74,6 +74,8 @@ namespace CTRPluginFramework {
 		}
 		if (saveData.IsSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS))
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, true);
+		if (saveData.IsSpecialAchievementCompleted(SpecialAchievements::DODGED_BLUE_SHELL))
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, true);
 	}
 
 	void SaveHandler::UpdateAchievementsConditions() {
@@ -113,6 +115,13 @@ namespace CTRPluginFramework {
 		if (!SaveHandler::saveData.IsSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS) && !SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS)) {
 			if (BlueCoinChallenge::GetCollectedCoinCount() >= BlueCoinChallenge::GetTotalCoinCount()) {
 				SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS, true);
+				justGranted = true;
+			}
+		}
+
+		if (!SaveHandler::saveData.IsSpecialAchievementCompleted(SpecialAchievements::DODGED_BLUE_SHELL) && !SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL)) {
+			if (saveData.blueShellDodgeAmount >= BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT) {
+				SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL, true);
 				justGranted = true;
 			}
 		}
@@ -190,7 +199,17 @@ namespace CTRPluginFramework {
 			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
 			return true;
-		} 
+		} else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL)) {
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
+			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_dodged_blue"));
+			g_processing_achievements = true;
+			SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL, false);
+			SaveHandler::saveData.SetSpecialAchievementCompleted(SpecialAchievements::DODGED_BLUE_SHELL, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
+			SaveHandler::SaveSettingsAll();
+			return true;
+		}
 
 		else {
 			if (g_processing_achievements && MarioKartFramework::isDialogOpened()) return true;
@@ -220,9 +239,9 @@ namespace CTRPluginFramework {
 				return true;
 			}
 			if (lastSpecialAchievements != SaveHandler::saveData.specialAchievements) {
-				SpecialAchievements next;
+				SpecialAchievements next = SpecialAchievements::NONE;
 				for (int i = 0; i < 32; i++) {
-					if ((lastSpecialAchievements & (1 << i)) != (SaveHandler::saveData.specialAchievements & (1 << i))) {
+					if (((SaveHandler::saveData.specialAchievements & (1 << i)) != 0) && ((lastSpecialAchievements & (1 << i)) == 0)) {
 						next = (SpecialAchievements)i;
 						break;
 					}
@@ -247,7 +266,8 @@ namespace CTRPluginFramework {
 					}
 				}
 				g_lastCharShown = CharacterHandler::GetCharEntries().begin();
-				lastSpecialAchievements |= (1 << (u32)next);
+				if (next != SpecialAchievements::NONE)
+					lastSpecialAchievements |= (1 << (u32)next);
 				return true;
 			}
 		}

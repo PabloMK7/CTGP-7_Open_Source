@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BootSceneHandler.hpp
-Open source lines: 82/82 (100.00%)
+Open source lines: 79/79 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -74,9 +74,6 @@ namespace CTRPluginFramework {
         static Color LogoBlend(const Color& dst, const Color& src);
         static Color VersionBlend(const Color& dst, const Color& src);
         static ProgressHandle gameProgressHandle;
-        #if CITRA_MODE == 1
-        static u16 emulationSpeedBackup;
-        #endif
         BootSceneHandler() = delete;
     };
 }

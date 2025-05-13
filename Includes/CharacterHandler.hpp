@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.hpp
-Open source lines: 301/301 (100.00%)
+Open source lines: 302/302 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -49,6 +49,7 @@ namespace CTRPluginFramework {
                     u32 disableAngry : 1;
                     u32 selectAllowed : 1;
                     u32 rotateChara : 1;
+                    u32 syncJumpVoiceAnim : 1;
                 };
 		};
         static void RegisterProgress();

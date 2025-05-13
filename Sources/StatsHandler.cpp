@@ -603,6 +603,7 @@ namespace CTRPluginFramework {
 		ret.set<bool>("all10pts", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
 		ret.set<bool>("vr5000", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
 		ret.set<bool>("bluecoin", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
+		ret.set<bool>("dodgedblue", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL));
 		ret.set<bool>("watchedcredits", SaveHandler::saveData.flags1.creditsWatched);
 
 		ret.set<int>("version", achievementReportVersion);
@@ -872,7 +873,6 @@ namespace CTRPluginFramework {
 				break;
 			}
 		}
-		SaveHandler::SaveSettingsAll();
 	}
 
 	void StatsHandler::OnMissionFinish(int missionGrade, bool checksumValid, int world) {

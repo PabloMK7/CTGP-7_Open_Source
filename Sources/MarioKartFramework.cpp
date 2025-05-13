@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 3667/3773 (97.19%)
+Open source lines: 3696/3802 (97.21%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -43,6 +43,7 @@ extern "C" u32 g_altGameModeIsRaceOver;
 extern "C" u32 g_altGameModeplayerStatPointer;
 extern "C" u32 g_altGameModeHurryUp;
 extern "C" u32 g_downTimerStartTime;
+extern "C" u32 g_lastChosenTrickVoiceVariant;
 
 namespace CTRPluginFramework {
 	extern "C" void drawMdlReplaceTextureRefThunk(void* cgfxRes, SafeStringBase* dst, SafeStringBase* src, void* funcptr);
@@ -201,7 +202,8 @@ namespace CTRPluginFramework {
 	RT_HOOK MarioKartFramework::enemyAIControlRaceUpdateHook = { 0 };
 	u8 MarioKartFramework::onMasterStartKillerPosition;
 	RT_HOOK MarioKartFramework::loadResGraphicFileHook = { 0 };
-	u64 MarioKartFramework::rotateCharacterID = false;
+	u64 MarioKartFramework::rotateCharacterID = 0;
+	u64 MarioKartFramework::syncJumpVoiceCharacterID = 0;
 	u8 MarioKartFramework::characterRotateAmount[MAX_PLAYER_AMOUNT];
 	RT_HOOK MarioKartFramework::jugemSwitchReverseUpdateHook = {0};
 	bool MarioKartFramework::useCustomItemProbability = false;
@@ -358,6 +360,7 @@ namespace CTRPluginFramework {
 			MissionHandler::OnRaceFinish();
 			if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
 			if (BlueCoinChallenge::coinSpawned) BlueCoinChallenge::DespawnCoin();
+			SaveHandler::SaveSettingsAll();
 		}
 		else if (raceEventID == 4 && g_isFoolActive)
 		{
@@ -1214,12 +1217,15 @@ namespace CTRPluginFramework {
 				bannedUltraShortcuts.clear();
 				Net::vrMultiplier = 1.f;
 				Net::allowedTracks = "";
+				Net::specialCharVrMultiplier = 1.f;
+				Net::useSpecialCharVRMultiplier = false;
 				for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 					Net::othersBadgeIDs[i] = 0;
 				}
 				resetdriverchoices();
 				MarioKartFramework::SetWatchRaceMode(false);
 				MarioKartFramework::ClearCustomItemMode();
+				ItemHandler::SetBlueShellShowdown(false);
 				currCommNumberTracksPtr = nullptr;
 				g_firstTimeInPage = false;
 				g_needsToCheckUpdate = true;
@@ -1374,6 +1380,9 @@ namespace CTRPluginFramework {
 		Net::privateRoomID = 0;
 		Net::vrMultiplier = 1.f;
 		Net::whiteListedCharacters.clear();
+		Net::specialVRCharacters.clear();
+		Net::useSpecialCharVRMultiplier = false;
+		Net::specialCharVrMultiplier = 1.f;
 		Net::allowedTracks = "";
 		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 			Net::othersServerNames[i].clear();
@@ -1396,6 +1405,7 @@ namespace CTRPluginFramework {
 		g_hasGameReachedTitle = true;
 		bannedUltraShortcuts.clear();
 		ClearCustomItemMode();
+		ItemHandler::SetBlueShellShowdown(false);
 		
 		StatsHandler::UploadStats();
 		BadgeManager::ClearBadgeCache();
@@ -2018,6 +2028,9 @@ namespace CTRPluginFramework {
 		}
 		u16 totalProb = 0;
 		if (!bulletBillAllowed) blockedBitFlag |= (1 << EItemSlot::ITEM_KILLER);
+		if (ItemHandler::isBlueShellShowdown && !ItemHandler::isLessThan30Seconds) {
+			blockedBitFlag &= ~(1 << EItemSlot::ITEM_KOURAB);
+		}
 		for (int i = 0; i < EItemSlot::ITEM_SIZE; i++) {
 			if ((blockedBitFlag & (1 << i)) == 0 || nextForcedItem >= 0) {
 				u16 currProb = (nextForcedItem >= 0) ? ((i == nextForcedItem) ? 200 : 0) : CsvParam_getDataInt(csvPtr, rowIndex, i);
@@ -2046,7 +2059,9 @@ namespace CTRPluginFramework {
 	}
 
 	const char* MarioKartFramework::getOnlineItemTable(bool isAI) {
-		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
+		if (ItemHandler::isBlueShellShowdown)
+			return isAI ? "ItemSlotTable_BlueShow_AI" : "ItemSlotTable_BlueShow";
+		else if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD)
 			return isAI ? "ItemSlotTable_WiFi_AI" : "ItemSlotTable_CD";
 		else if ((g_getCTModeVal == CTMode::ONLINE_CTWW || (currentRaceMode.type == 1 && (currentRaceMode.mode == 2 || currentRaceMode.mode == 0))))
 			return isAI ? "ItemSlotTable_CTWW_AI" : "ItemSlotTable_CTWW";
@@ -2150,6 +2165,9 @@ namespace CTRPluginFramework {
 		}
 		else ++mainTimer;
 		timer[1] = mainTimer.GetFrames();
+		if (ItemHandler::isBlueShellShowdown) {
+			ItemHandler::isLessThan30Seconds = mainTimer < MarioKartTimer(0, 30, 0);
+		}
 		raceTimerOnFrame();
 	}
 
@@ -2419,6 +2437,11 @@ namespace CTRPluginFramework {
 	void MarioKartFramework::startJumpActionCallback(u32* vehicleMoveObj)
 	{
 		int playerID = vehicleMoveObj[0x21];
+		if (playerID == masterPlayerID && CharacterHandler::GetSelectedCharacter(playerID) == syncJumpVoiceCharacterID) {
+			g_lastChosenTrickVoiceVariant = 0xFFFFFFFF;
+		} else {
+			g_lastChosenTrickVoiceVariant = 0xFFFFFFFE;
+		}
 		trickInfos[playerID].doFasterBoost = false;
 		if (trickInfos[playerID].trickCooldown != MarioKartTimer(0)) return;
 		KartFlags& flags = KartFlags::GetFromVehicle((u32)vehicleMoveObj);
@@ -2623,7 +2646,12 @@ namespace CTRPluginFramework {
 #ifdef NO_DISCONNECT_ONLINE
 		*currTimer = 0; *secondaryTimer = 0.f;
 #else
-		if (++(*currTimer) > MarioKartTimer::ToFrames(0, 12, 0))
+		
+		u32 disconnectTimer = MarioKartTimer::ToFrames(0, 12, 0);
+		if (ItemHandler::isBlueShellShowdown)
+			disconnectTimer = MarioKartTimer::ToFrames(0, 24, 0);
+
+		if (++(*currTimer) > disconnectTimer)
 			kartinfo[0x24/4] |= 8;
 		
 		if (graceDokanPeriod != MarioKartTimer(0)) {--graceDokanPeriod; *currTimer = 0; *secondaryTimer = 0.f;}
@@ -2999,6 +3027,7 @@ namespace CTRPluginFramework {
 				ItemHandler::MegaMushHandler::SetMapFaceState(playerID, true);
 			ItemHandler::MegaMushHandler::growMapFacePending[playerID]--;
 		}
+		ItemHandler::OnVehicleCalc((u32)vehicleMove);
 	}
 
 	void MarioKartFramework::startSizeChangeAnimation(int playerID, float targetSize, bool isGrowing) {
@@ -3310,7 +3339,7 @@ namespace CTRPluginFramework {
 
 	u32 MarioKartFramework::AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement) {
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
-			if (vrIncrement > 0) vrIncrement *= Net::vrMultiplier;
+			if (vrIncrement > 0) vrIncrement *= Net::useSpecialCharVRMultiplier ? Net::specialCharVrMultiplier : Net::vrMultiplier;
 		}
 
 		if (std::abs(vrIncrement) > 1000) {

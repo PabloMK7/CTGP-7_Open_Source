@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 435/435 (100.00%)
+Open source lines: 442/442 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -31,9 +31,11 @@ namespace CTRPluginFramework {
 		enum class SpecialAchievements {
 			NONE = -1,
 			ALL_BLUE_COINS = 0,
+			DODGED_BLUE_SHELL = 1,
 		};
 		static constexpr u32 TOTAL_ACHIEVEMENTS = 5;
-		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 1;
+		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 2;
+		static constexpr u32 BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT = 3;
 		class CupRankSave {
 			public:
 				struct GrandPrixData {
@@ -123,6 +125,8 @@ namespace CTRPluginFramework {
 			char voiceChatServerAddr[0x20];
 
 			u64 useBadgeOnline;
+
+			u32 blueShellDodgeAmount;
 
 			bool IsAchievementPending(Achievements achiev) {
 				return pendingAchievements & (u32)achiev;
@@ -239,6 +243,7 @@ namespace CTRPluginFramework {
 				voiceChatServerAddr[0] = '\0';
 				#endif
 				useBadgeOnline = 0;
+				blueShellDodgeAmount = 0;
 			}
 
 			CTGP7Save(minibson::document& doc) {
@@ -320,6 +325,7 @@ namespace CTRPluginFramework {
 				voiceChatServerAddr[sizeof(voiceChatServerAddr) - 1] = '\0';
 				useBadgeOnline = (u64)doc.get<s64>(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), 0);
 				flags1.needsBadgeObtainedMsg = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), false);
+				blueShellDodgeAmount = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_SHELL_DODGE_AMOUNT), (int)0);
 			}
 			
 			void serialize(minibson::document& doc) {
@@ -371,6 +377,7 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VOICE_CHAT_SERVER), (const char*)voiceChatServerAddr);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), (s64)useBadgeOnline);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), (bool)flags1.needsBadgeObtainedMsg);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_SHELL_DODGE_AMOUNT), (int)blueShellDodgeAmount);
 			}
 		};
 		static CTGP7Save saveData;

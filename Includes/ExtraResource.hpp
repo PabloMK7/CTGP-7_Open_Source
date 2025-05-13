@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.hpp
-Open source lines: 210/229 (91.70%)
+Open source lines: 221/240 (92.08%)
 *****************************************************/
 
 #pragma once
@@ -25,7 +25,8 @@ namespace CTRPluginFramework {
 					u16 byteOrder;
 					u32 fileLength;
 					u32 dataOffset;
-					u32 unknown;
+					u16 version;
+					u16 flags;
 				};
 				struct SFAT {
 					u32 magic;
@@ -39,6 +40,15 @@ namespace CTRPluginFramework {
 					u32 startOffset;
 					u32 endOffset;
 				};
+				struct SFNT {
+					u32 magic;
+					u16 headerLength;
+					u16 reserved;
+
+					bool IsFullHashPrecalculated() {
+						return reserved & 2 != 0;
+					}
+				};
 				struct FileInfo {
 					u32 dataStart{};
 					u32 fileSize{};
@@ -51,6 +61,7 @@ namespace CTRPluginFramework {
 				bool isInMemory;
 				bool processed;
 				bool enabled = true;
+				u64 fullFileHash = 0;
 				
 				SARC(File& sarcFile, bool loadToMemory = true);
 				SARC(u8* data, bool allocateHeap = true);
@@ -205,6 +216,6 @@ namespace CTRPluginFramework {
 			static u32* latestMenuSzsArchive;
 			static bool isValidMenuSzsArchive();
 		private:
-			static constexpr u32 SARCVER = 0xFABA0001;
+			static constexpr u32 SARCVER = 0xFABA0002;
 	};
 }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 747/747 (100.00%)
+Open source lines: 748/748 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -710,6 +710,7 @@ namespace CTRPluginFramework {
         	static RT_HOOK loadResGraphicFileHook;
 			//
 			static u64 rotateCharacterID;
+			static u64 syncJumpVoiceCharacterID;
 			static u8 characterRotateAmount[MAX_PLAYER_AMOUNT];
 			static void OnKartUnitCalcDrawKartOn(u32 kartUnit, float* transformMatrix);
 			//

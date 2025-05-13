@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BootSceneHandler.cpp
-Open source lines: 364/365 (99.73%)
+Open source lines: 354/355 (99.72%)
 *****************************************************/
 
 #include "BootSceneHandler.hpp"
@@ -36,9 +36,6 @@ namespace CTRPluginFramework {
     BootSceneHandler::ProgressHandle BootSceneHandler::gameProgressHandle;
     Mutex BootSceneHandler::progressMutex;
     bool BootSceneHandler::progressChanged = false;
-    #if CITRA_MODE == 1
-    u16 BootSceneHandler::emulationSpeedBackup = 0;
-    #endif
 
     void BootSceneHandler::Initialize() {
         constexpr int gameProgressSteps = 18;
@@ -102,12 +99,7 @@ namespace CTRPluginFramework {
         }
         if (!drawAdded) {
             #if CITRA_MODE == 1
-            s64 out = 0;
-            svcGetSystemInfo(&out, 0x20000, 2);
-            if (out != 0) {
-                emulationSpeedBackup = (u16)out;
-                svcKernelSetState(0x20000, 0);
-            }
+            svcKernelSetState(0x20000, 0);
             #endif
 
             drawAdded = true;
@@ -150,9 +142,7 @@ namespace CTRPluginFramework {
             GameAlloc::game_operator_delete(framebuffer);
 
             #if CITRA_MODE == 1
-            if (emulationSpeedBackup) {
-                svcKernelSetState(0x20000, emulationSpeedBackup);
-            }
+            svcKernelSetState(0x20000, 0xFFFF);
             #endif
         } else {
             Draw();

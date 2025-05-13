@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HookInit.cpp
-Open source lines: 42/3491 (1.20%)
+Open source lines: 42/3525 (1.19%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"

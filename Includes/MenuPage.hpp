@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 774/774 (100.00%)
+Open source lines: 777/777 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -577,6 +577,9 @@ namespace CTRPluginFramework {
                     }
                     return nullptr;
                 }
+                
+                static EDriverID lastSelectedDriverID;
+
                 static u64 GetSelectedCustomCharacterID(EDriverID driverID);
                 void UpdateEntriesString();
                 void UpdateDriverIcon(EDriverID driverID, bool forceReset = false);

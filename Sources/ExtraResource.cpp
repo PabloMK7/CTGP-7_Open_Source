@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 552/727 (75.93%)
+Open source lines: 572/747 (76.57%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -169,6 +169,9 @@ namespace CTRPluginFramework {
 				return page->staffroll->GetStaffRollImage()->GetBclimData();
 			}
 		}
+		if (ItemHandler::isBlueShellShowdown && !strcmp(file->data, "box_kame_wing_r90.bclim")) {
+			return mainSarc->GetFile("UI/race.szs/box_kame_wing_dpad_r90.bclim", fileInfo);
+		}
 		
 		char newFileName[0x100];
 		if (strlen(archiveN) + strlen(file->data) + 2 > 0x100) panic("Invalid SARC file name.");
@@ -218,7 +221,7 @@ namespace CTRPluginFramework {
 		sarcFile.Read(&header, sizeof(Header));
 		if (sarcFile.Tell() - offset != sizeof(Header)) return;
 		if (header.magic != 0x43524153) return;
-		u32 toRead = header.dataOffset - header.headerLength;
+		u32 toRead = header.dataOffset - header.headerLength + 0x80; // Read extra block from data
 		u8* buff = (u8*)::operator new(toRead);
 		if (!buff) return;
 		sarcFile.Seek(header.headerLength, File::SET);
@@ -233,14 +236,21 @@ namespace CTRPluginFramework {
 			::operator delete(buff);
 			return;
 		}
+		SFNT* sfnt = (SFNT*)((uintptr_t)sfat + sfat->headerLength + sfat->nodeCount * sizeof(SFATEntry));
+		if (sfnt->magic != 0x544E4653) {
+			::operator delete(buff);
+			return;
+		}
+		if (sfnt->IsFullHashPrecalculated()) {
+			fullFileHash = *(u64*)((buff + toRead) - 0x80);
+		}
 		hashMultiplier = sfat->hashMultiplier;
 		SFATEntry* nodes = (SFATEntry*)(buff + sfat->headerLength);
-		for (u32 i = 0; i < sfat->nodeCount; i++) {
-			entries.push_back(nodes[i]);
-		}
+		entries.resize(sfat->nodeCount);
+		memcpy(entries.data(), nodes, sfat->nodeCount * sizeof(SFATEntry));
 		
+		sarcFile.Seek(header.dataOffset, File::SET);
 		if (isInMemory) {
-			sarcFile.Seek(header.dataOffset, File::SET);
 			offset = sarcFile.Tell();
 			toRead = header.fileLength - header.dataOffset;
 			fileData = (u8*)GameAlloc::MemAlloc(toRead, 0x80);
@@ -267,11 +277,15 @@ namespace CTRPluginFramework {
 		if (header.magic != 0x43524153) return;
 		SFAT* sfat = (SFAT*)(data + header.headerLength);
 		if (sfat->magic != 0x54414653) return;
+		SFNT* sfnt = (SFNT*)((uintptr_t)sfat + sfat->headerLength + sfat->nodeCount * sizeof(SFATEntry));
+		if (sfnt->magic != 0x544E4653) return;
+		if (sfnt->IsFullHashPrecalculated()) {
+			fullFileHash = *(u64*)(data + header.dataOffset);
+		}
 		hashMultiplier = sfat->hashMultiplier;
 		SFATEntry* nodes = (SFATEntry*)(data + header.headerLength + sfat->headerLength);
-		for (u32 i = 0; i < sfat->nodeCount; i++) {
-			entries.push_back(nodes[i]);
-		}
+		entries.resize(sfat->nodeCount);
+		memcpy(entries.data(), nodes, sizeof(SFATEntry) * sfat->nodeCount);
 		u32 dataSize = header.fileLength - header.dataOffset;
 		if (allocatedInHeap) {
 			fileData = (u8*)GameAlloc::MemAlloc(dataSize, 0x80);
@@ -449,7 +463,9 @@ namespace CTRPluginFramework {
 
 
 	u64 ExtraResource::StreamedSarc::GetNonSecureDataChecksum(u32 bufferSize) {
-		if (!processed || !_file->IsOpen()) return 0;
+		if (!processed) return 0;
+		if (_sarc->fullFileHash != 0) return _sarc->fullFileHash;
+		if (!_file->IsOpen()) return 0;
 		u32 remaining = _sarc->header.fileLength - _sarc->header.dataOffset;
 		_file->Seek(_sarc->header.dataOffset, File::SeekPos::SET);
 		u32 ret1 = 0;
@@ -460,7 +476,11 @@ namespace CTRPluginFramework {
 		{
 			u32 currblockSize = (remaining > _bufferSize) ? _bufferSize : remaining;
 			_file->Read(_buffer, currblockSize);
-			for (int i = 0; i < currblockSize / sizeof(u32); i+=2) {
+			u32 currblockSizeAligned = (currblockSize + 7U) & ~7U;
+			if (currblockSizeAligned != currblockSize) {
+				memset((u8*)_buffer + currblockSize, 0, currblockSizeAligned - currblockSize);
+			}			
+			for (int i = 0; i < currblockSizeAligned / sizeof(u32); i+=2) {
 				ret1 += ((u32*)_buffer)[i] * 47;
 				ret2 += ((u32*)_buffer)[i+1] * 47;
 			}

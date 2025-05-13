@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.hpp
-Open source lines: 380/380 (100.00%)
+Open source lines: 404/404 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -14,6 +14,7 @@ Open source lines: 380/380 (100.00%)
 #include "ExtraResource.hpp"
 #include "Sound.hpp"
 #include "VisualControl.hpp"
+#include "MarioKartTimer.hpp"
 #include "rt.hpp"
 
 namespace CTRPluginFramework {
@@ -200,12 +201,17 @@ namespace CTRPluginFramework {
             u32 null7;
         };
     public:
-        static u32 extraKouraG;
-        static u32 extraKouraR;
-        static u32 extraKouraB;
+        static s32 extraKouraG;
+        static s32 extraKouraR;
+        static s32 extraKouraB;
 
         static u32 fakeBoxDirector;
         static u32 megaMushDirector;
+
+        static bool isBlueShellShowdown;
+        static bool isLessThan30Seconds;
+        static bool nextForcedIBStop;
+        static void SetBlueShellShowdown(bool enable);
 
         static void Initialize();
 
@@ -231,6 +237,22 @@ namespace CTRPluginFramework {
         static RT_HOOK kartItemCalcAfterStructureHook;
         static void OnKartItemCalcAfterStructure(u32 kartItem);
         static void OnVehicleInit(u32 vehicle);
+        static void OnVehicleCalc(u32 vehicle);
+
+        static MarioKartTimer blueShellDodgeTimer[8];
+        static bool blueShellDodged[8];
+
+        struct ItemSlotStatus {
+            enum {
+                MODE_EMPTY = 0,
+                MODE_DECIDED = 3,
+            };
+            u8 mode = 0;
+            EItemSlot item = ITEM_SIZE;
+            int goldenTimer = -1;
+        };
+        static ItemSlotStatus GetItemSlotStatus(int playerID);
+
 
         class GameAddr {
         public:
@@ -266,6 +288,8 @@ namespace CTRPluginFramework {
             static ItemObjVtable* starVtable;
             static ItemDirectorVtable* starDirectorVtable;
             static u32 itemObjStateInitUse;
+            
+            static u32 itemDirectorClearItem; // 0x002BEFAC
 
         };
 

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 893/914 (97.70%)
+Open source lines: 927/948 (97.78%)
 *****************************************************/
 
 #include "Net.hpp"
@@ -32,7 +32,10 @@ namespace CTRPluginFramework {
 	std::string Net::allowedTracks;
 	std::string Net::allowedItems;
 	float Net::vrMultiplier = 1.f;
+	float Net::specialCharVrMultiplier = 1.f;
+	bool Net::useSpecialCharVRMultiplier = false;
 	std::vector<u64> Net::whiteListedCharacters;
+	std::vector<u64> Net::specialVRCharacters;
 	std::string Net::myServerName;
 	std::string Net::othersServerNames[MAX_PLAYER_AMOUNT];
 	u64 Net::othersBadgeIDs[MAX_PLAYER_AMOUNT];
@@ -201,6 +204,16 @@ namespace CTRPluginFramework {
 					whiteListedCharacters.push_back(id);
 				}
 			}
+			specialVRCharacters.clear();
+			std::string specialVRChars = reqDoc.get("specialVRCharacters", "");
+			if (!specialVRChars.empty()) {
+				std::vector<std::string> specialList = TextFileParser::Split(specialVRChars);
+				for (auto it = specialList.begin(); it != specialList.end(); it++) {
+					std::string& curr = *it;
+					u64 id = std::strtoull(curr.c_str(), nullptr, 0);
+					specialVRCharacters.push_back(id);
+				}
+			}
 			myServerName = reqDoc.get("name", "");
 
 			// This should be last
@@ -240,8 +253,10 @@ namespace CTRPluginFramework {
 					vrPositions[0] = reqDoc.get("ctvrPos", 0);
 					vrPositions[1] = reqDoc.get("cdvrPos", 0);
 					vrMultiplier = reqDoc.get("vrMultiplier", 1000) / 1000.f;
+					specialCharVrMultiplier = reqDoc.get("specialCharVRMultiplier", 1000) / 1000.f;
 					allowedTracks = reqDoc.get("allowedTracks", "");
 					allowedItems = reqDoc.get("allowedItems", "");
+					ItemHandler::SetBlueShellShowdown(reqDoc.get("blueShellShowdown", false));
 				}
 				trackHistory = reqDoc.get("trackHistory", "");
 			}
@@ -281,6 +296,7 @@ namespace CTRPluginFramework {
 			if (static_cast<CTWWLoginStatus>(res) != CTWWLoginStatus::SUCCESS)
 				MarioKartFramework::dialogBlackOut();
 			std::string banned_shortcuts = reqDoc.get("bannedUltraSC", "");
+			MarioKartFramework::bannedUltraShortcuts.clear();
 			if (!banned_shortcuts.empty()) {
 				std::vector<std::string> sc_list = TextFileParser::Split(banned_shortcuts);
 				float temp[5]; int c_temp = 0; 
@@ -388,6 +404,7 @@ namespace CTRPluginFramework {
 				if (g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
 					applyBlockedTrackList();
 					applyAllowedItems();
+					applySpecialCharVRMultiplayer();
 				}
 			}
 			trackHistory = "";
@@ -887,6 +904,23 @@ namespace CTRPluginFramework {
 		if (g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
 			// Wuhu Mountain Loop is bugged in countdown mode, block it
 			MenuPageHandler::MenuSingleCourseBasePage::AddBlockedCourse(0x09);
+		}
+	}
+
+	void Net::applySpecialCharVRMultiplayer() {
+		useSpecialCharVRMultiplier = false;
+		if (specialVRCharacters.empty())
+			return;
+
+		u64 character = CharacterHandler::GetSelectedMenuCharacter();
+		if (character == 0)
+			character = (u64)MenuPageHandler::MenuCharaBasePage::lastSelectedDriverID;
+		
+		for (auto it = specialVRCharacters.begin(); it != specialVRCharacters.end(); it++) {
+			if (*it == character) {
+				useSpecialCharVRMultiplier = true;
+				break;
+			}
 		}
 	}
 }
