@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraUIElements.hpp
-Open source lines: 243/243 (100.00%)
+Open source lines: 523/523 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -13,6 +13,7 @@ Open source lines: 243/243 (100.00%)
 #include "MarioKartTimer.hpp"
 #include "rt.hpp"
 #include "ItemHandler.hpp"
+#include "array"
 
 namespace CTRPluginFramework {
     
@@ -207,12 +208,21 @@ namespace CTRPluginFramework {
 
     class ExtendedItemBoxController {
     public:
+        enum class AmountMode {
+            AMOUNT_NONE,
+            AMOUNT_2X,
+            AMOUNT_3X,
+            AMOUNT_FRENZY,
 
+            AMOUNT_INVALID,
+        };
+        static AmountMode nextAmountMode;
         static RT_HOOK ItemBoxControlOnCalcHook;
         static RT_HOOK ItemBoxControlOnCreateHook;
         static u32 progBarHandle;
         static u32 progWinHandle;
         static u32 progBGHandle;
+        static u32 amountHandle;
         static float prevProgressbarValue;
         static float prevVisibilityValue;
         static float targetProgressValue;
@@ -222,6 +232,14 @@ namespace CTRPluginFramework {
         static int visibilityAnimFrames;
         static int konohaTimer;
         static float killerProgress;
+
+        static void SetNextAmountMode(AmountMode mode) {
+            nextAmountMode = mode;
+        }
+        static void NotifyItemBoxStarted() {
+            prevIsBoxVisible = false;
+            prevIsBoxDecided = false;
+        }
 
         static void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
         static void OnCreate(VisualControl::GameVisualControl* visualControl, void* createArg);
@@ -236,8 +254,270 @@ namespace CTRPluginFramework {
         static void CalcVisibility(VisualControl::GameVisualControl* visualControl);
         static void CalcProgress(VisualControl::GameVisualControl* visualControl);
 
+        static void ChangeAmountMode(VisualControl::GameVisualControl* visualControl, AmountMode mode);
+
         static EItemSlot GetCurrentItem(VisualControl::GameVisualControl* visualControl) {
+            // 0x9C -> kart item proxy
             return ((EItemSlot****)visualControl)[0x9C/4][0][0x34/4][0x30/4];
         }
+    };
+
+    class PointsModeDisplayController {
+    public:
+        enum class CongratState : u8 {
+            NONE = 0,
+            NICE = 1,
+            GREAT = 2,
+            EXCELLENT = 3,
+            FANTASTIC = 4,
+        };
+
+        PointsModeDisplayController();
+        ~PointsModeDisplayController() {
+            delete vControl;
+        }
+        void OnRaceStart() {
+            currState = State::APPEARING;
+        }
+
+        // Number
+        void GotoNumber(u32 number, const MarioKartTimer& timer = MarioKartTimer(0, 2, 0)) {
+            numberController.GotoNumber(number, timer);
+        }
+        void SetNumberDisabled(bool disabled) {
+            numberController.SetDisabled(disabled);
+        }
+
+        // Reason
+        void SetReason(const std::u16string& reason, int amount, const MarioKartTimer& time = MarioKartTimer(0, 3, 0)) {
+            reasonController.SetReason(reason, amount, time);
+        }
+
+        // Combo
+        void SetCombo(u32 combo) {
+            comboCongratController.SetCombo(combo);
+        }
+
+        // Congrat
+        void SetCongrat(CongratState state) {
+            comboCongratController.SetCongrat(state);
+        }
+
+        static void InitializeText() {
+            ComboCongratController::InitializeText();
+        }
+
+    private:
+        enum class AppearRequest {
+            NONE = 0,
+            APPEAR = 1,
+            DISAPPEAR = 2,
+        };
+        struct AnimFamilyID {
+            enum {
+                ALL_IN,
+
+                NUM_0_PAT,
+                NUM_1_PAT,
+                NUM_2_PAT,
+                NUM_3_PAT,
+                NUM_4_PAT,
+
+                NUM_0_COL,
+                NUM_1_COL,
+                NUM_2_COL,
+                NUM_3_COL,
+                NUM_4_COL,
+
+                NUM_0_BNC,
+                NUM_1_BNC,
+                NUM_2_BNC,
+                NUM_3_BNC,
+                NUM_4_BNC,
+
+                REASON_IN,
+                COMBO_IN,
+                CONGRAT_IN,
+                CONGRAT_COL,
+
+                SIZE,
+            };
+        };
+
+        enum class State {
+            HIDDEN,
+            APPEARING,
+            SHOWED,
+        };
+        State currState = State::HIDDEN;
+        MarioKartTimer stateTimer = 0;
+
+        u32 rootHandle;
+
+        VisualControl* vControl;
+        static void OnDeallocate(VisualControl* v);
+
+        void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
+        void Create(VisualControl::GameVisualControl* control, void* createArgs);
+        void Reset(VisualControl::GameVisualControl* control);
+        void Calc(VisualControl::GameVisualControl* control);
+
+        class NumberController {
+        public:
+            static constexpr int NUMBER_AMOUNT = 5;
+            enum class ColorState {
+                ORANGE,
+                PINK,
+                GREY,
+            };
+        private:
+            enum class BounceState {
+                IDLE,
+                STARTING,
+                STOPPING,
+            };
+            BounceState currBounceState = BounceState::IDLE;
+            BounceState nextBounceState = BounceState::IDLE;
+            int bounceTimer = 0;
+            bool isBouncing[NUMBER_AMOUNT] = { 0 };
+            
+            ColorState currentColor = ColorState::ORANGE;
+            ColorState requestColor = ColorState::ORANGE;
+            bool forcedGrey = false;
+
+            u32 requestedNumber = 0, currentNumber = 0, fromGotoNumber = 0, targetGotoNumber = 0;
+            u32 numberHandle[NUMBER_AMOUNT] = { 0 };
+            u8 numberValue[NUMBER_AMOUNT] = { 10, 10, 10, 10, 10 };
+            bool numberHidden[NUMBER_AMOUNT] = { 0 };
+            MarioKartTimer fromGotoTimer = 0, targetGotoTimer;
+
+            void SetNumberImpl(VisualControl::GameVisualControl* control, u32 number);
+
+            void StartBounce() {
+                if (currBounceState != BounceState::STARTING) {
+                    bounceTimer = 0;
+                    nextBounceState = BounceState::STARTING;
+                }
+            }
+
+            void EndBounce() {
+                if (currBounceState != BounceState::STOPPING) {
+                    nextBounceState = BounceState::STOPPING;
+                }
+            }
+
+            void SetNumber(u32 number) {
+                requestedNumber = number;
+            }
+
+        public:
+            void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
+            void Create(VisualControl::GameVisualControl* control, void* createArgs);
+            void Reset(VisualControl::GameVisualControl* control);
+            void Calc(VisualControl::GameVisualControl* control);
+
+            void GotoNumber(u32 number, const MarioKartTimer& timer = MarioKartTimer(0, 2, 0));
+            void SetDisabled(bool disabled) {forcedGrey = disabled;}
+        };
+        NumberController numberController;
+
+        class ReasonController {
+        private:
+            u32 reasonHandle;
+            u32 amountHandle;
+
+            void SetReasonImpl(VisualControl::GameVisualControl* control, const std::u16string& reason);
+            void SetAmountImpl(VisualControl::GameVisualControl* control, int amount);
+
+            void SetReason(const std::u16string& reason) {
+                if (reason.empty())
+                    requestedReason = u" ";
+                else
+                    requestedReason = reason;
+            }
+            void SetAmount(int amount) {
+                requestedAmount = amount;
+            }
+            void Appear() {
+                appearRequest = AppearRequest::APPEAR;
+            }
+            void Disappear() {
+                appearRequest = AppearRequest::DISAPPEAR;
+            }
+
+            AppearRequest appearRequest;
+            std::u16string requestedReason;
+            int requestedAmount, currentAmount;
+            MarioKartTimer appearTimer = 0;
+        public:
+            void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
+            void Create(VisualControl::GameVisualControl* control, void* createArgs);
+            void Reset(VisualControl::GameVisualControl* control);
+            void Calc(VisualControl::GameVisualControl* control);
+
+            void SetReason(const std::u16string& reason, int amount, const MarioKartTimer& time = MarioKartTimer(0, 3, 0));
+        };
+        ReasonController reasonController;
+
+        class ComboCongratController {
+        public:
+            enum class CongratColor : s32 {
+                NONE = 0,
+                GREEN = 1,
+                YELLOW = 2,
+                PINK = 3,
+                RAINBOW = 4,
+            };
+        private:
+            static std::array<std::u16string, 4> congratNames;
+            static std::u16string comboName;
+
+            u32 comboHandle;
+            u32 congratHandle;
+
+            std::u16string requestedCombo;
+            std::u16string requestedCongrat;
+
+            CongratColor currentColor, requestedColor;
+
+            bool isComboAppeared = false;
+            AppearRequest comboAppearRequest = AppearRequest::NONE;
+            AppearRequest congratAppearRequest = AppearRequest::NONE;
+
+            void SetComboText(const std::u16string& combo) {
+                if (combo.empty())
+                    requestedCombo = u" ";
+                else
+                    requestedCombo = combo;
+            }
+            void SetCongratText(const std::u16string& congrat) {
+                if (congrat.empty())
+                    requestedCongrat = u" ";
+                else
+                    requestedCongrat = congrat;
+            }
+
+            void SetColor(CongratColor color) {
+                requestedColor = color;
+            }
+
+            void AppearCombo() {comboAppearRequest = AppearRequest::APPEAR;}
+            void DisappearCombo() {comboAppearRequest = AppearRequest::DISAPPEAR;}
+            void AppearCongrat() {congratAppearRequest = AppearRequest::APPEAR;}
+            void DisappearCongrat() {congratAppearRequest = AppearRequest::DISAPPEAR;}
+
+            void SetCongratComboImpl(VisualControl::GameVisualControl* control, const std::u16string& text, bool isCombo);
+        public:
+            void DefineAnimation(VisualControl::AnimationDefine* animationDefine);
+            void Create(VisualControl::GameVisualControl* control, void* createArgs);
+            void Reset(VisualControl::GameVisualControl* control);
+            void Calc(VisualControl::GameVisualControl* control);
+
+            void SetCongrat(CongratState state);
+            void SetCombo(u32 combo);
+
+            static void InitializeText();
+        };
+        ComboCongratController comboCongratController;
     };
 }

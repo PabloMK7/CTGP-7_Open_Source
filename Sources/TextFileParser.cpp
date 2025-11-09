@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.cpp
-Open source lines: 332/332 (100.00%)
+Open source lines: 337/337 (100.00%)
 *****************************************************/
 
 #include "TextFileParser.hpp"
@@ -248,7 +248,12 @@ namespace CTRPluginFramework {
 		return vec[element];
 	}
 
-	TextFileParser::TextMapIter TextFileParser::begin()
+    const void TextFileParser::removeEntry(const std::string &key)
+    {
+        dataMap.erase(key);
+    }
+
+    TextFileParser::TextMapIter TextFileParser::begin()
 	{
 		return dataMap.begin();
 	}

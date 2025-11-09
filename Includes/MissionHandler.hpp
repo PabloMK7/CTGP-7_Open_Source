@@ -370,7 +370,7 @@ namespace CTRPluginFramework {
 		static bool LoadCustomMusic(char16_t* dst, bool isFinalLap);
 		static bool LoadCustomMusicData(u32* out, u32 dataMode, bool isNormalLap);
 		static bool LoadCustomMusicNameAuthor(std::string& name, std::string& author);
-		static void OnKMPConstruct();
+		static void OnRaceDirectorCreateBeforeStructure();
 		static void OnGPKartFinishRace(u32* finishPosition, u32* halfDriverAmount, u32 playerID);
 		static u8* GetReplacementFile(SafeStringBase* file, ExtraResource::SARC::FileInfo* fileInfo, u8* courseSarc);
 		static bool isScoreEnabled();
@@ -387,7 +387,7 @@ namespace CTRPluginFramework {
 		static bool tcBoardAllowPlayAnim(u32* objectTcBoard);
 		static void OnObjectBaseSetScale(u32* objectBase, Vector3& copyTo, const Vector3& copyFrom);
 		static void OnObjectMeltIceInitObj(u32* objectBase);
-		static u32 onKartItemHitGeoObject(u32 object, u32 EGTHReact, u32 eObjectReactType, u32 vehicleReactObject, u32 objCallFuncPtr, bool isItem);
+		static u32 onKartItemHitGeoObject(u32 object, u32 EGTHReact, u32 eObjectReactType, u32 vehicleReactObject, u32 objCallFuncPtr, int mode); // mode: 0 kart, 1 item, 2 thunder
 		static void onKartHitCoin(int playerID);
 		static void OnKartDash(u32* vehicleMove, EDashType dash, bool isImprovedTrick);
 		static void OnKartAccident(u32* vehicleReact, ECrashType* type);
@@ -419,8 +419,8 @@ namespace CTRPluginFramework {
 
 
 		static u32 calculatedChecksum;
-	private:
 		static std::pair<std::string, std::string> pointsStr;
+	private:
 		static int AddPointsQueue;
 		static int currMissionWorld;
 		static int currMissionLevel;

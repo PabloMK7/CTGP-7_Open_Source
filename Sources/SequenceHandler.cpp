@@ -35,9 +35,9 @@ namespace CTRPluginFramework {
                 return registeredSequences[i].second;
         return 0;
     }
-    void SequenceHandler::addFlowPatch(u32 sequenceID, u32 offset, u16 seqEntry, u16 subEntry)
+    void SequenceHandler::addFlowPatch(u32 sequenceID, u32 offset, u16 subEntry, u16 seqEntry)
     {
-        u32 value = seqEntry | (subEntry << 16);
+        u32 value = subEntry | (seqEntry << 16);
         int i = 0;
         for (i = 0; i < flowPatches.size(); i++) {
             if (flowPatches[i].first == sequenceID && flowPatches[i].second.first == offset) {

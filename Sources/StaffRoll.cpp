@@ -31,7 +31,7 @@ namespace CTRPluginFramework {
         };
         memcpy(bclimData + 0x4000, bclimFooter, sizeof(bclimFooter));
         sarc = new ExtraResource::StreamedSarc("/CTGP-7/resources/creditsImages.sarc");
-        fileReplaceTask = new Task(ReplaceTaskFunc, this, Task::Affinity::SysCore);
+        fileReplaceTask = new Task(ReplaceTaskFunc, this, Task::Affinity::AppCore);
         if (sarc->processed) {
             for (int i = 0; i < sarc->GetFileCount() - 2; i++) {
                 randomImageList.push_back((u8)i);

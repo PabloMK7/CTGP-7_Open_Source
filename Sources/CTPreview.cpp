@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTPreview.cpp
-Open source lines: 196/196 (100.00%)
+Open source lines: 193/193 (100.00%)
 *****************************************************/
 
 #include "CTPreview.hpp"
@@ -12,6 +12,7 @@ Open source lines: 196/196 (100.00%)
 #include "CourseManager.hpp"
 #include "UserCTHandler.hpp"
 #include "VersusHandler.hpp"
+#include "PointsModeHandler.hpp"
 
 namespace CTRPluginFramework {
 
@@ -106,11 +107,7 @@ namespace CTRPluginFramework {
             return;
         }
         if (!fileReplaceTask)
-        #if CITRA_MODE == 0
-            fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::AppCores);
-        #else
             fileReplaceTask = new Task(fileReplaceFunc, nullptr, Task::Affinity::AppCore);
-        #endif
         loaded = true;
         globalLoaded = this;
     }
@@ -133,7 +130,7 @@ namespace CTRPluginFramework {
     void CTPreview::SetPreview(int cup, int track, bool throughBlack) {
         if (!loaded)
             return;
-        if (cup == USERCUPID || cup == VERSUSCUPID || cup == -1) {
+        if (cup == USERCUPID || cup == POINTSRANDOMCUPID || cup == POINTSWEEKLYCHALLENGECUPID || cup == VERSUSCUPID || cup == -1) {
             setCancelTask(true);
             clearTaskData();
             ChangeAnim(0);

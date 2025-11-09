@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 552/555 (99.46%)
+Open source lines: 579/582 (99.48%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -22,6 +22,7 @@ Open source lines: 552/555 (99.46%)
 #include "CustomTextEntries.hpp"
 #include "CharacterHandler.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "PointsModeHandler.hpp"
 
 namespace CTRPluginFramework {
 	
@@ -46,17 +47,13 @@ namespace CTRPluginFramework {
 		autoAccel_apply(saveData.flags1.autoacceleration);
 		brakedrift_apply(saveData.flags1.brakedrift);
 		automaticdelaydrift_apply(saveData.flags1.automaticDelayDrift);
+		improvedhorn_apply(saveData.flags1.improvedHonk);
 		bluecoin_apply(saveData.flags1.blueCoinsEnabled);
 		MarioKartFramework::changeNumberRounds(saveData.numberOfRounds);
 
-		bool* isEnabled; u32* hotkey;
-		PluginMenu::ScreenshotSettings(&isEnabled, &hotkey);
-		*isEnabled = saveData.flags1.screenshotEnabled;
-		*hotkey = saveData.screenshotHotkey;
-
-		if (saveData.ctVR < 1 || saveData.ctVR > 99999)
+		if (saveData.ctVR < 1 || saveData.ctVR > 999999)
 			saveData.ctVR = 1000;
-		if (saveData.cdVR < 1 || saveData.cdVR > 99999)
+		if (saveData.cdVR < 1 || saveData.cdVR > 999999)
 			saveData.cdVR = 1000;
 
 		UpdateAchievementCryptoFiles();
@@ -65,7 +62,7 @@ namespace CTRPluginFramework {
 	}
 
 	void SaveHandler::DefaultSettings() {
-		saveData = CTGP7Save();
+		saveData = std::move(CTGP7Save());
 	}
 
 	void SaveHandler::UpdateAchievementCryptoFiles() {
@@ -108,6 +105,12 @@ namespace CTRPluginFramework {
 		if (!SaveHandler::saveData.IsAchievementCompleted(Achievements::VR_5000) && !SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
 			if (saveData.ctVR >= 5000 || saveData.cdVR >= 5000) {
 				SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, true);
+				justGranted = true;
+			}
+		}
+		if (!SaveHandler::saveData.IsAchievementCompleted(Achievements::ALL_SCORE_COMPLETED) && !SaveHandler::saveData.IsAchievementPending(Achievements::ALL_SCORE_COMPLETED)) {
+			if (PointsModeHandler::HasCompletedAllTracks()) {
+				SaveHandler::saveData.SetAchievementPending(Achievements::ALL_SCORE_COMPLETED, true);
 				justGranted = true;
 			}
 		}
@@ -183,6 +186,16 @@ namespace CTRPluginFramework {
 			g_processing_achievements = true;
 			SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, false);
 			SaveHandler::saveData.SetAchievementCompleted(Achievements::VR_5000, true);
+			UpdateAchievementCryptoFiles();
+			CharacterHandler::PopulateAvailableCharacters();
+			SaveHandler::SaveSettingsAll();
+			return true;
+		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_SCORE_COMPLETED)) {
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
+			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_score_completed"));
+			g_processing_achievements = true;
+			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_SCORE_COMPLETED, false);
+			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_SCORE_COMPLETED, true);
 			UpdateAchievementCryptoFiles();
 			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
@@ -278,6 +291,7 @@ namespace CTRPluginFramework {
 	s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
 		SaveSettings();
 		StatsHandler::CommitToFile();
+		PointsModeHandler::SaveSaveData();
 		return 0;
 	}
 
@@ -293,20 +307,17 @@ namespace CTRPluginFramework {
 		|| true
 		#endif
 		)) {
-			saveData = CTGP7Save(doc);
+			saveData = std::move(CTGP7Save(doc));
 		} else DefaultSettings();
 
 		CupRankSave::Load();
 		MissionHandler::SaveData::Load();
+		PointsModeHandler::LoadSaveData();
 	}
 
 	void SaveHandler::SaveSettings() {
 
 		saveData.cc_settings = ccsettings[0];
-		bool* isEnabled; u32* hotkey;
-		PluginMenu::ScreenshotSettings(&isEnabled, &hotkey);
-		saveData.screenshotHotkey = *hotkey;
-		saveData.flags1.screenshotEnabled = *isEnabled;
 
 		minibson::encdocument saveDoc;
 		saveDoc.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
@@ -424,12 +435,16 @@ namespace CTRPluginFramework {
 	}
 
 	void SaveHandler::CupRankSave::getGrandPrixData(u32 saveData, GrandPrixData* out, u32* GPID, u32* engineLevel, bool isMirror) {
-		if (*GPID == USERCUPID) {
+		if (*GPID == USERCUPID || *GPID == POINTSRANDOMCUPID || *GPID == POINTSWEEKLYCHALLENGECUPID) {
 			out->isCompleted = false;
 			return;
 		}
 		if (MissionHandler::isMissionMode && MenuPageHandler::MenuSingleCupGPPage::GetInstace()->isInPage) {
 			MissionHandler::OnGetGrandPrixData(out, GPID, engineLevel, isMirror);
+			return;
+		}
+		if (PointsModeHandler::isPointsMode && MenuPageHandler::MenuSingleCupGPPage::GetInstace()->isInPage) {
+			PointsModeHandler::OnGetGrandPrixData(out, GPID, engineLevel, isMirror);
 			return;
 		}
 		u32 engineLvl = *engineLevel;
@@ -451,7 +466,7 @@ namespace CTRPluginFramework {
 
 	static bool g_setGrandPrixDataPreventRecursion = false;
 	void SaveHandler::CupRankSave::setGrandPrixData(u32 saveData, GrandPrixData* in, u32* GPID, u32* engineLevel, bool isMirror) {
-		if (*GPID == USERCUPID || VersusHandler::IsVersusMode) return;
+		if (*GPID == USERCUPID || *GPID == POINTSRANDOMCUPID || *GPID == POINTSWEEKLYCHALLENGECUPID || VersusHandler::IsVersusMode) return;
 		u32 engineLvl = *engineLevel;
 		GrandPrixData current;
 		if (engineLvl == 2 && isMirror) engineLvl++;
@@ -504,6 +519,7 @@ namespace CTRPluginFramework {
 		"races",
 		"mission",
 		"badges",
+		"point",
 	};
 
 	minibson::encdocument SaveHandler::SaveFile::Load(SaveType type, LoadStatus& status) {
@@ -526,7 +542,14 @@ namespace CTRPluginFramework {
 		return bsonDoc;
 	}
 	void SaveHandler::SaveFile::Save(SaveType type, const minibson::encdocument& inData) {
+	#if STRESS_MODE == 1
+		return;
+	#endif
+	#ifdef SAVE_DATA_UNENCRYPTED
+		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s_dec.sav", SaveNames[(u32)type]);
+	#else
 		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s.sav", SaveNames[(u32)type]);
+	#endif
 		File savefile(path, File::RWC);
 		if (!savefile.IsOpen()) return;
 		
@@ -542,7 +565,11 @@ namespace CTRPluginFramework {
 		memset(fileData, 0, serializedSize);
 		fileData->magic = SaveMagic;
 		fileData->type = type;
+	#ifdef SAVE_DATA_UNENCRYPTED
+		inData.minibson::document::serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata));
+	#else
 		inData.serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata));
+	#endif
 		
 		savefile.Write(fileData, serializedSize);
 		free((u8*)fileData);

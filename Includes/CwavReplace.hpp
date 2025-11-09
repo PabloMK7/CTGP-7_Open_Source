@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CwavReplace.hpp
-Open source lines: 50/50 (100.00%)
+Open source lines: 51/51 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -36,6 +36,7 @@ namespace CTRPluginFramework {
             static const constexpr std::pair<u32, u32> starThemeSE = {0x0500002A, 0x00000086};
             static const constexpr std::pair<u32, u32> konohaStartSE = {0x0500002A, 0x000000A6};
             static const constexpr std::pair<u32, u32> konohaEndSE = {0x0500002A, 0x000000A9};
+            static const constexpr std::pair<u32, u32> itemDecideSE = {0x0500002A, 0x0000003A};
         };
         static inline void SetReplacementCwav(const std::pair<u32, u32> sound, void* cwavFile, int times = 0, float validForFrames = 0, u32* sndHandle = 0, bool amend = false) {
             SetReplacementCwav(sound.first, sound.second, cwavFile, times, validForFrames, sndHandle, amend);

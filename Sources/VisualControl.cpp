@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VisualControl.cpp
-Open source lines: 241/241 (100.00%)
+Open source lines: 261/261 (100.00%)
 *****************************************************/
 
 #include "VisualControl.hpp"
@@ -19,14 +19,29 @@ namespace CTRPluginFramework {
         .defineAnimation = (decltype(VisualControl::AnimationDefineVtable::defineAnimation))VisualControl::nullFunc
     };
 
+    float VisualControl::AnimationFamily::AnimationItem::GetCurrentFrame() {
+        float(*AnimationItemGetCurrentFrame)(void*) = (decltype(AnimationItemGetCurrentFrame))MenuPageHandler::GameFuncs::AnimationItemGetCurrentFrame;
+        return AnimationItemGetCurrentFrame(this);
+    }
+
+    // Sets the animation and disables automatic updating
     void VisualControl::AnimationFamily::SetAnimation(u32 subAnimationID, float frame) {
         ((void(*)(AnimationFamily*, int, float))VisualControl::GameFuncs::animFamilySetAnimation)(this, subAnimationID, frame);
     }
+
+    // Sets the animation and enables automatic updating
     void VisualControl::AnimationFamily::ChangeAnimation(u32 subAnimationID, float frame) {
         ((void(*)(AnimationFamily*, int, float))VisualControl::GameFuncs::animFamilyChangeAnimation)(this, subAnimationID, frame);
     }
-    void VisualControl::AnimationFamily::ChangeAnimationByRate(u32 subAnimationID, float frame) {
-        ((void(*)(AnimationFamily*, int, float))VisualControl::GameFuncs::animFamilyChangeAnimationByRate)(this, subAnimationID, frame);
+
+    // Sames as ChangeAnimation, but takes the animation progress (rate) between [0, 1]
+    void VisualControl::AnimationFamily::ChangeAnimationByRate(u32 subAnimationID, float rate) {
+        ((void(*)(AnimationFamily*, int, float))VisualControl::GameFuncs::animFamilyChangeAnimationByRate)(this, subAnimationID, rate);
+    }
+
+    // Gets the current animation progress (rate)
+    float VisualControl::AnimationFamily::GetAnimationRate() {
+        return ((float(*)(AnimationFamily*))VisualControl::GameFuncs::animFamilyGetAnimationRate)(this);
     }
 
     void VisualControl::AnimationDefine::InitAnimationFamilyList(int animationCount) {
@@ -35,12 +50,16 @@ namespace CTRPluginFramework {
     void VisualControl::AnimationDefine::InitAnimationFamily(int animationID, const char* affectedGroup, int unknwownCount) {
         ((void(*)(AnimationDefine*, int, const SafeStringBase&, int))VisualControl::GameFuncs::initAnimationFamily)(this, animationID, SafeStringBase(affectedGroup), unknwownCount);
     }
+
+    // Inits the animation normally (see AnimationKind)
     void VisualControl::AnimationDefine::InitAnimation(int subAnimationID, const char* animationName, AnimationKind kind) {
         ((void(*)(AnimationDefine*, int, const SafeStringBase&, AnimationKind))VisualControl::GameFuncs::initAnimation)(this, subAnimationID, SafeStringBase(animationName), kind);
     }
+    // Adds an stop point. When the animation is selected, it's set to the progress (rate) specified and stopped.
     void VisualControl::AnimationDefine::InitAnimationStopByRate(int subAnimationID, const char* animationName, float rate) {
         ((void(*)(AnimationDefine*, int, const SafeStringBase&, float))VisualControl::GameFuncs::initAnimationStopByRate)(this, subAnimationID, SafeStringBase(animationName), rate);
     }
+    // Inits the subanimation in reverse (see AnimationKind)
     void VisualControl::AnimationDefine::InitAnimationReverse(int subAnimationID, const char* animationName, AnimationKind kind) {
         ((void(*)(AnimationDefine*, int, const SafeStringBase&, AnimationKind))VisualControl::GameFuncs::initAnimationReverse)(this, subAnimationID, SafeStringBase(animationName), kind);
     }
@@ -64,6 +83,7 @@ namespace CTRPluginFramework {
     u32 VisualControl::GameFuncs::animFamilySetAnimation = 0; // 0x0015B480;
     u32 VisualControl::GameFuncs::animFamilyChangeAnimation = 0; // 0x0015B51C;
     u32 VisualControl::GameFuncs::animFamilyChangeAnimationByRate = 0; // 0x0015B5B8;
+    u32 VisualControl::GameFuncs::animFamilyGetAnimationRate = 0; // 0x004E529C
 
     u32 VisualControl::GameFuncs::BaseMenuViewControlCons = 0; // 0x0016A5BC;
 

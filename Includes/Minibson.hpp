@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.hpp
-Open source lines: 656/734 (89.37%)
+Open source lines: 664/742 (89.49%)
 *****************************************************/
 
 /*
@@ -543,6 +543,14 @@ namespace minibson {
                 auto it = find(key);
                 if ((it != cend()) && (it->second->get_node_code() == document_node))
                     return *reinterpret_cast<const document*>(it->second);
+                else
+                    return _default;
+            }
+
+            document& get_noconst(const std::string& key, document& _default) {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == document_node))
+                    return *reinterpret_cast<document*>(it->second);
                 else
                     return _default;
             }

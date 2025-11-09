@@ -14,7 +14,7 @@ Open source lines: 21/21 (100.00%)
 extern "C" {
 #endif
 
-Result FRD_GetMyPassword(char *password, size_t max_size);
+Result FRDExt_GetMyPassword(char *password, size_t max_size);
 
 #ifdef __cplusplus
 }

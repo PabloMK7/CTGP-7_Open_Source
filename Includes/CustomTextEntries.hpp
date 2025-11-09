@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CustomTextEntries.hpp
-Open source lines: 30/30 (100.00%)
+Open source lines: 33/33 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -13,6 +13,7 @@ Open source lines: 30/30 (100.00%)
 namespace CTRPluginFramework {
     class CustomTextEntries {
     public:
+        static constexpr u32 alwaysEmpty = 1199;
         // Range entries
         static constexpr u32 customCupStart = 700000;
         static constexpr u32 customTrackStart = 710000;
@@ -26,5 +27,7 @@ namespace CTRPluginFramework {
         static constexpr u32 demoRaceTextBot = 720010;
         static constexpr u32 options = 720011;
         static constexpr u32 optionsDesc = 720012;
+        static constexpr u32 points = 720013;
+        static constexpr u32 pointsDesc = 720014;
     };
 }

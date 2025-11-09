@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.hpp
-Open source lines: 404/404 (100.00%)
+Open source lines: 408/408 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -18,66 +18,6 @@ Open source lines: 404/404 (100.00%)
 #include "rt.hpp"
 
 namespace CTRPluginFramework {
-
-    enum EItemSlot : u32 {
-		ITEM_BANANA = 0,
-		ITEM_KOURAG,
-		ITEM_KOURAR,
-		ITEM_KINOKO,
-		ITEM_BOMBHEI,
-		ITEM_GESSO,
-		ITEM_KOURAB,
-		ITEM_KINOKO3,
-		ITEM_STAR,
-		ITEM_KILLER,
-		ITEM_THUNDER,
-		ITEM_KINOKOP,
-		ITEM_FLOWER,
-		ITEM_KONOHA,
-		ITEM_SEVEN,
-		ITEM_TEST3,
-		ITEM_TEST4,
-		ITEM_BANANA3,
-		ITEM_KOURAG3,
-		ITEM_KOURAR3,
-		ITEM_SIZE
-	};
-
-    enum EItemType {
-        ITYPE_KOURAG = 0,
-        ITYPE_KOURAR = 1,
-		ITYPE_BANANA = 2,
-        ITYPE_KINOKO = 3,
-        ITYPE_STAR = 4,
-        ITYPE_KOURAB = 5,
-        ITYPE_THUNDER = 6,
-        ITYPE_FAKEBOX = 7,
-        ITYPE_KINOKOP = 8,
-        ITYPE_BOMB = 9,
-        ITYPE_GESSO = 10,
-        ITYPE_BIGKINOKO = 11,
-        ITYPE_KILLER = 12,
-        ITYPE_FLOWER = 13,
-        ITYPE_TAIL = 14,
-        ITYPE_SEVEN = 15,
-	};
-
-    enum EItemDirector {
-        IDIR_BANANA = 0, // 0x28
-        IDIR_KOURAG = 1, // 0x2C
-        IDIR_KOURAR = 2,  // 0x30
-        IDIR_BOMB = 3, // 0x34
-        IDIR_GESSO = 4, // 0x38
-        IDIR_STAR = 5, // 0x3C
-        IDIR_THUNDER = 6, // 0x40
-        IDIR_KILLER = 7, // 0x44
-        IDIR_KOURAB = 8, // 0x48
-        IDIR_FLOWER = 9, // 0x4C
-        IDIR_TAIL = 10, // 0x50
-        IDIR_KINOKO = 11, // 0x54
-        IDIR_SEVEN = 12 // 0x58
-    };
-
     class ItemHandler
     {
     private:
@@ -242,6 +182,31 @@ namespace CTRPluginFramework {
         static MarioKartTimer blueShellDodgeTimer[8];
         static bool blueShellDodged[8];
 
+        static RT_HOOK objThunderStateInitUseHook;
+        static RT_HOOK objThunderStateInitAttackedHook;
+        static int thunderPlayerID;
+		static void OnObjThunderStateInitUse(u32* ItemObjThunder);
+        static void OnObjThunderStateInitAttacked(u32* ItemObjThunder);
+
+        static RT_HOOK objGessoStateInitUseHook;
+        static void OnObjGessoStateInitUse(u32* ItemObjGesso);
+
+        static RT_HOOK itemDirectorDoReactionHook;
+        static void OnItemDirectorDoReaction(u32* director, u32* itemObj1, u32* itemObj2, EItemReact* react1, EItemReact* react2, Vector3* pos1, Vector3* pos2);
+
+        static SeadRandom& GetItemRandom();
+
+        static void raceTimerOnFrame(MarioKartTimer timer);
+
+        static u32* GetKartItem(int playerID);
+
+        static void resetHonkStates(int playerID);
+        static constexpr u8 MAX_HONKS = 5;
+        static bool userHoldingItem;
+        static u8 otherPlayerRemainingHonks[MAX_PLAYER_AMOUNT];
+        static u8 playerHonkCounter[MAX_PLAYER_AMOUNT];
+        static u8 prevPlayerHonkCounter[MAX_PLAYER_AMOUNT];
+
         struct ItemSlotStatus {
             enum {
                 MODE_EMPTY = 0,
@@ -253,6 +218,9 @@ namespace CTRPluginFramework {
         };
         static ItemSlotStatus GetItemSlotStatus(int playerID);
 
+        static RT_HOOK ItemDirectorClearItemHook;
+        static void ClearItem(int playerID);
+        static void OnClearItem(u32 director, int playerID);
 
         class GameAddr {
         public:
@@ -288,9 +256,16 @@ namespace CTRPluginFramework {
             static ItemObjVtable* starVtable;
             static ItemDirectorVtable* starDirectorVtable;
             static u32 itemObjStateInitUse;
-            
-            static u32 itemDirectorClearItem; // 0x002BEFAC
 
+            static u32 itemObjStateInitUseAddr;
+            static u32 itemObjExitVanishAddr;
+            static u32 sevenDirectorSendEventAddr;
+
+            static u32 Actor3DMdlCreateModelAddr;
+            static u32 ItemObjBaseSetVisibleAddr;
+
+            static u32 AIItemBaseIsInSnipeAreaAddr;
+            static u32 AIItemRaceGetDirectionToThrowAddr;
         };
 
         class FakeBoxHandler
@@ -375,12 +350,14 @@ namespace CTRPluginFramework {
         };
         class MegaMushHandler {
         public:
-            static constexpr int MegaMushAmount = 2;
+            static constexpr int MegaMushAmount = 4;
 
             static void Initialize();
             static void CreateBeforeStructure(u32 megaMushDirector, const void* createArg);
             static void ObjCreateInner(u32 megaMushObj, const void* createArg);
             static void StateInitUse(u32 megaMushObj);
+            static void StateUse(u32 megaMushObj);
+            static float GetShadowScale();
             static void PlayChangeSizeSound(u32* vehicleMove, bool isGrow);
             static void CalcMegaTheme(u32* sndEngine, u32* sndHandle);
             static u32* CalcEnemyMegaTheme(u32* sndActorKart);
@@ -389,6 +366,8 @@ namespace CTRPluginFramework {
             static void Start(int playerID);
             static void End(int playerID, bool resetState);
             static void CalcNetRecv(int playerID, int frames);
+            static void OnRaceEnter();
+            static void OnPointsModeSevenSelfMoveStar(u32 sevenDirector, u32 itemIndex, u32 kartinfoproxy);
             
             static u8 growMapFacePending[MAX_PLAYER_AMOUNT];
         private:
@@ -399,6 +378,31 @@ namespace CTRPluginFramework {
             static void* shrinkSound;
             static void* megaTheme;
             static float getMegaSizeFactor(int playerID);
+        };
+        class AIItem {
+        public:
+            static void OnBaseStateIdle(AIItemBase* own);
+            
+            static void OnRaceInitStock(AIItemRace* own);
+            static void OnRaceStateStock(AIItemRace* own);
+
+            // Hooks not needed for those
+            static void OnBaseInitStock(AIItemBase* own);
+            static void OnBaseStateStock(AIItemBase* own);
+
+            static void OnRaceInitHold(AIItemRace* own);
+            static void OnRaceStateHold(AIItemRace* own);
+
+            // Hooks not needed for those
+            static void OnBaseStateHold(AIItemBase* own);
+
+            static void OnRaceInitEquipTriple(AIItemRace* own);
+            static void OnRaceStateEquipTriple(AIItemRace* own);
+
+            static void OnBaseStateEquipTriple(AIItemBase* own);
+
+            // Hooks not needed for those
+            static void RaceUseItemCommon(AIItemRace* own);
         };
     };
 }

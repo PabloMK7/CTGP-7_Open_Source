@@ -15,16 +15,16 @@ extern "C" {
 #endif
 
 typedef struct _RT_HOOK {
-	u8 isEnabled;
 	u32 funcAddr;
-	u32 bakCode[2];
-	u32 jmpCode[2];
+	u32 dstAddress;
 	u32 callCode[4];
 } RT_HOOK;
 
+void rtSimpleHook(u32 funcAddr, u32 callbackAddr);
 void rtInitHook(RT_HOOK* hook, u32 funcAddr, u32 callbackAddr);
 void rtEnableHook(RT_HOOK* hook);
 void rtDisableHook(RT_HOOK* hook);
+bool rtHookEnabled(RT_HOOK* hook);
 u32 rtGenerateJumpCode(u32 dst, u32* buf);
 
 inline __attribute__((always_inline)) u32   decodeARMBranch(const u32 *src)

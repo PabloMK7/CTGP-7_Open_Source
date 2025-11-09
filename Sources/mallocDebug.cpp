@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: mallocDebug.cpp
-Open source lines: 203/204 (99.51%)
+Open source lines: 200/201 (99.50%)
 *****************************************************/
 
 #include "mallocDebug.hpp"
@@ -171,13 +171,10 @@ namespace CTRPluginFramework {
         }
     }
 
-    static u32 NAKED __attribute__((no_instrument_function)) SaveStackPointer() {
-#ifndef _MSC_VER
-        __asm__ __volatile__(
-            "MOV R0, SP \n"
-            "BX LR \n"
-        );
-#endif
+    static u32 SaveStackPointer() {
+        u32 sp_val;
+        __asm__ volatile("mov %0, sp" : "=r"(sp_val));
+        return sp_val;
     }
 
     void MallocDebug::DumpStackTrace(u32 reason, u32 addr)

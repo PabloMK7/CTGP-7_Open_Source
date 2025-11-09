@@ -34,10 +34,10 @@ namespace CTRPluginFramework {
 	class LED {
 		private:
 			friend s32 PatternPlayerTaskfunc(void* arg);
-			static Result Init();
 			static Result Play(RGBLedPattern& pattern);
 			static void SetSecureTime(Time secureTime);
 		public:
+			static Result Init();
 			static bool IsPatternPlaying();
 			static bool PlayLEDPattern(RGBLedPattern& pattern, Time playtime);
 			static bool StopLEDPattern();

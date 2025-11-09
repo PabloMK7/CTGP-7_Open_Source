@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: UserCTHandler.cpp
-Open source lines: 419/420 (99.76%)
+Open source lines: 450/451 (99.78%)
 *****************************************************/
 
 #include "UserCTHandler.hpp"
@@ -18,6 +18,7 @@ Open source lines: 419/420 (99.76%)
 #include "SequenceHandler.hpp"
 #include "TextFileParser.hpp"
 #include "MenuPage.hpp"
+#include "PointsModeHandler.hpp"
 
 u32 USERTRACKID = 0xFF;
 
@@ -153,28 +154,44 @@ namespace CTRPluginFramework {
         return customCups.size();
     }
 
-    u32 UserCTHandler::GetSelectedCustomCup() {
+    u32 UserCTHandler::GetSelectedCustomCup(u32 startingButtonID, u32 selectedCupIcon) {
         u32 origSize = MAXCUPS;
         u32 customSize = CourseManager::finalGlobalCupTranslateTableSize;
         u32 ret;
-        if (MenuPageHandler::MenuSingleCupBasePage::selectedCupIcon < 4) {
-            ret = (MenuPageHandler::MenuSingleCupBasePage::startingButtonID + MenuPageHandler::MenuSingleCupBasePage::selectedCupIcon) % (customSize / 2);
+        if (selectedCupIcon < 4) {
+            ret = (startingButtonID + selectedCupIcon) % (customSize / 2);
             ret -= (origSize / 2);
             ret = ret * 2;
         } else {
-            ret = ((MenuPageHandler::MenuSingleCupBasePage::startingButtonID + MenuPageHandler::MenuSingleCupBasePage::selectedCupIcon - 4) % (customSize / 2)) + (customSize / 2);
+            ret = ((startingButtonID + selectedCupIcon - 4) % (customSize / 2)) + (customSize / 2);
             ret -= (customSize / 2 + origSize / 2);
             ret = ret * 2 + 1;
         }
+        
+        // Failsafe
+        if (ret >= customCups.size())
+            ret = 0;
+        
         if (customCups[ret].GetCourse(0).lapAmount == 0)
             ret--;
         return ret;
     }
 
-    void UserCTHandler::UpdateCurrentCustomCup(u32 cupID) {
-        if (cupID == USERCUPID && MenuPageHandler::MenuSingleCupBasePage::selectedCupIcon <= 7) {
+    static s32 g_lastSelectedCupIcon = -1;
+    static s32 g_lastStartingButtonID = -1;
+    void UserCTHandler::UpdateCurrentCustomCup(u32 cupID, s32 startingButtonID, s32 selectedCupIcon) {
+        if (startingButtonID < 0 && g_lastStartingButtonID >= 0)
+            startingButtonID = g_lastStartingButtonID;
+        else
+            g_lastStartingButtonID = startingButtonID;
+        if (selectedCupIcon < 0 && g_lastSelectedCupIcon >= 0)
+            selectedCupIcon = g_lastSelectedCupIcon;
+        else
+            g_lastSelectedCupIcon = selectedCupIcon;
+        //NOXTRACE("sdfsdf", "%d %d %d", cupID, startingButtonID, selectedCupIcon);
+        if (cupID == USERCUPID && startingButtonID >= 0 && selectedCupIcon >= 0 && selectedCupIcon <= 7) {
             usingCustomCup = true;
-            u32 newSelectedCup = GetSelectedCustomCup();
+            u32 newSelectedCup = GetSelectedCustomCup(startingButtonID, selectedCupIcon);
             if (newSelectedCup != selectedCustomCup) {
                 selectedCustomCup = newSelectedCup;
                 Language::MsbtHandler::SetString(CustomTextEntries::courseDisplay + 4, customCups[selectedCustomCup].cupName);
@@ -236,7 +253,7 @@ namespace CTRPluginFramework {
     }
 
     u32 UserCTHandler::GetCurrentCupText(u32 track) {
-        if (!skipConfig.enabled) UserCTHandler::UpdateCurrentCustomCup(USERCUPID);
+        if (!skipConfig.enabled) UserCTHandler::UpdateCurrentCustomCup(USERCUPID, -1, -1);
         return CustomTextEntries::courseDisplay + track;
     }
 
@@ -328,7 +345,9 @@ namespace CTRPluginFramework {
         skipConfig.wingID = EWingID::WING_BASA;
         skipConfig.itemID = -1;
         skipConfig.useLeftToFinish = false;
-        skipConfig.courseID = 4;
+        skipConfig.courseID = 0x4;
+        skipConfig.engineLevel = EEngineLevel::ENGINELEVEL_150CC;
+        skipConfig.mirror = false;
 #else
         skipConfig.enabled = false;
         TextFileParser parser;
@@ -373,6 +392,15 @@ namespace CTRPluginFramework {
             }
 
             skipConfig.useLeftToFinish = parser.getEntry("forceFinish", 0) == "true";
+            
+            std::string engineLevel = parser.getEntry("engineLevel", 0);
+            if (engineLevel == "50cc")
+                skipConfig.engineLevel = EEngineLevel::ENGINELEVEL_50CC;
+            else if (engineLevel == "100cc")
+                skipConfig.engineLevel = EEngineLevel::ENGINELEVEL_100CC;
+            else
+                skipConfig.engineLevel = EEngineLevel::ENGINELEVEL_150CC;
+            skipConfig.mirror = parser.getEntry("mirror", 0) == "true";
         }
 #endif
         
@@ -409,6 +437,9 @@ namespace CTRPluginFramework {
             usingCustomCup = true;
             selectedCustomCup = 0;
             currentTrack = 0;
+
+            MarioKartFramework::BasePageSetCC(skipConfig.engineLevel);
+            MarioKartFramework::BasePageSetMirror(skipConfig.mirror);
 
             // Run GP applyconfig to setup rest of settings
 		    ((void(*)())(BaseMenuPage_applySetting_GP))(); // GP

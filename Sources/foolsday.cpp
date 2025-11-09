@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: foolsday.cpp
-Open source lines: 219/220 (99.55%)
+Open source lines: 221/248 (89.11%)
 *****************************************************/
 
 #include "foolsday.hpp"
@@ -20,6 +20,8 @@ Open source lines: 219/220 (99.55%)
 #include "entrystructs.hpp"
 #include "ExtraResource.hpp"
 #include "LED_Control.hpp"
+#include "AsyncRunner.hpp"
+
 namespace CTRPluginFramework {
 
     bool g_isFoolActive = false;
@@ -213,7 +215,7 @@ namespace CTRPluginFramework {
     void playMemEraseJoke()
     {
         MarioKartFramework::closeDialog();
-        *PluginMenu::GetRunningInstance() += playMemEraseJokeMenuCallback;
+        AsyncRunner::StartAsync(playMemEraseJokeMenuCallback);
         playMemEraseClock.Restart();
     }
 }

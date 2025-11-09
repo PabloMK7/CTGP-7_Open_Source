@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: str16utils.hpp
-Open source lines: 94/94 (100.00%)
+Open source lines: 107/107 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -89,6 +89,19 @@ static inline void strcat16n(char16_t* out, const char16_t* cat, size_t outsize)
 	strcpy16n(out, cat, outsize);
 }
 
+static inline std::u16string to_u16string(u32 value) {
+	std::string v = std::to_string(value);
+	std::u16string ret;
+	ret.resize(v.size());
+	const char* src = v.data();
+	char16_t* dst = ret.data();
+	for (int i = 0; i < v.size(); i++) {
+		*dst++ = *src++;
+	}
+	return ret;
+}
+
 namespace CTRPluginFramework {
 	int utf8len(const char* str);
+	std::string limitUtf8(const std::string& str, size_t amount);
 }

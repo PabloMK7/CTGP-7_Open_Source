@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 777/777 (100.00%)
+Open source lines: 776/776 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -235,7 +235,7 @@ namespace CTRPluginFramework {
             void (*getBackEnterCode)(GameSequenceSection* own);
             void (*getBackReturnCode)(GameSequenceSection* own);
             // This are only present in network pages, but I'll place them here anyways
-            void (*onPagePreStepCore)(GameSequenceSection* own);
+            bool (*onPagePreStepCore)(GameSequenceSection* own);
             void (*onPageEnterCore)(GameSequenceSection* own);
             void (*onPageCompleteCore)(GameSequenceSection* own);
             void (*onCompleteNetwork)(GameSequenceSection* own);
@@ -273,7 +273,7 @@ namespace CTRPluginFramework {
                 MenuSingleModePage() {}
 
                 GameSequenceSection* gameSection;
-                VisualControl::GameVisualControl* buttonList[7];
+                VisualControl::GameVisualControl* buttonList[8];
                 GameSequenceSectionVtable vtable;
 
                 GameSequenceSection* Load(void* sectionDirector);
@@ -306,15 +306,13 @@ namespace CTRPluginFramework {
                 GameSequenceSection* MenuSingleCupBasePageCons(GameSequenceSection* own);
                 bool isInPage = false;
 
-                static RT_HOOK onPageEnterHook;
-                static RT_HOOK onPagePreStepHook;
-                static RT_HOOK initControlHook;
                 static RT_HOOK buttomHandlerOKHook;
 
                 VisualControl::GameVisualControl* buttonList[10];
                 bool buttonEnabledState[10] = {0};
                 VisualControl::GameVisualControl* cupBgControl;
                 VisualControl::GameVisualControl* backButtonControl = nullptr;
+                VisualControl::GameVisualControl* raceStartControl = nullptr;
 
                 float conveyorTimer = 100.f;
                 float conveyorIncrement = 0.f;
@@ -327,6 +325,9 @@ namespace CTRPluginFramework {
                 bool hasRandomButton = false;
                 bool comesFromOK = false;
                 bool autoButtonPressed = false;
+                bool netGP = false;
+                bool netGPimHost = false;
+                bool cancelCupSelect = false;
                 ConveyorState conveyorState = ConveyorState::STOPPED;
                 bool StartConveyor(bool direction);
                 void CalcConveyor();
@@ -338,6 +339,7 @@ namespace CTRPluginFramework {
                 void UpdateCupButtonState(int mode); // 0 -> Normal, 1 -> Right Scroll, 2 -> Left Scroll
                 static int HandleCursor(CursorMove* move, CursorItem* item, bool isMulti);
                 static int startingButtonID;
+                static int hostStartingButtonID;
                 static int selectedCupIcon;
                 static void CupSelectBGControlAnimationDefine(VisualControl::AnimationDefine* obj);
                 static const VisualControl::AnimationDefineVtable cupSelectBGAnimationDefineVtable;
@@ -365,9 +367,6 @@ namespace CTRPluginFramework {
                 
                 GameSequenceSection* Load(void* sectionDirector);
                 static MenuSingleCupGPPage* GetInstace() {return menuSingleCupGP;}
-
-                static RT_HOOK onPagePreStepHook;
-                static RT_HOOK buttonHandlerOKHook;
                 
                 static void OnPagePreStep(GameSequenceSection* own);
                 static void ButtonHandler_OK(GameSequenceSection* own, int buttonID);
@@ -377,14 +376,18 @@ namespace CTRPluginFramework {
                 GameSequenceSection* MenuSingleCupGPPageCons(GameSequenceSection* own);
         };
 
-        class MenuMultiCupGPPage : public MenuSingleCupBasePage{
+        class MenuMultiCupGPPage : public MenuSingleCupBasePage {
             public:
                 
                 GameSequenceSection* Load(void* sectionDirector);
                 static MenuMultiCupGPPage* GetInstace() {return menuMultiCupGP;}
 
-                static void OnPageComplete(GameSequenceSection* own);
-                void (*OnPageCompleteBackup)(GameSequenceSection* own);
+                static int GetCorrectButtonID(int origButtonID);
+
+                static void OnCompleteNetworkButtonID(int origButtonID);
+
+                static void OnPageExit(GameSequenceSection* own);
+                void (*OnPageExitBackup)(GameSequenceSection* own);
 
             private:
                 GameSequenceSection* MenuMultiCupGPPageCons(GameSequenceSection* own);
@@ -434,9 +437,6 @@ namespace CTRPluginFramework {
                 MenuSingleCupBasePage** parent;
                 
                 CTPreview ctPreview;
-                static RT_HOOK onPageEnterHook;
-                static RT_HOOK coursePageInitOmakaseTHook;
-                static RT_HOOK coursePageInitOmakaseBHook;
 
                 static void ClearBlockedCourses();
                 static void AddBlockedCourse(u32 course);
@@ -735,6 +735,9 @@ namespace CTRPluginFramework {
         static MenuSingleModePage* GetMenuSingleModePage() {
             return menuSingleMode;
         }
+
+        static int OnMenuModeSetterOnTaskMain(u32 menuModeSetterTask);
+
     private:
         static MenuSingleModePage* menuSingleMode;
 
@@ -769,9 +772,5 @@ namespace CTRPluginFramework {
         static void OnMenuWifiCourseVoteDeallocate(GameSequenceSection* own);
 
         static void OnMenuEndingPageDeallocate(GameSequenceSection* own);
-
-        static RT_HOOK trophyPageSelectNextSceneHook;
-        static RT_HOOK trophyPageSelectNextSceneHook2;
-        static RT_HOOK thankyouPageInitControlHook;
     };
 }

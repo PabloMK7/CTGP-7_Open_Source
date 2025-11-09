@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 418/431 (96.98%)
+Open source lines: 420/433 (97.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -40,6 +40,10 @@ Open source lines: 418/431 (96.98%)
 #include "HokakuCTR.hpp"
 #include "CharacterHandler.hpp"
 #include "BootSceneHandler.hpp"
+#include "Stresser.hpp"
+#include "TLSAccessPatcher.hpp"
+#include "AsyncRunner.hpp"
+#include "BadgeManager.hpp"
 
 extern bool g_checkMenu;
 extern u32* g_gameSrvHandle;
@@ -68,6 +72,7 @@ namespace CTRPluginFramework
 	MenuEntry* autoAccelEntry;
 	MenuEntry* brakeDriftEntry;
 	MenuEntry* automaticDelayDriftEntry;
+	MenuEntry* improvedHornEntry;
 	MenuEntry* achievementsEntry;
 	MenuEntry* badgesEntry;
 	MenuEntry* blueCoinsEntry;
@@ -76,6 +81,8 @@ namespace CTRPluginFramework
 	OnlineMenuEntry* numbRoundsOnlineEntry;
 	OnlineMenuEntry* serverOnlineEntry;
 	OnlineMenuEntry* improvedTricksOnlineEntry;
+
+	u32 AsyncRunner::counter = 0;
 
 	void 	HandleProcessEvent(Process::Event event);
 
@@ -103,10 +110,6 @@ namespace CTRPluginFramework
 		settings.CustomKeyboard.ScrollBarThumb = Color(0x87, 0x1F, 0x1F);
 	}
 
-	#ifdef INSTRUMENT_FUNCTIONS
-	void init_instrumentation();
-	#endif
-	
 	class CustomRandomBackend : public Utils::RandomBackend {
 	public:
 		void Seed(u64 seed) override {
@@ -119,14 +122,17 @@ namespace CTRPluginFramework
 	private:
 		SeadRandom random{};
 	};
-	static CustomRandomBackend g_rnd;
+	static CustomRandomBackend g_rnd{};
 
-	void UseGameStackToInit() {}
+	// Define this so that the game stack is used to init arrays
+	void  UseGameStackToInit() {}
+
+	// Ran before anything else
     void  PatchProcess(FwkSettings &settings)
     {
-		#ifdef INSTRUMENT_FUNCTIONS
-		init_instrumentation();
-		#endif
+		TLSAccessPatcher::PatchPlugin();
+		g_StresserInit();
+
 		Utils::UseRandomBackend(&g_rnd);
 		Utils::AutoSeedRandom();
 
@@ -140,6 +146,7 @@ namespace CTRPluginFramework
 #ifdef RELEASE_BUILD
 		Process::exceptionCallback = CrashReport::CTGPExceptCallback;
 		Process::ThrowOldExceptionOnCallbackException = true;
+		OSD::LightweightMode = true;
 #endif
 		Process::OnPauseResume = [](bool isGoingToPause) {
 			MarioKartFramework::playMusicAlongCTRPF(isGoingToPause);
@@ -198,8 +205,6 @@ namespace CTRPluginFramework
 
 		BootSceneHandler::Progress(mainProg);
 
-		if (!Directory::IsExists("/CTGP-7/Screenshots"))
-			Directory::Create("/CTGP-7/Screenshots");
 		if (!Directory::IsExists("/CTGP-7/savefs"))
 			Directory::Create("/CTGP-7/savefs");
 		if (!Directory::IsExists("/CTGP-7/savefs/game"))
@@ -296,6 +301,7 @@ namespace CTRPluginFramework
 			autoAccelEntry = new MenuEntry(NAME("autoaccel"), nullptr, autoAccelSetting, NOTE("autoaccel")),
 			brakeDriftEntry = new MenuEntry(NAME("imbrakedrift"), nullptr, brakeDrift, NOTE("imbrakedrift")),
 			automaticDelayDriftEntry = new MenuEntry(NAME("autodelaydrift"), nullptr, automaticdelaydrift_entryfunc, NOTE("autodelaydrift")),
+			improvedHornEntry = new MenuEntry(NAME("improvedhorn"), nullptr, improvedhorn_entryfunc, NOTE("improvedhorn")),
 			blueCoinsEntry = new MenuEntry(NAME("blue_coins"), nullptr, bluecoin_entryfunc, NAME("blue_coins_desc"))
 		});
 
@@ -359,14 +365,10 @@ namespace CTRPluginFramework
 		
 		improvedRouletteEntry->Name() = NAME("itmprb") + " (" + (SaveHandler::saveData.flags1.improvedRoulette ? NAME("state_mode") : NOTE("state_mode")) + ")";
 
-		PluginMenu::ScreenshotPath() = "/CTGP-7/Screenshots/";
-		PluginMenu::ScreenshotFilePrefix() = "CTGP-7";
-		PluginMenu::ScreenshotSetcallback(MarioKartFramework::allowTakeScreenshot);
-		PluginMenu::ScreenshotUpdatePaths();
-
         // Main callback loop
         menu.Callback(menucallback);
 		menu.SynchronizeWithFrame(true);
+		menu.UpdateEveryOtherFrame(true);
 
 #ifndef RELEASE_BUILD
 		menu.ShowWelcomeMessage(false);
@@ -390,7 +392,7 @@ namespace CTRPluginFramework
         // Run menu
 		LightEvent_Wait(&mainEvent1);
 		mainPluginMenu->Run();
-        // delete mainPluginMenu; <</ Crashes
+        // delete mainPluginMenu; <</ Crashes...
 
         // Exit plugin
         return (0);

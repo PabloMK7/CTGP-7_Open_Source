@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.hpp
-Open source lines: 212/216 (98.15%)
+Open source lines: 214/218 (98.17%)
 *****************************************************/
 
 #pragma once
@@ -200,6 +200,8 @@ namespace CTRPluginFramework {
 		static void applySpecialCharVRMultiplayer();
 
 		static s32 reportUltraShortcutTaskfunc(void* arg);
+
+		static void UploadMii();
 
 #ifdef BETA_BUILD
 		static BetaState betaState;

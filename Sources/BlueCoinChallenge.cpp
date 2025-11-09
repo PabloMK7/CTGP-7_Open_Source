@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.cpp
-Open source lines: 264/385 (68.57%)
+Open source lines: 264/394 (67.01%)
 *****************************************************/
 
 #include "BlueCoinChallenge.hpp"
@@ -13,6 +13,7 @@ Open source lines: 264/385 (68.57%)
 #include "MissionHandler.hpp"
 #include "UserCTHandler.hpp"
 #include "main.hpp"
+#include "AsyncRunner.hpp"
 #include "CwavReplace.hpp"
 #include "CustomTextEntries.hpp"
 
@@ -170,8 +171,8 @@ namespace CTRPluginFramework {
     }
 
     static std::u16string g_coinCollectedText;
-    bool BlueCoinChallenge::closeCoinCollectedDialog(const Screen &s) {
-        if (s.IsTop && BlueCoinChallenge::coinCollectedDialogFrames) {
+    void BlueCoinChallenge::closeCoinCollectedDialog() {
+        if (BlueCoinChallenge::coinCollectedDialogFrames) {
             if (BlueCoinChallenge::coinCollectedDialogFrames < 180 && BlueCoinChallenge::coinCollectedDialogFrames > 65 && Controller::IsKeyDown(Key::Start))
                 BlueCoinChallenge::coinCollectedDialogFrames = 65;
             if (BlueCoinChallenge::coinCollectedDialogFrames == 60) {
@@ -180,11 +181,10 @@ namespace CTRPluginFramework {
             BlueCoinChallenge::coinCollectedDialogFrames--;
             if (!BlueCoinChallenge::coinCollectedDialogFrames) {
                 MarioKartFramework::isPauseBlocked = false;
-                OSD::Stop(closeCoinCollectedDialog);
+                AsyncRunner::StopAsync(closeCoinCollectedDialog);
                 g_coinCollectedText.clear();
             }
         }
-        return false;
     }
 
     void BlueCoinChallenge::DespawnCoin() {
@@ -223,7 +223,7 @@ namespace CTRPluginFramework {
                 }
                 MarioKartFramework::isPauseBlocked = true;
                 MarioKartFramework::openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "", nullptr, true);
-                OSD::Run(closeCoinCollectedDialog);
+                AsyncRunner::StartAsync(closeCoinCollectedDialog);
                 coinCollectedDialogFrames = 270;
             }
         }

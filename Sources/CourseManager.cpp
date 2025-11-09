@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.cpp
-Open source lines: 1022/1159 (88.18%)
+Open source lines: 1069/1206 (88.64%)
 *****************************************************/
 
 #include <locale>
@@ -29,6 +29,7 @@ Open source lines: 1022/1159 (88.18%)
 #include "foolsday.hpp"
 #include "CustomTextEntries.hpp"
 #include "MenuPage.hpp"
+#include "PointsModeHandler.hpp"
 
 extern u32 isAltGameMode;
 
@@ -45,6 +46,8 @@ namespace CTRPluginFramework
 	int CourseManager::multiCupButtonsIDs[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 	u32* CourseManager::finalGlobalCupTranslateTable = nullptr;
 	u32 CourseManager::finalGlobalCupTranslateTableSize = 0;
+	u32* CourseManager::pointsModeCupTranslateTable = nullptr;
+	u32 CourseManager::pointsModeCupTranslateTableSize = 0;
 
 	void CourseManager::resetGhost(MenuEntry* entry)
 	{
@@ -94,22 +97,22 @@ namespace CTRPluginFramework
 
 	void CourseManager::setCustomTracksAllowed(bool mode)
 	{
-		do { customTracksAllowedFlag = rol<u8>(customTracksAllowedFlag, 1); } while ((customTracksAllowedFlag & 1) != mode);
+		customTracksAllowedFlag = mode;
 	}
 
 	bool CourseManager::getCustomTracksAllowed()
 	{
-		return (customTracksAllowedFlag & 1);
+		return customTracksAllowedFlag;
 	}
 
 	void CourseManager::setOriginalTracksAllowed(bool mode)
 	{
-		do { originalTracksAllowedFlag = rol<u8>(originalTracksAllowedFlag, 1); } while ((originalTracksAllowedFlag & 1) != mode);
+		originalTracksAllowedFlag = mode;
 	}
 
 	bool CourseManager::getOriginalTracksAllowed()
 	{
-		return (originalTracksAllowedFlag & 1);
+		return originalTracksAllowedFlag;
 	}
 
 	u32 CourseManager::getCupGlobalIDName(u32 cupID) {
@@ -129,7 +132,9 @@ namespace CTRPluginFramework
 	u32 CourseManager::getCourseGlobalIDName(u32 cup, int track, bool forceOrig) {
 		if (track < 4 && track >= 0) {
 			if (cup == USERCUPID) return UserCTHandler::GetCurrentCupText(track);
+			else if (cup == POINTSRANDOMCUPID || cup == POINTSWEEKLYCHALLENGECUPID) return CustomTextEntries::alwaysEmpty; 
 			else if (!forceOrig && MissionHandler::isMissionMode) return MissionHandler::OnGetCupText(FROMBUTTONTOCUP(cup), track);
+			else if (!forceOrig && PointsModeHandler::isPointsMode) return PointsModeHandler::OnGetCupText(FROMBUTTONTOCUP(cup), track);
 			else if (ISGAMEONLINE && SaveHandler::saveData.flags1.isAlphabeticalEnabled && !forceOrig) return CustomTextEntries::customTrackStart + alphabeticalGlobalCupData[FROMBUTTONTOCUP(cup)][track];
 			else return CustomTextEntries::customTrackStart + globalCupData[FROMBUTTONTOCUP(cup)][track];
 		}
@@ -137,7 +142,7 @@ namespace CTRPluginFramework
 	}
 
 	
-	void CourseManager::getRandomCourseOnline(u32* result, bool isRace)
+	void CourseManager::getRandomCourse(u32* result, bool isRace)
 	{
 		bool repeat;
 		u32 chosen;
@@ -201,6 +206,11 @@ namespace CTRPluginFramework
 				UserCTHandler::TimeTrialsSetTrack(track);
 			}
 			*ptr = USERTRACKID;
+		} else if (cup == POINTSCUPID || cup == POINTSRANDOMCUPID || cup == POINTSWEEKLYCHALLENGECUPID) {
+			if (PointsModeHandler::isPointsMode)
+				*ptr = PointsModeHandler::selectedCourse;
+			else
+				*ptr = INVALIDTRACK;
 		} else {
 			if (track >= 0 && track < 4) {
 				if (!forceOriginal && ISGAMEONLINE && SaveHandler::saveData.flags1.isAlphabeticalEnabled) *ptr = alphabeticalGlobalCupData[FROMBUTTONTOCUP(cup)][track];
@@ -736,143 +746,160 @@ namespace CTRPluginFramework
 			0x7F,
 			0x80,
 			0x81
+		},{ //0x20 Shine Cup
+			0x82,
+			0x83,
+			0x84,
+			0x85
+		},{ //0x21 Dark Star Cup
+			0x86,
+			0x87,
+			0x88,
+			0x89
 		}
 	};
 	const CTNameData globalNameData = {
 		{0, 0, (u32)CTNameFunc::nullsub_func},
 		{
-			{&globalNameData.f, "Gctr_MarioCircuit", 0x00, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x00
-			{&globalNameData.f, "Gctr_RallyCourse", 0x01, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x01
-			{&globalNameData.f, "Gctr_MarineRoad", 0x02, 0x03, MarioKartTimer::ToFrames(1, 50)},			//0x02
-			{&globalNameData.f, "Gctr_GlideLake", 0x03, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x03
-			{&globalNameData.f, "Gctr_ToadCircuit", 0x04, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x04
-			{&globalNameData.f, "Gctr_SandTown", 0x05, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x05
-			{&globalNameData.f, "Gctr_AdvancedCircuit", 0x06, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x06
-			{&globalNameData.f, "Gctr_DKJungle", 0x07, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x07
-			{&globalNameData.f, "Gctr_WuhuIsland1", 0x08, 0x01, MarioKartTimer::ToFrames(1, 50)},			//0x08
-			{&globalNameData.f, "Gctr_WuhuIsland2", 0x09, 0x01, MarioKartTimer::ToFrames(0, 40)},			//0x09
-			{&globalNameData.f, "Gctr_IceSlider", 0x0A, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x0A
-			{&globalNameData.f, "Gctr_BowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x0B
-			{&globalNameData.f, "Gctr_UnderGround", 0x0C, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x0C
-			{&globalNameData.f, "Gctr_RainbowRoad", 0x0D, 0x01, MarioKartTimer::ToFrames(1, 45)},			//0x0D
-			{&globalNameData.f, "Gctr_WarioShip", 0x0E, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x0E
-			{&globalNameData.f, "Gctr_MusicPark", 0x0F, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x0F
-			{&globalNameData.f, "Gwii_CoconutMall", 0x10, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x10
-			{&globalNameData.f, "Gwii_KoopaCape", 0x11, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x11
-			{&globalNameData.f, "Gwii_MapleTreeway", 0x12, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x12
-			{&globalNameData.f, "Gwii_MushroomGorge", 0x13, 0x03, MarioKartTimer::ToFrames(1, 50)},			//0x13
-			{&globalNameData.f, "Gds_LuigisMansion", 0x14, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x14
-			{&globalNameData.f, "Gds_AirshipFortress", 0x15, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x15
-			{&globalNameData.f, "Gds_DKPass", 0x16, 0x03, MarioKartTimer::ToFrames(2, 30)},					//0x16
-			{&globalNameData.f, "Gds_WaluigiPinball", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x17
-			{&globalNameData.f, "Ggc_DinoDinoJungle", 0x18, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x18
-			{&globalNameData.f, "Ggc_DaisyCruiser", 0x19, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x19
-			{&globalNameData.f, "Gn64_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x1A
-			{&globalNameData.f, "Gn64_KalimariDesert", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x1B
-			{&globalNameData.f, "Gn64_KoopaTroopaBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0)},		//0x1C
-			{&globalNameData.f, "Gagb_BowserCastle1", 0x1D, 0x03, MarioKartTimer::ToFrames(1, 50)},			//0x1D
-			{&globalNameData.f, "Gsfc_MarioCircuit2", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x1E
-			{&globalNameData.f, "Gsfc_RainbowRoad", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x1F
-			{&globalNameData.f, "Bctr_WuhuIsland3", 0x20, 0x03, 0},								//0x20
-			{&globalNameData.f, "Bctr_HoneyStage", 0x21, 0x03, 0},								//0x21
-			{&globalNameData.f, "Bctr_IceRink", 0x22, 0x03, 0},									//0x22
-			{&globalNameData.f, "Bds_PalmShore", 0x23, 0x03, 0},								//0x23
-			{&globalNameData.f, "Bn64_BigDonut", 0x24, 0x03, 0},								//0x24
-			{&globalNameData.f, "Bagb_BattleCourse1", 0x25, 0x03, 0},							//0x25
-			{&globalNameData.f, "Gctr_WinningRun", 0x26, 0x03, 0},											//0x26
-			{&globalNameData.f, "", 0x27, 0x03, 0},															//0x27
-			{&globalNameData.f, "", 0x28, 0x03, 0},															//0x28
-			{&globalNameData.f, "", 0x29, 0x03, 0},															//0x29 (INVALID_COURSE)
+			{&globalNameData.f, "Gctr_MarioCircuit", 0x00, 0x03, MarioKartTimer::ToFrames(2, 30), 8220},			//0x00
+			{&globalNameData.f, "Gctr_RallyCourse", 0x01, 0x03, MarioKartTimer::ToFrames(2, 30), 9830},				//0x01
+			{&globalNameData.f, "Gctr_MarineRoad", 0x02, 0x03, MarioKartTimer::ToFrames(1, 50), 7200},				//0x02
+			{&globalNameData.f, "Gctr_GlideLake", 0x03, 0x03, MarioKartTimer::ToFrames(2, 0), 8850},				//0x03
+			{&globalNameData.f, "Gctr_ToadCircuit", 0x04, 0x03, MarioKartTimer::ToFrames(2, 0), 7000},				//0x04
+			{&globalNameData.f, "Gctr_SandTown", 0x05, 0x03, MarioKartTimer::ToFrames(2, 30), 8930},				//0x05
+			{&globalNameData.f, "Gctr_AdvancedCircuit", 0x06, 0x03, MarioKartTimer::ToFrames(2, 0), 8850},			//0x06
+			{&globalNameData.f, "Gctr_DKJungle", 0x07, 0x03, MarioKartTimer::ToFrames(2, 30), 9920},				//0x07
+			{&globalNameData.f, "Gctr_WuhuIsland1", 0x08, 0x01, MarioKartTimer::ToFrames(1, 50), 8230},				//0x08
+			{&globalNameData.f, "Gctr_WuhuIsland2", 0x09, 0x01, MarioKartTimer::ToFrames(0, 40), 7060},				//0x09
+			{&globalNameData.f, "Gctr_IceSlider", 0x0A, 0x03, MarioKartTimer::ToFrames(2, 0), 8120},				//0x0A
+			{&globalNameData.f, "Gctr_BowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 30), 8410},			//0x0B
+			{&globalNameData.f, "Gctr_UnderGround", 0x0C, 0x03, MarioKartTimer::ToFrames(2, 0), 8960},				//0x0C
+			{&globalNameData.f, "Gctr_RainbowRoad", 0x0D, 0x01, MarioKartTimer::ToFrames(1, 45), 10000},			//0x0D
+			{&globalNameData.f, "Gctr_WarioShip", 0x0E, 0x03, MarioKartTimer::ToFrames(2, 0), 9750},				//0x0E
+			{&globalNameData.f, "Gctr_MusicPark", 0x0F, 0x03, MarioKartTimer::ToFrames(2, 0), 8990},				//0x0F
+			{&globalNameData.f, "Gwii_CoconutMall", 0x10, 0x03, MarioKartTimer::ToFrames(2, 0), 8260},				//0x10
+			{&globalNameData.f, "Gwii_KoopaCape", 0x11, 0x03, MarioKartTimer::ToFrames(2, 0), 9410},				//0x11
+			{&globalNameData.f, "Gwii_MapleTreeway", 0x12, 0x03, MarioKartTimer::ToFrames(2, 30), 9610},			//0x12
+			{&globalNameData.f, "Gwii_MushroomGorge", 0x13, 0x03, MarioKartTimer::ToFrames(1, 50), 9950},			//0x13
+			{&globalNameData.f, "Gds_LuigisMansion", 0x14, 0x03, MarioKartTimer::ToFrames(2, 0), 8400},				//0x14
+			{&globalNameData.f, "Gds_AirshipFortress", 0x15, 0x03, MarioKartTimer::ToFrames(2, 0), 8720},			//0x15
+			{&globalNameData.f, "Gds_DKPass", 0x16, 0x03, MarioKartTimer::ToFrames(2, 30), 8910},					//0x16
+			{&globalNameData.f, "Gds_WaluigiPinball", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30), 8690},			//0x17
+			{&globalNameData.f, "Ggc_DinoDinoJungle", 0x18, 0x03, MarioKartTimer::ToFrames(2, 0), 8860},			//0x18
+			{&globalNameData.f, "Ggc_DaisyCruiser", 0x19, 0x03, MarioKartTimer::ToFrames(2, 0), 7390},				//0x19
+			{&globalNameData.f, "Gn64_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 30), 7420},			//0x1A
+			{&globalNameData.f, "Gn64_KalimariDesert", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 0), 7740},			//0x1B
+			{&globalNameData.f, "Gn64_KoopaTroopaBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0), 7310},			//0x1C
+			{&globalNameData.f, "Gagb_BowserCastle1", 0x1D, 0x03, MarioKartTimer::ToFrames(1, 50), 7830},			//0x1D
+			{&globalNameData.f, "Gsfc_MarioCircuit2", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 0), 8390},			//0x1E
+			{&globalNameData.f, "Gsfc_RainbowRoad", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 0), 7500},				//0x1F
+			{&globalNameData.f, "Bctr_WuhuIsland3", 0x20, 0x03, 0, 0},												//0x20
+			{&globalNameData.f, "Bctr_HoneyStage", 0x21, 0x03, 0, 0},												//0x21
+			{&globalNameData.f, "Bctr_IceRink", 0x22, 0x03, 0, 0},													//0x22
+			{&globalNameData.f, "Bds_PalmShore", 0x23, 0x03, 0, 0},													//0x23
+			{&globalNameData.f, "Bn64_BigDonut", 0x24, 0x03, 0, 0},													//0x24
+			{&globalNameData.f, "Bagb_BattleCourse1", 0x25, 0x03, 0, 0},											//0x25
+			{&globalNameData.f, "Gctr_WinningRun", 0x26, 0x03, 0, 0},																//0x26
+			{&globalNameData.f, "", 0x27, 0x03, 0, 0},																			//0x27
+			{&globalNameData.f, "", 0x28, 0x03, 0, 0},																			//0x28
+			{&globalNameData.f, "", 0x29, 0x03, 0, 0},																			//0x29 (INVALID_COURSE)
 
-			{&globalNameData.f, "Ctgp_ConcTown", 0x12, 0x03, MarioKartTimer::ToFrames(2,30)},					//0x2A
-			{&globalNameData.f, "Ctgp_MarioCircuit1", 0x1E, 0x05, MarioKartTimer::ToFrames(2,0)},				//0x2B
-			{&globalNameData.f, "Ctgp_GalvarnyFalls", 0x03, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x2C
-			{&globalNameData.f, "Ctgp_SkaiiGarden", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x2D
-			{&globalNameData.f, "Ctgp_AutumnForest", 0x12, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x2E
-			{&globalNameData.f, "Gn64_ChocoMountainn", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x2F
-			{&globalNameData.f, "Ctgp_DSShroomRidge", 0x08, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x30
-			{&globalNameData.f, "Ctgp_BowserCastle3", 0x1D, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x31
-			{&globalNameData.f, "Ctgp_N64DKJungleParkway", 0x07, 0x03, MarioKartTimer::ToFrames(2,30)},		//0x32
-			{&globalNameData.f, "Ctgp_CrashCov", 0x14, 0x03, MarioKartTimer::ToFrames(2,30)},					//0x33
-			{&globalNameData.f, "Ctgp_ArchipAvenue", 0x11, 0x03, MarioKartTimer::ToFrames(2,10)},				//0x34
-			{&globalNameData.f, "Ctgp_FrapeSnow", 0x0A, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x35
-			{&globalNameData.f, "Ctgp_MoooMoooFarm", 0x07, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x36
-			{&globalNameData.f, "Ctgp_BanshBoardT", 0x0E, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x37
-			{&globalNameData.f, "Ctgp_CortexCastleeee", 0x06, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x38
-			{&globalNameData.f, "Ctgp_GhostValleyT", 0x14, 0x03, MarioKartTimer::ToFrames(1,45)},				//0x39
-			{&globalNameData.f, "Ctgp_JungleRuins", 0x18, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x3A
-			{&globalNameData.f, "Ctgp_MarioRacewa", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x3B
-			{&globalNameData.f, "Ctgp_WarpPipeIsland", 0x11, 0x03, MarioKartTimer::ToFrames(1, 50)},		    //0x3C
-			{&globalNameData.f, "Gsfc_ChocoIsland", 0x1E, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x3D
-			{&globalNameData.f, "Ctgp_ElementalCave", 0x18, 0x03, MarioKartTimer::ToFrames(1,30)},			//0x3E
-			{&globalNameData.f, "Ctgp_YoshFalls", 0x03, 0x03, MarioKartTimer::ToFrames(1,30)},				//0x3F
-			{&globalNameData.f, "Ctgp_StarSlopeee", 0x1F, 0x03, MarioKartTimer::ToFrames(3,0)},				//0x40
-			{&globalNameData.f, "Ctgp_ChpChpBch", 0x11, 0x03, MarioKartTimer::ToFrames(2,0)},					//0x41
-			{&globalNameData.f, "Ctgp_DeseHill", 0x1B, 0x03, MarioKartTimer::ToFrames(2,0)},					//0x42
-			{&globalNameData.f, "Ctgp_TickTockClock", 0x17, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x43
-			{&globalNameData.f, "Ctgp_RiversiPark", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x44
-			{&globalNameData.f, "Ctgp_CastlOfTime", 0x0D, 0x02, MarioKartTimer::ToFrames(1,45)},				//0x45
-			{&globalNameData.f, "Ctgp_N64RainbowR", 0x1F, 0x01, MarioKartTimer::ToFrames(2,30)},				//0x46
-			{&globalNameData.f, "Gagb_RainbowRoad", 0x1F, 0x03, MarioKartTimer::ToFrames(2,30)},				//0x47
-			{&globalNameData.f, "Ctgp_GCBowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x48
-			{&globalNameData.f, "Ctgp_MikuBirtSpe2", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x49
-			{&globalNameData.f, "Ctgp_SandCastle", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x4A
-			{&globalNameData.f, "Ctgp_GCMushroomBridge", 0x19, 0x03, MarioKartTimer::ToFrames(2,30)},			//0x4B
-			{&globalNameData.f, "Gcn_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4C
-			{&globalNameData.f, "Ctgp_VolcanoBeachRuins", 0x02, 0x02, MarioKartTimer::ToFrames(2, 0)},		//0x4D
-			{&globalNameData.f, "Gcn_YoshiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4E
-			{&globalNameData.f, "Gagb_PeachCircuitt", 0x03, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x4F
-			{&globalNameData.f, "Ctgp_MetroMadness", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x50
-			{&globalNameData.f, "Ctgp_GBALuigiCirc", 0x06, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x51
-			{&globalNameData.f, "Ctgp_SMORCChallen", 0x1E, 0x05, MarioKartTimer::ToFrames(2, 0)},				//0x52
-			{&globalNameData.f, "Gagb_BowserCastle4", 0x1D, 0x03, MarioKartTimer::ToFrames(3, 0)},			//0x53
-			{&globalNameData.f, "Ctgp_RMXDP1", 0x1E, 0x03, MarioKartTimer::ToFrames(1,30)},	                //0x54
-			{&globalNameData.f, "Gn64_SecretSl", 0x21, 0x03, MarioKartTimer::ToFrames(3, 0)},					//0x55
-			{&globalNameData.f, "Gds_WarioStad", 0x17, 0x03, MarioKartTimer::ToFrames(2,30)},					//0x56
-			{&globalNameData.f, "Ctgp_ErmiiCir", 0x1A, 0x05, MarioKartTimer::ToFrames(1,30)},                 //0x57
-			{&globalNameData.f, "Ggcn_BabyParkNin", 0x00, 0x07, MarioKartTimer::ToFrames(1,15)},				//0x58
-			{&globalNameData.f, "Ctgp_RevoCircuit", 0x00, 0x03, MarioKartTimer::ToFrames(1, 30)},				//0x59
-			{&globalNameData.f, "Ctgp_MarioCircTh", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 30)},				//0x5A
-			{&globalNameData.f, "Ctgp_BigBlueFZero1", 0x00, 0x03, MarioKartTimer::ToFrames(1, 15)},			//0x5B
-			{&globalNameData.f, "Ggba_ShyGuyBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0)},				//0x5C
-			{&globalNameData.f, "Ctgp_BingoPartyyyy", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x5D
-			{&globalNameData.f, "Ctgp_DogeDesert", 0x00, 0x02, MarioKartTimer::ToFrames(3, 0)},				//0x5E
-			{&globalNameData.f, "Ctgp_N64BansheeBoard", 0x14, 0x03, MarioKartTimer::ToFrames(3,0)},			//0x5F
-			{&globalNameData.f, "Ctgp_GCNMarioCirc", 0x00, 0x03, MarioKartTimer::ToFrames(2,0)},  			//0X60
-			{&globalNameData.f, "Ctgp_RainbowRdDX", 0x0D, 0x01, MarioKartTimer::ToFrames(2, 30)},				//0X61
-			{&globalNameData.f, "Ctgp_StarGSumm", 0x0A, 0x03, MarioKartTimer::ToFrames(1, 45)},				//0x62
-			{&globalNameData.f, "Ctgp_SunsetRacewa", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x63
-			{&globalNameData.f, "Ctgp_GBABroknPier", 0x14, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x64
-			{&globalNameData.f, "Ctgp_GlacrMine", 0x0A, 0x01, MarioKartTimer::ToFrames(2, 30)},				//0x65
-			{&globalNameData.f, "Ctgp_FlowerBFort", 0x01, 0x03, MarioKartTimer::ToFrames(2, 00)},				//0x66
-			{&globalNameData.f, "Ctgp_SeasidePalace", 0x01, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x67
-			{&globalNameData.f, "Ctgp_DKRStaCi", 0x05, 0x03, MarioKartTimer::ToFrames(2, 00)},				//0x68
-			{&globalNameData.f, "Ctgp_MushroomMount", 0x13, 0x02, MarioKartTimer::ToFrames(2, 30)},			//0x69
-			{&globalNameData.f, "Ctgp_N64ShbLnd", 0x0A, 0x03, MarioKartTimer::ToFrames(2, 00)},				//0x6A
-			{&globalNameData.f, "Ctgp_BlockIslandd", 0x00, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x6B
-			{&globalNameData.f, "Ctgp_DSBowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x6C
-			{&globalNameData.f, "Ctgp_DKRJunFa", 0x07, 0x03, MarioKartTimer::ToFrames(1, 30)},				//0x6D
-			{&globalNameData.f, "Ctgp_RetroRaceway", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x6E
-			{&globalNameData.f, "Ctgp_FrzGrotto", 0x0A, 0x04, MarioKartTimer::ToFrames(1, 45)},				//0x6F
-			{&globalNameData.f, "Ctgp_GBALksdPrk", 0x18, 0x03, MarioKartTimer::ToFrames(2, 00)},				//0x70
-			{&globalNameData.f, "Ctgp_DrgnBGrounds", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x71
-			{&globalNameData.f, "Ctgp_RMXSFCRbwRd", 0x1F, 0x03, MarioKartTimer::ToFrames(1, 50)},				//0x72		
-			{&globalNameData.f, "Ctgp_NeoMetropolisss", 0x6, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x73		
-			{&globalNameData.f, "Ctgp_FrostyHeights", 0x16, 0x03, MarioKartTimer::ToFrames(2, 0)},			//0x74		
-			{&globalNameData.f, "Ctgp_GnsGnoLair", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 0)},				//0x75			
-			{&globalNameData.f, "Ctgp_VaLkO", 0x16, 0x03, MarioKartTimer::ToFrames(2, 0)},					//0x76		
-			{&globalNameData.f, "Ctgp_CliffCircuit", 0x13, 0x03, MarioKartTimer::ToFrames(1, 50)},			//0x77		
-			{&globalNameData.f, "Ctgp_InterstellarLabb", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x78
-			{&globalNameData.f, "Ctgp_DarkMatterFortress", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x79
-
-			{&globalNameData.f, "Ctgp_SNESDonutPlains2", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 15)},		//0x7A
-			{&globalNameData.f, "Ctgp_SoaringSkyway", 0x00, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x7B
-			{&globalNameData.f, "Ctgp_N64BowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 30)},			//0x7C
-			{&globalNameData.f, "Ctgp_WiiDKSummit", 0x16, 0x03, MarioKartTimer::ToFrames(2, 15)},				//0x7D
-			{&globalNameData.f, "Ctgp_PaintSwpRC", 0x14, 0x03, MarioKartTimer::ToFrames(2, 15)},				//0x7E
-			{&globalNameData.f, "Ctgp_RouletteRoad", 0x17, 0x03, MarioKartTimer::ToFrames(2, 00)},			//0x7F
-			{&globalNameData.f, "Ctgp_OrbitalOutpost", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x80
-			{&globalNameData.f, "Ctgp_DsRainbowRoad", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15)},			//0x81
+			{&globalNameData.f, "Ctgp_ConcTown", 0x12, 0x03, MarioKartTimer::ToFrames(2,30), 7860},								//0x2A
+			{&globalNameData.f, "Ctgp_RMXMarioCircuit1", 0x1E, 0x03, MarioKartTimer::ToFrames(2,0), 8190},						//0x2B
+			{&globalNameData.f, "Ctgp_GalvarnyFalls", 0x03, 0x03, MarioKartTimer::ToFrames(2,0), 7260},							//0x2C
+			{&globalNameData.f, "Ctgp_SkaiiGarden", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0), 7530},								//0x2D
+			{&globalNameData.f, "Ctgp_AutumnForest", 0x12, 0x03, MarioKartTimer::ToFrames(2,0), 10580},							//0x2E
+			{&globalNameData.f, "Ctgp_N64ChocoMountain", 0x1, 0x03, MarioKartTimer::ToFrames(2, 15), 7280},						//0x2F
+			{&globalNameData.f, "Ctgp_DSShroomRidge", 0x08, 0x03, MarioKartTimer::ToFrames(2,30), 8250},							//0x30
+			{&globalNameData.f, "Ctgp_BowserCastle3", 0x1D, 0x03, MarioKartTimer::ToFrames(2,30), 12520},							//0x31
+			{&globalNameData.f, "Ctgp_N64DKJungleParkway", 0x07, 0x03, MarioKartTimer::ToFrames(2,30), 7110},						//0x32
+			{&globalNameData.f, "Ctgp_CrashCov", 0x14, 0x03, MarioKartTimer::ToFrames(2,30), 9240},								//0x33
+			{&globalNameData.f, "Ctgp_DSDelfinoSquare", 0x0, 0x03, MarioKartTimer::ToFrames(2,30), 7840},							//0x34
+			{&globalNameData.f, "Ctgp_FrapeSnow", 0x0A, 0x03, MarioKartTimer::ToFrames(2,30), 8420},								//0x35
+			{&globalNameData.f, "Ctgp_MoooMoooFarm", 0x07, 0x03, MarioKartTimer::ToFrames(2,0), 7190},							//0x36
+			{&globalNameData.f, "Ctgp_BanshBoardT", 0x0E, 0x03, MarioKartTimer::ToFrames(2,0), 7010},								//0x37
+			{&globalNameData.f, "Ctgp_CortexCastleeee", 0x06, 0x03, MarioKartTimer::ToFrames(2,30), 10380},						//0x38
+			{&globalNameData.f, "Ctgp_GhostValleyT", 0x14, 0x03, MarioKartTimer::ToFrames(1,45), 7840},							//0x39
+			{&globalNameData.f, "Ctgp_JungleRuins", 0x18, 0x03, MarioKartTimer::ToFrames(2,30), 10550},							//0x3A
+			{&globalNameData.f, "Ctgp_N64MarioRaceway", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 30), 7650},						//0x3B
+			{&globalNameData.f, "Ctgp_WarpPipeIsland", 0x11, 0x03, MarioKartTimer::ToFrames(1, 50), 11080},		 				//0x3C
+			{&globalNameData.f, "Ctgp_SNESChocoIsland2", 0x1B, 0x03, MarioKartTimer::ToFrames(2,0), 7560},						//0x3D
+			{&globalNameData.f, "Ctgp_ElementalCave", 0x18, 0x03, MarioKartTimer::ToFrames(1,30), 7100},							//0x3E
+			{&globalNameData.f, "Ctgp_YoshFalls", 0x03, 0x03, MarioKartTimer::ToFrames(1,30), 7000},								//0x3F
+			{&globalNameData.f, "Ctgp_StarSlopeee", 0x1F, 0x03, MarioKartTimer::ToFrames(3,0), 15280},							//0x40
+			{&globalNameData.f, "Ctgp_ChpChpBch", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0), 8030},								//0x41
+			{&globalNameData.f, "Ctgp_DeseHill", 0x1B, 0x03, MarioKartTimer::ToFrames(2,0), 7110},								//0x42
+			{&globalNameData.f, "Ctgp_TickTockClock", 0x5, 0x03, MarioKartTimer::ToFrames(2,30), 10290},							//0x43
+			{&globalNameData.f, "Ctgp_RiversiPark", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0), 9270},								//0x44
+			{&globalNameData.f, "Ctgp_CastlOfTime", 0x0D, 0x02, MarioKartTimer::ToFrames(1,45), 11310},							//0x45
+			{&globalNameData.f, "Ctgp_N64RainbowR", 0x1F, 0x01, MarioKartTimer::ToFrames(2,30), 9490},							//0x46
+			{&globalNameData.f, "Gagb_RainbowRoad", 0xD, 0x03, MarioKartTimer::ToFrames(2,30), 15620},							//0x47
+			{&globalNameData.f, "Ctgp_GCBowserCastle", 0x15, 0x03, MarioKartTimer::ToFrames(2,30), 8250},							//0x48
+			{&globalNameData.f, "Ctgp_MikuBirtSpe2", 0x0D, 0x03, MarioKartTimer::ToFrames(2,0), 25000},							//0x49
+			{&globalNameData.f, "Ctgp_SandCastle", 0x1C, 0x03, MarioKartTimer::ToFrames(2, 0), 9790},								//0x4A
+			{&globalNameData.f, "Ctgp_GCMushroomBridge", 0x19, 0x03, MarioKartTimer::ToFrames(2,30), 7490},						//0x4B
+			{&globalNameData.f, "Gcn_LuigiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0), 7710},								//0x4C
+			{&globalNameData.f, "Ctgp_VolcanoBeachRuins", 0x02, 0x02, MarioKartTimer::ToFrames(2, 0), 9900},						//0x4D
+			{&globalNameData.f, "Gcn_YoshiCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(2,0), 7640},								//0x4E
+			{&globalNameData.f, "Gagb_PeachCircuitt", 0x03, 0x03, MarioKartTimer::ToFrames(2,0), 7090},							//0x4F
+			{&globalNameData.f, "Ctgp_MetroMadness", 0x1B, 0x03, MarioKartTimer::ToFrames(2, 30), 7570},							//0x50
+			{&globalNameData.f, "Ctgp_GBALuigiCirc", 0x06, 0x03, MarioKartTimer::ToFrames(2, 30), 7320},							//0x51
+			{&globalNameData.f, "Ctgp_SMORCChallen", 0x1E, 0x05, MarioKartTimer::ToFrames(2, 0), 8420},							//0x52
+			{&globalNameData.f, "Gagb_BowserCastle4", 0x1D, 0x03, MarioKartTimer::ToFrames(3, 0), 14290},							//0x53
+			{&globalNameData.f, "Ctgp_RMXDP1", 0x1E, 0x03, MarioKartTimer::ToFrames(1,30), 8990},	                				//0x54
+			{&globalNameData.f, "Gn64_SecretSl", 0x1E, 0x03, MarioKartTimer::ToFrames(3, 0), 11720},								//0x55
+			{&globalNameData.f, "Gds_WarioStad", 0x17, 0x03, MarioKartTimer::ToFrames(2,30), 12200},								//0x56
+			{&globalNameData.f, "Ctgp_ErmiiCir", 0x1A, 0x05, MarioKartTimer::ToFrames(1,30), 7000},                 				//0x57
+			{&globalNameData.f, "Ggcn_BabyParkNin", 0x00, 0x07, MarioKartTimer::ToFrames(1,15), 8820},							//0x58
+			{&globalNameData.f, "Ctgp_RevoCircuit", 0x1A, 0x03, MarioKartTimer::ToFrames(1, 30), 12250},							//0x59
+			{&globalNameData.f, "Ctgp_MarioCircTh", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 30), 7120},							//0x5A
+			{&globalNameData.f, "Ctgp_BigBlueFZero1", 0x00, 0x03, MarioKartTimer::ToFrames(1, 15), 8240},							//0x5B
+			{&globalNameData.f, "Ggba_ShyGuyBeach", 0x1C, 0x03, MarioKartTimer::ToFrames(2,0), 7360},								//0x5C
+			{&globalNameData.f, "Ctgp_BingoPartyyyy", 0x17, 0x03, MarioKartTimer::ToFrames(2, 30), 8770},							//0x5D
+			{&globalNameData.f, "Ctgp_DogeDesert", 0x05, 0x02, MarioKartTimer::ToFrames(3, 0), 8600},								//0x5E
+			{&globalNameData.f, "Ctgp_N64BansheeBoard", 0x14, 0x03, MarioKartTimer::ToFrames(3,0), 9020},							//0x5F
+			{&globalNameData.f, "Ctgp_GCNMarioCirc", 0x00, 0x03, MarioKartTimer::ToFrames(2,0), 9030},  							//0X60
+			{&globalNameData.f, "Ctgp_RainbowRdDX", 0x0D, 0x01, MarioKartTimer::ToFrames(2, 30), 10000},							//0X61
+			{&globalNameData.f, "Ctgp_StarGSumm", 0x0A, 0x03, MarioKartTimer::ToFrames(1, 45), 8040},								//0x62
+			{&globalNameData.f, "Ctgp_SunsetRacewa", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 00), 12100},							//0x63
+			{&globalNameData.f, "Ctgp_GBABroknPier", 0x14, 0x03, MarioKartTimer::ToFrames(2, 00), 7230},							//0x64
+			{&globalNameData.f, "Ctgp_GlacrMine", 0x0A, 0x01, MarioKartTimer::ToFrames(2, 30), 11390},							//0x65
+			{&globalNameData.f, "Ctgp_FlowerBFort", 0x01, 0x03, MarioKartTimer::ToFrames(2, 00), 8360},							//0x66
+			{&globalNameData.f, "Ctgp_SeasidePalace", 0x01, 0x03, MarioKartTimer::ToFrames(2, 00), 10820},						//0x67
+			{&globalNameData.f, "Ctgp_DKRStaCi", 0x05, 0x03, MarioKartTimer::ToFrames(2, 00), 7860},								//0x68
+			{&globalNameData.f, "Ctgp_MushroomMount", 0x13, 0x02, MarioKartTimer::ToFrames(2, 30), 11260},						//0x69
+			{&globalNameData.f, "Ctgp_N64ShbLnd", 0x0A, 0x03, MarioKartTimer::ToFrames(2, 00), 7150},								//0x6A
+			{&globalNameData.f, "Ctgp_BlockIslandd", 0x00, 0x03, MarioKartTimer::ToFrames(2, 00), 9390},							//0x6B
+			{&globalNameData.f, "Ctgp_DSBowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 15), 9820},						//0x6C
+			{&globalNameData.f, "Ctgp_DKRJunFa", 0x07, 0x03, MarioKartTimer::ToFrames(1, 30), 7450},								//0x6D
+			{&globalNameData.f, "Ctgp_RetroRaceway", 0x1A, 0x03, MarioKartTimer::ToFrames(2, 00), 7610},							//0x6E
+			{&globalNameData.f, "Ctgp_FrzGrotto", 0x0A, 0x04, MarioKartTimer::ToFrames(1, 45), 10360},							//0x6F
+			{&globalNameData.f, "Ctgp_GBALksdPrk", 0x18, 0x03, MarioKartTimer::ToFrames(2, 00), 8240},							//0x70
+			{&globalNameData.f, "Ctgp_DrgnBGrounds", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 15), 16280},							//0x71
+			{&globalNameData.f, "Ctgp_RMXSFCRbwRd", 0x1F, 0x03, MarioKartTimer::ToFrames(1, 50), 11500},							//0x72		
+			{&globalNameData.f, "Ctgp_NeoMetropolisss", 0x6, 0x03, MarioKartTimer::ToFrames(2, 0), 7380},							//0x73		
+			{&globalNameData.f, "Ctgp_FrostyHeights", 0x16, 0x03, MarioKartTimer::ToFrames(2, 0), 8870},							//0x74		
+			{&globalNameData.f, "Ctgp_GnsGnoLair", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 0), 7600},								//0x75			
+			{&globalNameData.f, "Ctgp_VaLkO", 0x16, 0x03, MarioKartTimer::ToFrames(2, 0), 7380},									//0x76		
+			{&globalNameData.f, "Ctgp_CliffCircuit", 0x13, 0x03, MarioKartTimer::ToFrames(1, 50), 8960},							//0x77		
+			{&globalNameData.f, "Ctgp_InterstellarLabb", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15), 11640},						//0x78
+			{&globalNameData.f, "Ctgp_DarkMatterFortress", 0x1F, 0x03, MarioKartTimer::ToFrames(2, 15), 9630},					//0x79
+			{&globalNameData.f, "Ctgp_SNESDonutPlains2", 0x1E, 0x03, MarioKartTimer::ToFrames(2, 15), 7060},						//0x7A
+			{&globalNameData.f, "Ctgp_SoaringSkyway", 0x00, 0x03, MarioKartTimer::ToFrames(2, 15), 9690},							//0x7B
+			{&globalNameData.f, "Ctgp_N64BowserCastle", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 30), 9020},						//0x7C
+			{&globalNameData.f, "Ctgp_WiiDKSummit", 0x16, 0x03, MarioKartTimer::ToFrames(2, 15), 9740},							//0x7D
+			{&globalNameData.f, "Ctgp_PaintSwpRC", 0x14, 0x03, MarioKartTimer::ToFrames(2, 15), 14660},							//0x7E
+			{&globalNameData.f, "Ctgp_RouletteRoad", 0x17, 0x03, MarioKartTimer::ToFrames(2, 00), 13720},							//0x7F
+			{&globalNameData.f, "Ctgp_OrbitalOutpost", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15), 10470},						//0x80
+			{&globalNameData.f, "Ctgp_DsRainbowRoad", 0x0D, 0x03, MarioKartTimer::ToFrames(2, 15), 13480},						//0x81
+			{&globalNameData.f, "Ctgp_CoralCape", 0x11, 0x05, MarioKartTimer::ToFrames(1, 40), 8930},								//0x82
+			{&globalNameData.f, "Ctgp_WiiWarioGoldMine", 0x01, 0x03, MarioKartTimer::ToFrames(2, 30), 7080},						//0x83
+			{&globalNameData.f, "Ctgp_DSPeachGardens", 0x03, 0x03, MarioKartTimer::ToFrames(2, 15), 7040},						//0x84
+			{&globalNameData.f, "Ctgp_BreezechillCitadel", 0x0A, 0x03, MarioKartTimer::ToFrames(2, 30), 9020},					//0x85
+			{&globalNameData.f, "Ctgp_DarkSanctuary", 0x14, 0x03, MarioKartTimer::ToFrames(2, 15), 7030},							//0x86
+			{&globalNameData.f, "Ctgp_HellPyramid", 0x0B, 0x03, MarioKartTimer::ToFrames(2, 15), 12240},							//0x87
+			{&globalNameData.f, "Ctgp_GCNMushroomCity", 0x08, 0x03, MarioKartTimer::ToFrames(2, 15), 7010},						//0x88
+			{&globalNameData.f, "Ctgp_DarkStarCastle", 0x0D, 0x01, MarioKartTimer::ToFrames(2, 45), 8490},						//0x89
 		}
 	};
 	
@@ -892,6 +919,7 @@ namespace CTRPluginFramework
 		0x1A,
 		0x1C,
 		0x1E,
+		0x20,
 		0x17,
 		//Bottom
 		0x04,
@@ -908,6 +936,7 @@ namespace CTRPluginFramework
 		0x1B,
 		0x1D,
 		0x1F,
+		0x21,
 		0x11
 	};
 	const u32 ctwwCupTranslateTable[MAXCUPS - 8] = {
@@ -922,6 +951,7 @@ namespace CTRPluginFramework
 		0x1A,
 		0x1C,
 		0x1E,
+		0x20,
 		0x17,
 		//Bottom
 		0x0B,
@@ -934,6 +964,7 @@ namespace CTRPluginFramework
 		0x1B,
 		0x1D,
 		0x1F,
+		0x21,
 		0x11
 	};
 	const u32 vanillaCupTranslateTable[8] = {
@@ -957,7 +988,10 @@ namespace CTRPluginFramework
 		} else if (!getCustomTracksAllowed() && !forceGetAll) {
 			*size = sizeof(vanillaCupTranslateTable) / sizeof(u32);
 			return vanillaCupTranslateTable;
-		} else if (g_getCTModeVal == CTMode::OFFLINE && !forceGetAll && !VersusHandler::IsVersusMode && !MissionHandler::isMissionMode && (MarioKartFramework::currentRaceMode.type == 0 || MarioKartFramework::currentRaceMode.type == 1) && (MarioKartFramework::currentRaceMode.mode == 0 || MarioKartFramework::currentRaceMode.mode == 1) && finalGlobalCupTranslateTable) {
+		} else if (PointsModeHandler::isPointsMode && !forceGetAll) {
+			*size = pointsModeCupTranslateTableSize;
+			return pointsModeCupTranslateTable;
+		} else if (g_getCTModeVal == CTMode::OFFLINE && MarioKartFramework::currentRaceMode.type != 1 && !forceGetAll && !VersusHandler::IsVersusMode && !MissionHandler::isMissionMode && !PointsModeHandler::isPointsMode && (MarioKartFramework::currentRaceMode.type == 0 || MarioKartFramework::currentRaceMode.type == 1) && (MarioKartFramework::currentRaceMode.mode == 0 || MarioKartFramework::currentRaceMode.mode == 1) && finalGlobalCupTranslateTable) {
 			*size = finalGlobalCupTranslateTableSize;
 			return finalGlobalCupTranslateTable;
 		} else {
@@ -969,6 +1003,7 @@ namespace CTRPluginFramework
 	void CourseManager::initGlobalCupTranslateTable() {
 		if (finalGlobalCupTranslateTable)
 			return;
+
 		u32 size = sizeof(globalCupTranslateTable) / sizeof(u32) + UserCTHandler::GetCustomCupAmount();
 		if (size & 1) size++;
 		finalGlobalCupTranslateTableSize = size;
@@ -980,6 +1015,16 @@ namespace CTRPluginFramework
 			finalGlobalCupTranslateTable[i] = globalCupTranslateTable[i];
 			finalGlobalCupTranslateTable[i + finalGlobalCupTranslateTableSize / 2] = globalCupTranslateTable[i + sizeof(globalCupTranslateTable) / sizeof(u32) / 2 ];
 		}
+
+		size = (sizeof(globalCupTranslateTable) / sizeof(u32)) + 2;
+		pointsModeCupTranslateTableSize = size;
+		pointsModeCupTranslateTable = (u32*)::operator new(sizeof(u32) * pointsModeCupTranslateTableSize);
+		for (int i = 0; i < sizeof(globalCupTranslateTable) / sizeof(u32) / 2; i++) {
+			pointsModeCupTranslateTable[i] = globalCupTranslateTable[i];
+			pointsModeCupTranslateTable[i + pointsModeCupTranslateTableSize / 2] = globalCupTranslateTable[i + sizeof(globalCupTranslateTable) / sizeof(u32) / 2 ];
+		}
+		pointsModeCupTranslateTable[pointsModeCupTranslateTableSize / 2 - 1] = POINTSRANDOMCUPID;
+		pointsModeCupTranslateTable[pointsModeCupTranslateTableSize - 1] = POINTSWEEKLYCHALLENGECUPID;
 	}
 	
 	TrophyNameData globalTrophyData{
@@ -993,6 +1038,8 @@ namespace CTRPluginFramework
 			{&globalTrophyData.f, "Banana"},
 			{&globalTrophyData.f, "Leaf"},
 			{&globalTrophyData.f, "Lightning"},
+			{&globalTrophyData.f, "General"},
+			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},
 			{&globalTrophyData.f, "General"},

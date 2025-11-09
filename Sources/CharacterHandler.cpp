@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2156/2159 (99.86%)
+Open source lines: 2233/2236 (99.87%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -20,6 +20,7 @@ Open source lines: 2156/2159 (99.86%)
 #include "MenuPage.hpp"
 #include "VoiceChatHandler.hpp"
 #include "StatsHandler.hpp"
+#include "BadgeManager.hpp"
 
 namespace CTRPluginFramework {
 	BootSceneHandler::ProgressHandle CharacterHandler::progressHandle;
@@ -180,7 +181,7 @@ namespace CTRPluginFramework {
 		11,
 		4,
 	};
-	const int CharacterHandler::msbtOrder[EDriverID::DRIVER_SIZE] = {
+	const u8 CharacterHandler::driverMsbtOrder[EDriverID::DRIVER_SIZE] = {
 		4,
 		9,
 		5,
@@ -200,7 +201,46 @@ namespace CTRPluginFramework {
 		12,
 		3
 	};
-
+	const u8 CharacterHandler::bodyMsbtOrder[EBodyID::BODY_SIZE] = {
+		0,
+		1,
+		12,
+		2,
+		6,
+		5,
+		9,
+		3,
+		8,
+		13,
+		7,
+		10,
+		14,
+		4,
+		11,
+		15,
+		16,
+	};
+	const u8 CharacterHandler::tireMsbtOrder[ETireID::TIRE_SIZE] = {
+		0,
+		2,
+		1,
+		3,
+		4,
+		5,
+		9,
+		8,
+		6,
+		7,
+	};
+	const u8 CharacterHandler::wingMsbtOrder[EWingID::WING_SIZE] = {
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+	};
 	
 	const char* CharacterHandler::bodyNames[EBodyID::BODY_SIZE] = {
 		"std",
@@ -321,6 +361,7 @@ namespace CTRPluginFramework {
 
 	bool CharacterHandler::updateRaceCharaNamePending = false;
 	std::array<u64, MAX_PLAYER_AMOUNT> CharacterHandler::selectedCharaceters{};
+	std::array<u64, MAX_PLAYER_AMOUNT> CharacterHandler::onlineSelectedCharaceters{};
 	u64 CharacterHandler::selectedMenuCharacter{};
 	std::vector<std::string> CharacterHandler::authorNames;
 	std::array<std::string, EDriverID::DRIVER_SIZE> CharacterHandler::origCharNames;
@@ -511,9 +552,9 @@ namespace CTRPluginFramework {
 
 		int task1arg = 0, task2arg = 1;
 		#if CITRA_MODE == 0
-		Task::Affinity task1Aff = Task::Affinity::AppCores, task2Aff = Task::Affinity::AppCores;
+		Task::Affinity task1Aff = Task::Affinity::AppCore, task2Aff = Task::Affinity::AppCore;
 		#else
-		Task::Affinity task1Aff = Task::Affinity::SysCore, task2Aff = Task::Affinity::AppCore;
+		Task::Affinity task1Aff = Task::Affinity::AppCore, task2Aff = Task::Affinity::AppCore;
 		#endif
 
 		Task task1(func, &task1arg, task1Aff);
@@ -530,14 +571,30 @@ namespace CTRPluginFramework {
 		LightEvent_Init(&onlineCharacterFetchedEvent, RESET_STICKY);
     }
 
-	void CharacterHandler::PopulateAvailableCharacters() {
-		for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
+    bool CharacterHandler::IsCharacterAvailable(u64 characterID)
+    {
+        auto it = charEntries.find(characterID);
+		if (it != charEntries.end()) {
+			CharacterEntry& entry = it->second;
+			return IsCharacterAvailable(entry);
+		}
+		return false;
+    }
+
+    bool CharacterHandler::IsCharacterAvailable(const CharacterEntry &entry)
+    {
+        return entry.selectAllowed && (entry.achievementLevel == 0 || entry.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount())
+									&& (entry.specialAchievement == SaveHandler::SpecialAchievements::NONE || SaveHandler::saveData.IsSpecialAchievementCompleted(entry.specialAchievement));
+    }
+
+    void CharacterHandler::PopulateAvailableCharacters()
+    {
+        for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
 			charEntriesPerDriverID[i].clear();
 		}
 		for (auto it = charEntries.begin(); it != charEntries.end(); it++) {
 			CharacterEntry& entry = it->second;
-			if (entry.selectAllowed && (entry.achievementLevel == 0 || entry.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount())
-									&& (entry.specialAchievement == SaveHandler::SpecialAchievements::NONE || SaveHandler::saveData.IsSpecialAchievementCompleted(entry.specialAchievement)))
+			if (IsCharacterAvailable(entry))
 				charEntriesPerDriverID[entry.origChar].push_back(&entry);
 		}
 		for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
@@ -546,16 +603,16 @@ namespace CTRPluginFramework {
 			});
 		}
 		LoadCharacterChoices();
-	}
+    }
 
-	void CharacterHandler::UpdateMsbtPatches() {
+    void CharacterHandler::UpdateMsbtPatches() {
 		if (!Language::msbtReady)
 			return;
 		if (origCharNames[0].empty()) for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
-			origCharNames[i] = Language::MsbtHandler::GetString(1000 + msbtOrder[i]);
-			Language::MsbtHandler::SetString(1000 + msbtOrder[i], 
+			origCharNames[i] = Language::MsbtHandler::GetString(1000 + driverMsbtOrder[i]);
+			Language::MsbtHandler::SetString(1000 + driverMsbtOrder[i], 
 				Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(245, 245, 245)) + 
-				Language::MsbtHandler::DashTextWithTagsToString(Language::MsbtHandler::GetText(1000 + msbtOrder[i]))
+				Language::MsbtHandler::DashTextWithTagsToString(Language::MsbtHandler::GetText(1000 + driverMsbtOrder[i]))
 			);
 		}
 	}
@@ -605,7 +662,7 @@ namespace CTRPluginFramework {
 		MarioKartFramework::rotateCharacterID = 0;
 		MarioKartFramework::syncJumpVoiceCharacterID = 0;
 		if (!MarioKartFramework::isLoadingAward) do {
-			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD) {
+			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || MarioKartFramework::currentRaceMode.type == 1) {
 				ApplyOnlineSelectedCharacters();
 			} else {
 				CRaceInfo& raceInfo = *MarioKartFramework::getRaceInfo(true);
@@ -692,7 +749,7 @@ namespace CTRPluginFramework {
 		memset(MenuPageHandler::MenuCharaBasePage::currentChoices.data(), 0, sizeof(MenuPageHandler::MenuCharaBasePage::currentChoices));
 		for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
 			u64 savedCharacter = SaveHandler::saveData.driverChoices[i];
-			if (charEntries.find(savedCharacter) != charEntries.end()) {
+			if (IsCharacterAvailable(savedCharacter)) {
 				auto it = charEntriesPerDriverID[i].begin();
 				for (; it != charEntriesPerDriverID[i].end(); it++) {
 					if ((*it)->id == savedCharacter)
@@ -700,6 +757,8 @@ namespace CTRPluginFramework {
 				}
 				if (it != charEntriesPerDriverID[i].end())
 					MenuPageHandler::MenuCharaBasePage::currentChoices[i] = (it - charEntriesPerDriverID[i].begin()) + 1;
+			} else {
+				SaveHandler::saveData.driverChoices[i] = 0;
 			}
 		}
 	}
@@ -855,7 +914,7 @@ namespace CTRPluginFramework {
 			std::u16string longStr16;
 			Utils::ConvertUTF8ToUTF16(longStr16, it->second.longName);
 			if (!isBlocked && it->second.achievementLevel > 0 && it->second.achievementLevel <= SaveHandler::saveData.GetCompletedAchievementCount()) {
-				if (it->second.achievementLevel >= 5)
+				if (it->second.achievementLevel >= 6)
 					longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 0, 255)) + longStr16;
 				else
 					longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, Color(255, 255, 0)) + longStr16;
@@ -864,12 +923,12 @@ namespace CTRPluginFramework {
 			} else {
 				longStr16 = Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, defaultColor) + longStr16;
 			}
-			Language::MsbtHandler::SetString(1000 + msbtOrder[(int)driverID], longStr16);		
+			Language::MsbtHandler::SetString(1000 + driverMsbtOrder[(int)driverID], longStr16);		
 		} else {
-			Language::MsbtHandler::RemoveAllString(1000 + msbtOrder[(int)driverID]);
-			Language::MsbtHandler::SetString(1000 + msbtOrder[(int)driverID],
+			Language::MsbtHandler::RemoveAllString(1000 + driverMsbtOrder[(int)driverID]);
+			Language::MsbtHandler::SetString(1000 + driverMsbtOrder[(int)driverID],
 				Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM, defaultColor) + 
-				Language::MsbtHandler::DashTextWithTagsToString(Language::MsbtHandler::GetText(1000 + msbtOrder[(int)driverID]))
+				Language::MsbtHandler::DashTextWithTagsToString(Language::MsbtHandler::GetText(1000 + driverMsbtOrder[(int)driverID]))
 			);
 		}
 	}
@@ -1264,8 +1323,29 @@ namespace CTRPluginFramework {
 		return buffer;
 	}
 
-	void CharacterHandler::ClearAllVoices() {
-		heapVoiceMode = HeapVoiceMode::NONE;
+    std::string CharacterHandler::GetDriverName(EDriverID driverID)
+    {
+        return origCharNames[driverID];
+    }
+
+    std::string CharacterHandler::GetKartBodyName(EBodyID bodyID)
+    {
+        return Language::MsbtHandler::GetString(1100 + bodyMsbtOrder[bodyID]);
+    }
+
+    std::string CharacterHandler::GetKartTireName(ETireID tireID)
+    {
+        return Language::MsbtHandler::GetString(1200 + tireMsbtOrder[tireID]);
+    }
+
+    std::string CharacterHandler::GetKartWingName(EWingID wingID)
+    {
+        return Language::MsbtHandler::GetString(1300 + wingMsbtOrder[wingID]);
+    }
+
+    void CharacterHandler::ClearAllVoices()
+    {
+        heapVoiceMode = HeapVoiceMode::NONE;
 		soundHeap.Clear();
 
 		// Race
@@ -1290,9 +1370,9 @@ namespace CTRPluginFramework {
             CwavReplace::SetReplacementCwav({archive, file1}, nullptr);
             CwavReplace::SetReplacementCwav({archive, file2}, nullptr);
         }
-	}
+    }
 
-	void CharacterHandler::SetupRaceVoices(u32* vehicle, CRaceInfo& raceInfo) {
+    void CharacterHandler::SetupRaceVoices(u32* vehicle, CRaceInfo& raceInfo) {
 		WaitOnlineLock();
         int playerID = ((u32*)vehicle)[0x84/4];
 		u64 selectedID = GetSelectedCharacter(playerID);
@@ -1397,39 +1477,36 @@ namespace CTRPluginFramework {
 		if (!MarioKartFramework::isWatchRaceMode)
 			selectedCharaceters[MarioKartFramework::masterPlayerID] = selectedMenuCharacter;
 
-		while (!netRequestHandler.HasFinished())
-			netRequestHandler.WaitTimeout(Seconds(0.1f));
+		for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
+			if (i == MarioKartFramework::masterPlayerID && !MarioKartFramework::isWatchRaceMode)
+				continue;
+			selectedCharaceters[i] = onlineSelectedCharaceters[i];
+		}
 
-		minibson::document resDoc;
-		if (netRequestHandler.GetResult(NetHandler::RequestHandler::RequestType::ROOM_CHAR_IDS, &resDoc) == 0) {
-			const minibson::document& charIDs = resDoc.get("charIDs", minibson::document());
-			for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
-				if (!MarioKartFramework::isWatchRaceMode && i == MarioKartFramework::masterPlayerID)
-					continue;
-				u16 key = '0' + i;
-				u64 customChar = charIDs.get_numerical((char*)&key);
-				if (customChar == 0)
-					continue;
-				decltype(charEntries)::iterator it;
-				if (((it = charEntries.find(customChar)) != charEntries.end()) && it->second.origChar == raceInfo.kartInfos[i].driverID)
-					selectedCharaceters[i] = customChar;
-			}
-			if (VoiceChatHandler::Initialized) {
-				const minibson::document& names = resDoc.get("names", minibson::document());
+		if (raceInfo.raceMode.type == 2) {
+			// Online
+			while (!netRequestHandler.HasFinished())
+				netRequestHandler.WaitTimeout(Seconds(0.1f));
+
+			minibson::document resDoc;
+			if (netRequestHandler.GetResult(NetHandler::RequestHandler::RequestType::ROOM_CHAR_IDS, &resDoc) == 0) {
+				if (VoiceChatHandler::Initialized) {
+					const minibson::document& names = resDoc.get("names", minibson::document());
+					for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
+						u16 key = '0' + i;
+						Net::othersServerNames[i] = names.get((char*)&key, "");
+					}
+					VoiceChatHandler::UpdatePlayerNames();
+				}
+				const minibson::document& badgeIDs = resDoc.get("badgeIDs", minibson::document());
 				for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
 					u16 key = '0' + i;
-					Net::othersServerNames[i] = names.get((char*)&key, "");
+					Net::othersBadgeIDs[i] = badgeIDs.get_numerical((char*)&key, 0);
 				}
-				VoiceChatHandler::UpdatePlayerNames();
+				BadgeManager::UpdateOnlineBadges();
 			}
-			const minibson::document& badgeIDs = resDoc.get("badgeIDs", minibson::document());
-			for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
-				u16 key = '0' + i;
-				Net::othersBadgeIDs[i] = badgeIDs.get_numerical((char*)&key, 0);
-			}
-			BadgeManager::UpdateOnlineBadges();
+			netRequestHandler.Cleanup();
 		}
-		netRequestHandler.Cleanup();
 	}
 
 	CharacterHandler::ResourceInfo CharacterHandler::GetFileInfoFromPath(const char* path, ResourceLoaderLoadArg* loadArgs) {
@@ -1946,7 +2023,7 @@ namespace CTRPluginFramework {
 		countEach.resize(EDriverID::DRIVER_SIZE);
 		int achievementLevel = SaveHandler::saveData.GetCompletedAchievementCount();
 		for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
-			options[msbtOrder[i]] = origCharNames[i];
+			options[driverMsbtOrder[i]] = origCharNames[i];
 		}
 		int result = 0;
 		while (result >= 0) {
@@ -1955,7 +2032,7 @@ namespace CTRPluginFramework {
 			if (result >= 0) {
 				EDriverID selectedCustomChar;
 				for (int i = 0; i < EDriverID::DRIVER_SIZE; i++) {
-					if (result == msbtOrder[i]) { selectedCustomChar = (EDriverID)i; break; }
+					if (result == driverMsbtOrder[i]) { selectedCustomChar = (EDriverID)i; break; }
 				}
 				int result2 = 0;
 				bool somethingChanged = false;
@@ -1974,7 +2051,7 @@ namespace CTRPluginFramework {
 					std::vector<std::string> customOption;
 					for (int i = 0; i < g_thisCharEntries.size(); i++) {
 						if (!g_thisCharEntries[i]->selectAllowed) customOption.push_back(std::string(Color(64, 64, 64) << g_thisCharEntries[i]->longName));
-						else if (g_thisCharEntries[i]->achievementLevel == 5) customOption.push_back(std::string(Color(255, 0, 255) << g_thisCharEntries[i]->longName));
+						else if (g_thisCharEntries[i]->achievementLevel == 6) customOption.push_back(std::string(Color(255, 0, 255) << g_thisCharEntries[i]->longName));
 						else if (g_thisCharEntries[i]->achievementLevel > 0) customOption.push_back(std::string(Color(255, 255, 0) << g_thisCharEntries[i]->longName));
 						else if (g_thisCharEntries[i]->specialAchievement != SaveHandler::SpecialAchievements::NONE) customOption.push_back(std::string(Color(255, 255, 0) << g_thisCharEntries[i]->longName));
 						else customOption.push_back(g_thisCharEntries[i]->longName);

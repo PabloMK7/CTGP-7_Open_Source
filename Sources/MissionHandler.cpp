@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1556/1567 (99.30%)
+Open source lines: 1564/1575 (99.30%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -24,6 +24,8 @@ Open source lines: 1556/1567 (99.30%)
 #include "ItemHandler.hpp"
 #include "CustomTextEntries.hpp"
 #include "MenuPage.hpp"
+#include "Stresser.hpp"
+#include "AsyncRunner.hpp"
 
 extern "C" u32 * g_altGameModeplayerStatPointer;
 
@@ -67,12 +69,9 @@ namespace CTRPluginFramework {
     {
         Language::MsbtHandler::SetString(CustomTextEntries::mission, NAME("ms_miss"));
         Language::MsbtHandler::SetString(CustomTextEntries::missionDesc, NAME("ms_desc"));
-        std::string selectMission = NAME("ms_selmiss");
         std::string startOver = Language::MsbtHandler::GetString(9007);
         // Next menu
-        Language::MsbtHandler::SetString(9009, selectMission, true); // Next Course
         Language::MsbtHandler::SetString(9012, startOver, true); // View replay
-        Language::MsbtHandler::SetTextEnabled(9009, false);
         Language::MsbtHandler::SetTextEnabled(9012, false);
         // Pause menu
         Language::MsbtHandler::SetText(9013, Language::MsbtHandler::GetText(9003), true);
@@ -123,7 +122,8 @@ namespace CTRPluginFramework {
         SequenceHandler::addFlowPatch(0x5B3E8654, 0x2274, 0x16, 0x1); // single to GP cup
         SequenceHandler::addFlowPatch(0x5B3E8654, 0x235C, 0x4, 0x2); // GP cup to single
 
-        Language::MsbtHandler::SetTextEnabled(9009, true);
+        std::string selectMission = NAME("ms_selmiss");
+        Language::MsbtHandler::SetString(9009, selectMission, false); // Next Course
         Language::MsbtHandler::SetTextEnabled(9012, true);
         Language::MsbtHandler::SetTextEnabled(9013, true);
         Language::MsbtHandler::SetTextEnabled(9014, true);
@@ -335,13 +335,11 @@ namespace CTRPluginFramework {
     }
 
     void MissionHandler::resultBarAmountSetName(u32 baseresultbar, u32 message) {
-        if (!isMissionMode) MarioKartFramework::BaseResultBar_setName((MarioKartFramework::BaseResultBar)baseresultbar, (u16**)message);
+        
     }
 
     static float g_MissionResultBarPos[3];
-    float* MissionHandler::setResultBarPosition(u32 index, float* original) {
-        if (!isMissionMode) return original;
-        
+    float* MissionHandler::setResultBarPosition(u32 index, float* original) {        
         u32* ordering;
         u32 posibleOrders[3][4] = { { 0, 1, 2, 4 } , { 2, 0, 1, 4 } , { 1, 0, 2, 4 } };
 
@@ -497,7 +495,7 @@ namespace CTRPluginFramework {
                         #if CITRA_MODE == 0
                         if (!saveEntry.IsChecksumValid()) kbd.GetMessage() += " (U)";
                         #endif
-                        kbd.GetMessage() += RightAlign(Color::Yellow << NAME("ms_delsave") << ResetColor());
+                        kbd.GetMessage() += RightAlign(Color::Yellow << NAME("ms_delsave") << ResetColor(), 35, 367);
                     }
                     break;
                 case MissionParameters::CMSNMissionFlagsSection::CalculationType::POINTS:
@@ -508,7 +506,7 @@ namespace CTRPluginFramework {
                         #if CITRA_MODE == 0
                         if (!saveEntry.IsChecksumValid()) kbd.GetMessage() += " (U)";
                         #endif
-                        kbd.GetMessage() += RightAlign(Color::Yellow << NAME("ms_delsave") << ResetColor());
+                        kbd.GetMessage() += RightAlign(Color::Yellow << NAME("ms_delsave") << ResetColor(), 35, 367);
                     }
                     break;
                 default:
@@ -528,7 +526,7 @@ namespace CTRPluginFramework {
     void MissionHandler::OpenKbd() {
         Process::Pause();
         Keyboard kbd(" ");
-        kbd.CanAbort(false);
+        kbd.CanAbort(true);
         kbd.OnKeyboardEvent(OnKbdEvent);
         std::vector<std::string> opts;
         int firstEntry = -1;
@@ -550,10 +548,15 @@ namespace CTRPluginFramework {
         OnKbdEvent(kbd, e);
         int choose = -1;
         do {
+#if STRESS_MODE == 1
+            choose = g_StresserRnd(0, 4);
+#else
             choose = kbd.Open();
-            if (choose == -2) {
+#endif
+            if (choose < 0) {
                 choose = kbd.GetLastSelectedEntry();
                 if (choose == -1 || !temporaryParam[choose]) choose = 0;
+                MenuPageHandler::MenuSingleCupGPPage::GetInstace()->cancelCupSelect = true;
             }
         } while (choose < 0 || !temporaryParam[choose]);
 
@@ -570,7 +573,7 @@ namespace CTRPluginFramework {
         gameCourseSarc = nullptr;
 
         Process::Play();
-        *(PluginMenu::GetRunningInstance()) -= OpenKbd;
+        AsyncRunner::StopAsync(OpenKbd);
 
         Language::MsbtHandler::SetString(1831, missionParam->TextString->GetLangEntry(Language::GetCurrLangID())->GetTitle());
         MissionParameters::CMSNDriverOptionsSection::OptionsEntry& userEntry = missionParam->DriverOptions->entries[0];
@@ -705,7 +708,7 @@ namespace CTRPluginFramework {
 
     void MissionHandler::OnCupSelect(u32 retCup)
     {
-        *(PluginMenu::GetRunningInstance()) += OpenKbd;
+        AsyncRunner::StartAsync(OpenKbd);
     }
 
     void MissionHandler::OnCPUSetupParts(u32 slotID)
@@ -820,7 +823,7 @@ namespace CTRPluginFramework {
         return false;
     }
 
-    void MissionHandler::OnKMPConstruct()
+    void MissionHandler::OnRaceDirectorCreateBeforeStructure()
     {
         if (!isMissionMode) return;
         lastMissionResult.isCalculated = false;
@@ -1032,16 +1035,19 @@ namespace CTRPluginFramework {
         return false;
     }
 
-    u32 MissionHandler::onKartItemHitGeoObject(u32 object, u32 EGTHReact, u32 eObjectReactType, u32 reactObject, u32 objCallFuncPtr, bool isItem)
+    u32 MissionHandler::onKartItemHitGeoObject(u32 object, u32 EGTHReact, u32 eObjectReactType, u32 reactObject, u32 objCallFuncPtr, int mode)
     {
         if (!isMissionMode || missionParam->MissionFlags->missionType != MissionParameters::CMSNMissionFlagsSection::MissionType::OBJECTS)
             return ((u32(*)(u32, u32, u32, u32))objCallFuncPtr)(object, EGTHReact, eObjectReactType, reactObject);
 
         u32 vehicleReact = 0;
-        if (isItem)
-            vehicleReact = ((u32**)(reactObject))[0][0x158 / 4];
-        else
+        if (mode == 1)
+            // 0x158 -> infoproxy
+            vehicleReact = ((u32***)(reactObject))[0][0x158 / 4][0];
+        else if (mode == 0)
             vehicleReact = reactObject;
+        else if (mode == 2)
+            vehicleReact = MarioKartFramework::getVehicle(ItemHandler::thunderPlayerID);
 
         int playerID = ((u32*)vehicleReact)[0x84 / 4];
 
@@ -1453,14 +1459,16 @@ namespace CTRPluginFramework {
         SaveHandler::SaveFile::LoadStatus status;
         save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::MISSION, status);
         u64 scID = save.get<u64>("cID", 0ULL);
-        if (status != SaveHandler::SaveFile::LoadStatus::SUCCESS || (scID != NetHandler::GetConsoleUniqueHash()
+        if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
         #if CITRA_MODE == 1
-        && scID != 0x5AFF5AFF5AFF5AFF
+        || scID == 0x5AFF5AFF5AFF5AFF
         #endif
         #ifdef ALLOW_SAVES_FROM_OTHER_CID
         || true
         #endif
         )) {
+            ;
+        } else {
             save.clear();
             save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
             save.set("missionSave", minibson::document());
@@ -1509,7 +1517,7 @@ namespace CTRPluginFramework {
         data.set("c", entry.isChecksumValid);
         data.set("s", (int)entry.saveIteration);
 
-        const_cast<minibson::document&>(save.get("missionSave", empty)).set(missionID, data);
+        save.get_noconst("missionSave", empty).set(missionID, data);
 
         if (entry.isDirty)
         {
@@ -1520,7 +1528,7 @@ namespace CTRPluginFramework {
 
     void MissionHandler::SaveData::ClearMissionSave(const char missionID[0xC]) {
         minibson::document empty;
-        const_cast<minibson::document&>(save.get("missionSave", empty)).remove(missionID);
+        save.get_noconst("missionSave", empty).remove(missionID);
         SaveData::Save();
     }
 
@@ -1530,7 +1538,7 @@ namespace CTRPluginFramework {
         u32 entry = (world - 1) / 8;
         u32 data = save.get("missionFullGrade", empty).get(std::to_string(entry).c_str(), (int)0);
         data |= (1 << (((world - 1) & 7) * 4 + (level - 1)));
-        const_cast<minibson::document&>(save.get("missionFullGrade", empty)).set(std::to_string(entry).c_str(), (int)data);
+        save.get_noconst("missionFullGrade", empty).set(std::to_string(entry).c_str(), (int)data);
         SaveData::Save();
     }
 

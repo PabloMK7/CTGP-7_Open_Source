@@ -78,7 +78,7 @@ namespace CTRPluginFramework {
 		static Process::ExceptionCallbackState CTGPExceptCallback(ERRF_ExceptionInfo* excep, CpuRegisters* regs);
 
 		static u32 SaveStackPointer() NAKED;
-		static void OnAbort() NORETURN;
+		static void OnAbort();
 		void populateReportData(const ERRF_ExceptionInfo* excep, const CpuRegisters* regs);
 		void DrawTopScreen(Screen& scr);
 		QRData reportData;

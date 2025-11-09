@@ -4,21 +4,22 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: lz.hpp
-Open source lines: 37/37 (100.00%)
+Open source lines: 38/38 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 
 namespace CTRPluginFramework {
-    struct LZCompressArg {
-        void* inputAddr;
-        size_t inputSize;
-    };
-
     struct LZCompressResult {
         void* outputAddr;
         size_t outputSize;
+    };
+    
+    struct LZCompressArg {
+        void* inputAddr;
+        size_t inputSize;
+        void (*onCompressFinish)(const LZCompressResult&);
     };
 
     // 1st call compress

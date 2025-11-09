@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 744/752 (98.94%)
+Open source lines: 751/760 (98.82%)
 *****************************************************/
 
 #include "types.h"
@@ -31,12 +31,11 @@ Open source lines: 744/752 (98.94%)
 #include "mallocDebug.hpp"
 #include "ExtraUIElements.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "PointsModeHandler.hpp"
 #include "QrCode.hpp"
 
 u32 g_currMenuVal = 0;
 u8 g_isOnlineMode = 2;
-
-
 
 namespace CTRPluginFramework
 {
@@ -44,19 +43,8 @@ namespace CTRPluginFramework
 	//const SpeedValues g_SpdValCostants[2] = { {"km/h", 10.f, 130.f, 2.84872641f}, {"mph", 6.21371f, 80.f, 1.75306240615f} };
 	extern RT_HOOK socinithook;
 	extern RT_HOOK socexithook;
-
-	#ifdef INSTRUMENT_FUNCTIONS
-	void save_instrumentation();
-	void start_instrumentation();
-	#endif
 	
 	void	menucallback() {
-		#ifdef INSTRUMENT_FUNCTIONS
-		if (Controller::IsKeyPressed(Key::DPadLeft))
-			save_instrumentation();
-		if (Controller::IsKeyPressed(Key::DPadRight))
-			start_instrumentation();
-		#endif
 		#ifdef SETUP_BLUE_COINS
 		BlueCoinChallenge::SetupBlueCoinsCallback();
 		#endif
@@ -406,6 +394,19 @@ namespace CTRPluginFramework
 		automaticdelaydrift_apply(ret == 0);
 	}
 
+	void improvedhorn_apply(bool enabled) {
+		improvedHornEntry->Name() = NAME("improvedhorn") << " (" << (enabled ? NAME("state_mode") : NOTE("state_mode")) << ")";
+		SaveHandler::saveData.flags1.improvedHonk = enabled;
+	}
+	void improvedhorn_entryfunc(MenuEntry* entry) {
+		Keyboard key(NAME("improvedhorn"));
+		key.Populate({ NAME("state_inf"), NOTE("state_inf") });
+		key.ChangeEntrySound(1, SoundEngine::Event::CANCEL);
+		int ret = key.Open();
+		if (ret < 0) return;
+		improvedhorn_apply(ret == 0);
+	}
+
 	void bluecoin_apply(bool enabled) {
 		blueCoinsEntry->Name() = NAME("blue_coins") << " (" << (enabled ? NAME("state_mode") : NOTE("state_mode")) << ")";
 		SaveHandler::saveData.flags1.blueCoinsEnabled = enabled;
@@ -607,6 +608,7 @@ namespace CTRPluginFramework
 				topStr += genTextAchv(NAME("3star_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_THREE_STAR));
 				topStr += genTextAchv(NAME("10pts_msn_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_MISSION_TEN));
 				topStr += genTextAchv(NAME("5000vr_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::VR_5000));
+				topStr += genTextAchv(NAME("score_all_achiev"), SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_SCORE_COMPLETED));
 			} else if (page == 1) {
 				topStr += "\n" + CenterAlign( ToggleDrawMode(Render::UNDERLINE) + NAME("summary") + ToggleDrawMode(Render::UNDERLINE)) + "\n";
 				topStr += NOTE("types_achievs") + ":" + "\n";
@@ -656,8 +658,13 @@ namespace CTRPluginFramework
 				topStr += SkipToPixel(120) + NAME("ctww") + ": " + genProgressString(ctwwVR, totalVR) + "\n" +
 							SkipToPixel(120) + NAME("cntdwn") + ": " + genProgressString(cdVR, totalVR);
 			} else if (page == 4) {
-				topStr += "\n\n";
-				topStr += ((SaveHandler::saveData.blueShellDodgeAmount >= SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT) ? (std::string() << Color::Lime) : "") + NAME("dodged_blue_amount") + ResetColor() + ":";
+				topStr += "\n" + CenterAlign(ToggleDrawMode(Render::UNDERLINE) + NAME("score_attack") + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				auto prog = PointsModeHandler::GetCompletedTracks();
+				topStr += ((prog.first >= prog.second) ? (std::string() << Color::Lime) : "") + NAME("sc_at_cleared_tr") + ResetColor() + ": ";
+				topStr += SkipToPixel(120) + genProgressString(prog.first, prog.second);
+				topStr += HorizontalSeparator();
+				topStr += CenterAlign(ToggleDrawMode(Render::UNDERLINE) + Language::MsbtHandler::GetString(1028) + ToggleDrawMode(Render::UNDERLINE)) + "\n\n";
+				topStr += ((SaveHandler::saveData.blueShellDodgeAmount >= SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT) ? (std::string() << Color::Lime) : "") + NAME("dodged_blue_amount") + ResetColor() + ": ";
 				topStr += SkipToPixel(240) + genProgressString(SaveHandler::saveData.blueShellDodgeAmount, SaveHandler::BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT);
 				topStr += HorizontalSeparator();
 			} else if (page >= normalPages) {

@@ -4,13 +4,14 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: LED_Control.cpp
-Open source lines: 154/154 (100.00%)
+Open source lines: 155/155 (100.00%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
 #include "LED_Control.hpp"
 #include "3DS.h"
 #include "math.h"
+#include "AsyncRunner.hpp"
 
 #define M_PIF 3.1415926f
 
@@ -25,7 +26,7 @@ namespace CTRPluginFramework {
 	static void SecureCallback() {
 		if (timer.HasTimePassed(currSecureTime) && !isTimeZero) {
 			LED::StopLEDPattern();
-			*(PluginMenu::GetRunningInstance()) -= SecureCallback;
+			AsyncRunner::StopAsync(SecureCallback);
 			SecureTimeLock = false;
 			currSecureTime = Time::Zero;
 		}
@@ -36,7 +37,7 @@ namespace CTRPluginFramework {
 		currSecureTime = secureTime;
 		timer.Restart();
 		if (secureTime == Time::Zero) isTimeZero = true;
-		*(PluginMenu::GetRunningInstance()) += SecureCallback;
+		AsyncRunner::StartAsync(SecureCallback);
 		SecureTimeLock = true;
 		return;
 	}
@@ -69,7 +70,7 @@ namespace CTRPluginFramework {
 		return 0;
 	}
 
-	static Task ledPatternPlayer(PatternPlayerTaskfunc, nullptr, Task::Affinity::SysCore);
+	static Task ledPatternPlayer(PatternPlayerTaskfunc, nullptr, Task::Affinity::AppCore);
 
 	bool LED::PlayLEDPattern(RGBLedPattern& pattern, Time playtime) {
 		if (IsPatternPlaying()) return false;

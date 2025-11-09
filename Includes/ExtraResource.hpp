@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.hpp
-Open source lines: 221/240 (92.08%)
+Open source lines: 229/248 (92.34%)
 *****************************************************/
 
 #pragma once
@@ -43,10 +43,18 @@ namespace CTRPluginFramework {
 				struct SFNT {
 					u32 magic;
 					u16 headerLength;
-					u16 reserved;
+					struct {
+						union {
+							u16 reserved;
+							struct {
+								u16 mergeSameFiles : 1;
+								u16 hashPreCalculated : 1;
+							};
+						};
+					};
 
 					bool IsFullHashPrecalculated() {
-						return reserved & 2 != 0;
+						return hashPreCalculated;
 					}
 				};
 				struct FileInfo {
@@ -216,6 +224,6 @@ namespace CTRPluginFramework {
 			static u32* latestMenuSzsArchive;
 			static bool isValidMenuSzsArchive();
 		private:
-			static constexpr u32 SARCVER = 0xFABA0002;
+			static constexpr u32 SARCVER = 0xFABA0003;
 	};
 }

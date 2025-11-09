@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: UserCTHandler.hpp
-Open source lines: 106/106 (100.00%)
+Open source lines: 109/109 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -49,8 +49,8 @@ namespace CTRPluginFramework {
         static void Initialize();
         static void FixNames();
         static u32 GetCustomCupAmount();
-        static u32 GetSelectedCustomCup();
-        static void UpdateCurrentCustomCup(u32 cupID);
+        static u32 GetSelectedCustomCup(u32 startingButtonID, u32 selectedCupIcon);
+        static void UpdateCurrentCustomCup(u32 cupID, s32 startingButtonID, s32 selectedCupIcon);
         static void UpdateCurrentCourseData();
         static u32 GetCupTextID();
         static u32 GetCourseTextID();
@@ -83,6 +83,9 @@ namespace CTRPluginFramework {
             s32 wingID;
             
             int itemID;
+
+            EEngineLevel engineLevel;
+            bool mirror;
         };
 
         static SkipToCourseConfig skipConfig;

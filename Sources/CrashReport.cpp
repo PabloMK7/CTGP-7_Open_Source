@@ -27,16 +27,16 @@ namespace CTRPluginFramework {
     const char* CrashReport::textCrash = nullptr;
     Sound* CrashReport::oofSound = nullptr;
 
-    u32 __attribute__((no_instrument_function)) CrashReport::SaveStackPointer() {
-#ifndef _MSC_VER
-        __asm__ __volatile__(
-            "MOV R0, SP \n"
-            "BX LR \n"
-        );
-#endif
+    u32 CrashReport::SaveStackPointer() {
+        u32 sp_val;
+        __asm__ volatile("mov %0, sp" : "=r"(sp_val));
+        return sp_val;
     }
 
     void CrashReport::OnAbort() {
+    #ifndef RELEASE_BUILD
+        return;
+    #endif
     #if CITRA_MODE == 1
         panic("abort() called");
     #else

@@ -4,12 +4,16 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Sound.hpp
-Open source lines: 59/59 (100.00%)
+Open source lines: 74/74 (100.00%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "3ds.h"
+
+#include "DataStructures.hpp"
+#include "MK7Memory.hpp"
+#include "rt.hpp"
 
 namespace CTRPluginFramework {
 	
@@ -30,6 +34,7 @@ namespace CTRPluginFramework {
 			FLAG_OPEN = 0x01000502,
 			PAUSE_OFF = 0x01000504,
 			PAUSE_TO_NEXT = 0x01000509,
+			ITEM_DECIDE = 0x01000516,
 			KART_DASH = 0x0100052D,
 			BANANA_STAND = 0x01000557,
 			BREAK_ITEMBOX = 0x0100054B,
@@ -49,6 +54,16 @@ namespace CTRPluginFramework {
 		static u32 PlayMenu(SoundID id);
 
 		static void InitializeMenuSounds();
+
+		static inline int DriverIDToHornID(EDriverID driver) {
+			return driver > DRIVER_MIIM ? ((int)driver - 1) : (int)driver;
+		}
+
+		static u32 SndHandle_writeSeqVarLocalAddr;
+		static bool PlayHornSE(MK7::Sound::SndActorKart* sndActorKart, bool byUser);
+
+		static RT_HOOK sndLoaderSetExtGroupAddressHook;
+		static bool OnSndLoaderSetExtGroupAddress(MK7::Sound::SndLoader* loader, int unk);
 
 	private:
 		static u32 soundObject;

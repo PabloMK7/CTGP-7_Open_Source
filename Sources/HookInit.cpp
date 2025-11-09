@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: HookInit.cpp
-Open source lines: 42/3525 (1.19%)
+Open source lines: 43/3067 (1.40%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -30,6 +30,7 @@ Open source lines: 42/3525 (1.19%)
 #include "BootSceneHandler.hpp"
 #include "BlueCoinChallenge.hpp"
 #include "VoiceChatHandler.hpp"
+#include "MK7Memory.hpp"
 
 namespace CTRPluginFramework {
 

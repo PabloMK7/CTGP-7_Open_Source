@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraResource.cpp
-Open source lines: 572/747 (76.57%)
+Open source lines: 594/765 (77.65%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -20,6 +20,8 @@ Open source lines: 572/747 (76.57%)
 #include "CharacterHandler.hpp"
 #include "BlueCoinChallenge.hpp"
 #include "StatsHandler.hpp"
+#include "PointsModeHandler.hpp"
+#include "BadgeManager.hpp"
 
 namespace CTRPluginFramework {
 	
@@ -69,6 +71,7 @@ namespace CTRPluginFramework {
 		BlueCoinChallenge::Initialize();
 		CharacterHandler::applySarcPatches();
 		BadgeManager::SetupExtraResource();
+		PointsModeHandler::SetupExtraResource();
 	}
 
 	static inline void concatSZSCustomName(char* dst, const char* archive, const char* file) {
@@ -106,7 +109,14 @@ namespace CTRPluginFramework {
 				CharacterHandler::OnMenuCharaLoadKartUI(archive, file);
 			}
 		}
-		if (archiveN[2] != '/' && archiveN[3] == 'r') {
+		if (archiveN[2] != '/' && archiveN[3] == 'r') {			
+			if (file->data[len - 1] == 'p' && file->data[len - 4] == '.') {
+				u8* sarc = (u8*)(archive[0xE] - 0x14);
+				std::unique_ptr<SARC> courseSarc = std::make_unique<SARC>(sarc, false);
+				if (PointsModeHandler::isPointsMode) {
+					PointsModeHandler::InitializePerTrackText(courseSarc.get());
+				}
+			}			
 			if (MissionHandler::isMissionMode) return MissionHandler::GetReplacementFile(file, fileInfo, (u8*)(archive[0xE] - 0x14));
 			if (BlueCoinChallenge::coinSpawned && !strcmp(file->data, "IceBoundStar/IceBoundStar.bcmdl")) {
 				return mainSarc->GetFile((BlueCoinChallenge::IsCoinCollected(CourseManager::lastLoadedCourseID) || BlueCoinChallenge::coinDisabledCCSelector) ?
@@ -119,6 +129,8 @@ namespace CTRPluginFramework {
 			}
 			u8* replFile = UserCTHandler::LoadTextureFile(archive, file, fileInfo);
 			if (replFile) return replFile;
+			// No more replacements allowed for course files
+			return nullptr;
 		}
 		if (!strcmp(file->data, "itemBox/itemBox.bcmdl")) {
 			u8* ret = ItemHandler::FakeBoxHandler::GetFakeItemBox(fileInfo);
@@ -158,7 +170,17 @@ namespace CTRPluginFramework {
 				if (ret) return ret;
 			}
 		}
-
+		if (PointsModeHandler::isPointsMode) {
+			if (!strcmp(file->data, "Item/ItemSlotTable_GrandPrix.bin")) {
+				return mainSarc->GetFile("RaceCommon.szs/Item/ItemSlotTable_PointsMode.bin", fileInfo);
+			}
+			if (!strcmp(file->data, "Item/ItemSlotTable_GrandPrix_AI.bin")) {
+				return mainSarc->GetFile("RaceCommon.szs/Item/ItemSlotTable_PointsMode_AI.bin", fileInfo);
+			}
+			if (!strcmp(file->data, "Item/ItemSlotTable_Decided.bin")) {
+				return mainSarc->GetFile("RaceCommon.szs/Item/ItemSlotTable_PointsMode_Decided.bin", fileInfo);
+			}
+		}
 		if (MenuPageHandler::MenuEndingPage::loadCTGPCredits && !strcmp(file->data, "top_replace_target.bclim")) {
 			MenuPageHandler::MenuEndingPage* page = MenuPageHandler::MenuEndingPage::GetInstance();
 			if (page && page->staffroll && page->staffroll->GetStaffRollImage()) {

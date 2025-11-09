@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.hpp
-Open source lines: 349/349 (100.00%)
+Open source lines: 350/350 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -40,6 +40,7 @@ namespace CTRPluginFramework
         static const std::string &GetName(const std::string &key);
         static const std::string &GetNote(const std::string &key);
 		static const char* GetCurrLangID();
+		static void RemoveEntry(const std::string &key) { currLanguage.removeEntry(key); }
 
 		static std::string GenerateOrdinal(u32 number);
 		

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 140/141 (99.29%)
+Open source lines: 147/148 (99.32%)
 *****************************************************/
 
 #pragma once
@@ -15,6 +15,7 @@ namespace CTRPluginFramework {
 	class NetHandler
 	{
 	public:
+		class RequestHandler;
 		class Session
 		{
 		public:
@@ -33,7 +34,7 @@ namespace CTRPluginFramework {
 			void ClearInputData();
 			void Cleanup();
 			const minibson::document& GetData();
-			void Start();
+			void PrepareStart();
 			void Wait();
 			void WaitTimeout(const Time& time);
 			Status GetStatus();
@@ -41,12 +42,14 @@ namespace CTRPluginFramework {
 			Result lastRes;
 			static const minibson::document defaultDoc;
 			LightEvent waitEvent;
-			static std::vector<Session*> pendingSessions;
+			static std::vector<std::shared_ptr<Session>> pendingSessions;
 
 			static void Initialize();
 			static void Terminate();
 			static ThreadEx* sessionThread;
 		private:
+			friend class RequestHandler;
+			
 			void Init();
 			void Reset();
 			const std::string& remoteUrl;
@@ -68,6 +71,7 @@ namespace CTRPluginFramework {
 			static bool runThread;
 		};
 
+		// NOTE: Can be safely destroyed after starting, no need to wait
 		class RequestHandler
 		{
 		public:
@@ -92,6 +96,9 @@ namespace CTRPluginFramework {
 				MESSAGE,
 				ULTRASHORTCUT,
 				BADGES,
+				POINTS_WEEKLY_CONFIG,
+				POINTS_LEADER_BOARD,
+				POINTS_WEEKLY_SCORE,
 			};
 			RequestHandler();
 
@@ -100,7 +107,7 @@ namespace CTRPluginFramework {
 			void AddRequest(RequestType type, const minibson::document& value);
 
 			void Cleanup();
-			void Start(bool startSession = true);
+			void Start();
 			void Wait();
 			void WaitTimeout(const Time& time);
 			Result GetLastResult();
@@ -114,7 +121,7 @@ namespace CTRPluginFramework {
 			bool Contains(RequestType type);
 
 		private:
-			Session session;
+			std::shared_ptr<Session> session;
 			minibson::document doc;
 			std::vector<RequestType> addedRequests;
 			Mutex requestMutex;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 748/748 (100.00%)
+Open source lines: 782/782 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -16,6 +16,7 @@ Open source lines: 748/748 (100.00%)
 #include "ItemHandler.hpp"
 #include "random"
 #include "MK7NetworkBuffer.hpp"
+#include "MK7Memory.hpp"
 #include "rt.hpp"
 
 extern "C" u32 g_lapVal;
@@ -55,24 +56,6 @@ namespace CTRPluginFramework {
 	enum EObjectReactType {
 		OBJECTREACTTYPE_NONE = 0,
 		OBJECTREACTTYPE_DESTRUCTVE = 1,
-	};
-	enum EDashType {
-		MUSHROOM = (1 << 0),
-		BOOST_PAD = (1 << 1),
-		LAKITU_RECOVERY = (1 << 2),
-		MINITURBO = (1 << 3),
-		SUPERMINITURBO = (1 << 4),
-		START_VERYSMALL = (1 << 5),
-		START_SMALL = (1 << 6),
-		START_MEDIUM = (1 << 7),
-		START_BIG = (1 << 8),
-		START_PERFECT = (1 << 9),
-		TRICK_GROUND = (1 << 10),
-		TRICK_WATER_DIVE = (1 << 11),
-		TRICK_WATER = (1 << 12),
-		STAR_RING = (1 << 13),
-		COIN_GRAB = (1 << 14),
-		WATER_DIVE = (1 << 15)
 	};
 	enum EVoiceType {
 		ITEM_USE = 0,
@@ -300,6 +283,7 @@ namespace CTRPluginFramework {
 			static u32 getSndEngine();
 			static u32 getCameraEngine();
 			static u32 getNetworkEngine();
+			static MK7::Net::NetworkStationBufferManager* getNetworkStationBufferManager();
 			static u32 getKartDirector();
 			static u32 getRaceDirector();
 			static u32 getGarageDirector();
@@ -315,6 +299,8 @@ namespace CTRPluginFramework {
 			static KartLapInfo* getKartLapInfo(u32 playerID);
 			static Vector3* GetGameCameraPosition();
 			static void BasePageSetCup(u8 cupID);
+			static void BasePageSetCC(EEngineLevel engineLevel);
+			static void BasePageSetMirror(bool mirror);
 			static u32 BasePageGetCup();
 
 			static CRaceMode currentRaceMode;
@@ -323,7 +309,6 @@ namespace CTRPluginFramework {
 			static u32 currGatheringID;
 			static u8 myRoomPlayerID;
 			static bool allowOpenCTRPFMenu();
-			static bool allowTakeScreenshot();
             static Vector3* playerCoord;
             //Coord3D* blueShellCoord;
             static u8* _currgamemode;
@@ -389,7 +374,7 @@ namespace CTRPluginFramework {
 			static void OnSaveDataEvent(SaveDataEvent event);
 			static void injectKey(Key key);
 			static void blockKeys(bool block);
-			static u32 handleBackwardsCamera(u32 pad);
+			static void handleBackwardsCamera(PadData* padData);
 			static bool allowBackwardsCamera();
 			static void kartCameraSmooth(u32* camera, float smoothVal);
 			static bool playCountDownCameraAnim;
@@ -428,8 +413,7 @@ namespace CTRPluginFramework {
 			//
 			static void setCTWWState(bool enabled);
 			static void adjustVisualElementsCTWW(bool enabled);
-			static bool applyVisualElementsCTWWOSD(const Screen& screen);
-			static bool toggleCTWWHandler(const Screen& screen);
+			static void applyVisualElementsCTWWOSD();
 			static u32 onOnlineModePreStep(u32 mode);
 			static void onOnlineModeButOK(u32 btn);
 			static void onOnlineSubModePreStep();
@@ -507,6 +491,7 @@ namespace CTRPluginFramework {
 			//static void(*BaseResultBar_setCharaTex)(BaseResultBar bar, u32* driverID, int driverSkin, bool unknown);
 			static void(*BaseResultBar_setPoint)(BaseResultBar bar, u32 point);
 			static void(*BaseResultBar_addPoint)(BaseResultBar bar, u32 point);
+			static void BaseResultBar_setCountryVisible(BaseResultBar bar, bool visible);
 			static void(*RacePage_genPause)(u32 racePage);
 			static void(*RacePage_genReplayPause)(u32 racePage);
 			static void(*DrawMdl_changeMatAnimation)(u32 drawmdl, int id, float value);
@@ -526,17 +511,21 @@ namespace CTRPluginFramework {
 			static int startedBoxID;
 			static void (*ItemDirector_StartSlot)(u32 itemDirector, u32 playerID, u32 boxID);
 			static void startItemSlot(u32 playerID, u32 boxID);
+			static RT_HOOK itemDirectorStartSlotHook;
+			static void OnItemDirectorStartSlot(u32 itemDirector, u32 playerID, u32 boxID);
 			static u16 itemProbabilitiesForImprovedRoulette[EItemSlot::ITEM_SIZE];
 			static int (*CsvParam_getDataInt)(void* csvObject, int row, int column);
 			static void storeImprovedRouletteItemProbability(u32 itemID, u16 prob);
 			static int nextForcedItem;
+			static bool nextForcedInstantSlot;
+			static u32 nextForcedItemBlockedFlags;
 			static u16 handleItemProbability(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag);
 			static u32 pullRandomItemID();
 			static const char* getOnlineItemTable(bool isAI);
 			static const char* getOnlineBattleItemTable(bool isCoin, bool isAI);
 			static void improvedRouletteSettings(MenuEntry* entry);
 			//
-			static void raceTimerOnFrame();
+			static void raceTimerOnFrame(MarioKartTimer timer);
 			static void handleIncrementTimer(u32* timer);
 			static void handleDecrementTimer(u32* timer);
 			static void setTimerInitialValue(u32* timer);
@@ -593,12 +582,13 @@ namespace CTRPluginFramework {
 			static void (*bufferReaderRenderR)(u32 self);
 			//
 			static std::vector<GOBJEntry*> dokanWarps;
+			static u8 dokanWarpCooldown[MAX_PLAYER_AMOUNT];
 			static u32 (*objectBaseGetRandom32)(u32 fieldObjectbase, u32 maxValue);
 			static u32 (*vehicleMove_startDokanWarp)(u32 vehicleMove, u32 chosenPoint, Vector3* targetPosition, Vector3* kartDirection);
 			static void OnHsAirCurrentSetReactionFromKart(u32 hsAirObject, u32 vehicleReact);
 			static void OnUpdateNetRecvStartWarp(u32 vehicleMove, u32 randomChoice);
 			static bool VehicleMove_DokanWarp(u32 vehicleMove, POTIRoute* route, u32 randomChoice);
-			static void OnLapRankCheckerDisconnectCheck(u32* laprankchecker, u32* kartinfo);
+			static void OnLapRankCheckerDisconnectCheck(u32* laprankchecker, LapRankCheckerKartInfo* kartinfo);
 			static u32 countdownDisconnectTimer;
 			static MarioKartTimer graceDokanPeriod;
 			static std::vector<std::tuple<float, float, float, float, float>> bannedUltraShortcuts;
@@ -643,6 +633,7 @@ namespace CTRPluginFramework {
 			static u32 NetUtilEndWriteKartSendBufferAddr;
 			static void (*BaseResultBar_SetGrade)(MarioKartFramework::BaseResultBar, u32* grade);
 			static void BaseResultBar_SetTeam(u32 resultbar, int teamMode); // 0 -> None, 1 -> Red, 2 -> Blue
+			static void BaseResultBar_SetBarColor(u32 resultBar, int colorID);
 			static void BaseResultBar_SetCTGPOnline(u32 resultBar);
 			static void UpdateResultBars(u32 racePage);
 			static void KartNetDataSend(u32* kartData, int playerID);
@@ -661,11 +652,13 @@ namespace CTRPluginFramework {
 			static u32 playcoineffectAddr;
 			static u32 VehicleMove_StartPressAddr;
 			static u32 VehicleReact_ReactPressMapObjAddr;
+			static u32 VehicleReact_ReactAccidentCommonAddr;
 			static void handleThunderResize(u32* thunderdata, u32* staticdata, u32* vehicleMove, float* currSize);
 			static void startSizeChangeAnimation(int playerID, float targetSize, bool isGrowing);
 			static ResizeInfo resizeInfos[MAX_PLAYER_AMOUNT];
 			static int megaMushTimers[MAX_PLAYER_AMOUNT];
 			static int packunStunCooldownTimers[MAX_PLAYER_AMOUNT];
+			static void ReactPressMegaMush(u32* vehicleMove, int causingPlayerID);
 			static bool calculatePressReact(u32* vehicleMove1, u32* vehicleMove2, int someValueSP);
 			static u32* sndActorKartCalcEnemyStar(u32* sndActorKart);
 			static SndLfoSin pitchCalculators[MAX_PLAYER_AMOUNT];
@@ -719,7 +712,15 @@ namespace CTRPluginFramework {
 			//
 			static u32 SndActorKartDecideBoostSndID(u32 sndActorKart, u32 courseID);
 			//
-			static u32 AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement);
+			static u32 AdjustVRIncrement(u32 playerID, s32 vr, s32 vrIncrement, u32 modemanagerbase);
+			static RT_HOOK calcRateForLoseHook;
+			static u32 OnCalcRateForLose(u32 modemanagerbase, u32 playerID);
+			static RT_HOOK baseRacePageEnterHook;
+			static void OnBaseRacePageEnter(u32 baseracepage, u32 fadekind, u32 unk);
+			static RT_HOOK baseRacePageCalcSaveHook;
+			static void OnBaseRacePageCalcSave(u32 baseracepage);
+			static RT_HOOK baseRacePageCalcPointHook;
+			static void OnBaseRacePageCalcPoint(u32 baseracepage);
 			//
 			static bool OnRacePauseAllow(bool gamePauseAllowed);
 			//
@@ -729,6 +730,39 @@ namespace CTRPluginFramework {
 			static u16 handleCustomItemProbabilityRecursive(u16* dstArray, u32* csvPtr, u32 rowIndex, u32 blockedBitFlag, int recursionMode);
 			static void UseCustomItemMode(const std::array<bool, EItemSlot::ITEM_SIZE>& allowedItems, bool randomItems);
 			static void ClearCustomItemMode();
+			//
+			static RT_HOOK vehicleReactExecPostCrashHook;
+			static void OnVehicleReactExecPostCrash(u32* vehicleReact);
+			//
+			static bool OnVehicleDecideSurfaceTrickable(u32* vehicle, bool isTrickable);
+			//
+			static RT_HOOK raceDirectorCreateBeforeStructureHook;
+			static void OnRaceDirectorCreateBeforeStructure(u32* raceDirector, u32* arg);
+			//
+			static RT_HOOK sequenceSubGoalKartHook;
+			static void OnSequenceSubGoalKart(int playerID);
+			static bool kartReachedGoal[MAX_PLAYER_AMOUNT];
+			//
+			static RT_HOOK lapRankCheckerCalcHook;
+			static void OnLapRankCheckerCalc(u32* laprankchecker);
+			//
+			static RT_HOOK racePageGenResultHook;
+			static void OnRacePageGenResult(u32 racePage);
+			static void(*RacePage_GenResultWifi)(u32);
+			//
+			static RT_HOOK networkBufferControllerAllocHook;
+			static u32* originalNetworkBufferSizes;
+			static void OnNetworkBufferControllerAllocBuf(MK7::Net::NetworkBufferController* networkbuffercontroller);
+			static void OnNetworkSelectMenuSendUpdateCore(u32 NetworkDataManager_SelectMenu);
+			static RT_HOOK networkSelectMenuReceivedCoreHook;
+			static bool OnNetworkSelectMenuReceivedCore(u32 NetworkSelectMenuReceived, MK7::Net::NetworkReceivedInfo* receive_info);
+			static bool netImHost(MK7::Net::NetworkEngine* netEngine = nullptr);
+			//
+			static bool disableLensFlare;
+			static bool LensFlareAllowed();
+			//
+			static bool hasOOBAreas;
+			static void CalcOOBArea(u32 vehicle);
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

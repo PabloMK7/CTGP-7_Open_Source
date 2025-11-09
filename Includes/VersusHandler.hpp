@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.hpp
-Open source lines: 191/191 (100.00%)
+Open source lines: 190/190 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -144,7 +144,7 @@ namespace CTRPluginFramework {
 		static void InitializeText();
 		static void PopulateCupKbdForPage(std::vector<CustomIcon>& icons, int page);
 		static u32 OpenCupKeyboard(int* cupButton, int* selectedCupButton, std::string& topMessage);
-		static u32 OpenCourseKeyboard(u32 cupId, bool canAbort);
+		static u32 OpenCourseKeyboard(u32 cupId, bool canAbort, const std::string& topMessage = "", void(*event)(Keyboard&, KeyboardEvent&) = nullptr);
 		static u32 OpenCupCourseKeyboard(int* startingCupButton, int* selectedCupButton, bool canAbort, std::string& topText);
 		static void ApplyVSModeSettings();
 		static void ApplySpecifiedSetting(VSSettings setting, u32 value);
@@ -163,7 +163,6 @@ namespace CTRPluginFramework {
 		static u32 MenuSingleClassPage;
 		static u32 invalidLRVal3;
 		static void OnMenuSingleEnterCallback();
-		static void OnMenuSingleOKCallback(u32 val);
 		
 		static void (*ApplyVSSetting)(SettingsObject* set);
 

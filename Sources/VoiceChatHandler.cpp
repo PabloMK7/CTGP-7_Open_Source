@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VoiceChatHandler.cpp
-Open source lines: 219/229 (95.63%)
+Open source lines: 220/230 (95.65%)
 *****************************************************/
 
 #include "VoiceChatHandler.hpp"
@@ -16,6 +16,7 @@ Open source lines: 219/229 (95.63%)
 #include "Unicode.h"
 #include "SaveHandler.hpp"
 #include "TCPStream.hpp"
+#include "AsyncRunner.hpp"
 
 namespace CTRPluginFramework {
     bool VoiceChatHandler::Initialized = false;
@@ -39,7 +40,7 @@ namespace CTRPluginFramework {
         LightEvent_Init(&threadEvent, RESET_ONESHOT);
         runThread = true;
 		#if CITRA_MODE == 0
-        voiceChatHandlerThread = new ThreadEx(HandlerThread, 0x400, 0x20, System::IsNew3DS() ? 2 : 1);
+        voiceChatHandlerThread = new ThreadEx(HandlerThread, 0x400, 0x20, 1);
         #else
         voiceChatHandlerThread = new ThreadEx(HandlerThread, 0x400, 0x20, 1);
         #endif
@@ -177,7 +178,7 @@ namespace CTRPluginFramework {
     }
 
     void VoiceChatHandler::DisplayConnectMenu() {
-        (*PluginMenu::GetRunningInstance()) -= DisplayConnectMenu;
+        AsyncRunner::StopAsync(DisplayConnectMenu);
 
         Process::Pause();
 
@@ -210,7 +211,7 @@ namespace CTRPluginFramework {
         if (!SaveHandler::saveData.flags1.enableVoiceChat)
             return;
         
-        (*PluginMenu::GetRunningInstance()) += DisplayConnectMenu;
+        AsyncRunner::StartAsync(DisplayConnectMenu);
     }
 
     void VoiceChatHandler::OnSocketExit() {

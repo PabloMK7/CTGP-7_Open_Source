@@ -4,15 +4,15 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CourseManager.hpp
-Open source lines: 126/130 (96.92%)
+Open source lines: 129/133 (96.99%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include <bitset>
 
-#define MAXCUPS 30
-#define MAXTRACKS 130
+#define MAXCUPS 32
+#define MAXTRACKS 138
 
 // No need to change anything below here
 #define INVALIDTRACK 0x29
@@ -46,6 +46,7 @@ namespace CTRPluginFramework
 			u32 originalSlot;
 			u32 lapAmount;
 			u32 countdownTimerValue;
+			u32 pointsModeClearScore;
 		};
 		CTNameFunc f;
 		CTNameEntry entries[MAXTRACKS];
@@ -80,6 +81,8 @@ namespace CTRPluginFramework
 			static int multiCupButtonsIDs[8];
 			static u32* finalGlobalCupTranslateTable;
 			static u32 finalGlobalCupTranslateTableSize;
+			static u32* pointsModeCupTranslateTable;
+			static u32 pointsModeCupTranslateTableSize;
 			static void resetGhost(MenuEntry* entry);
 			static void resetCourseGhost(u32 courseID);
 			static void setCustomTracksAllowed(bool mode);
@@ -116,7 +119,7 @@ namespace CTRPluginFramework
 			static void multiCupTrackToCourseID(u8* data);
 			static void changeMoflex(u32 cupBaseMenu, int cupID);
 			static bool handleMenuCallback(const Screen& screen);
-			static void getRandomCourseOnline(u32* result, bool isRace);
+			static void getRandomCourse(u32* result, bool isRace);
 			static u32  getRandomCourseDemo(bool isRace);
 			static const u32* getCupTranslatetable(u32* size, bool forceGetAll = false);
 			static void initGlobalCupTranslateTable();

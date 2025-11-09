@@ -402,7 +402,7 @@ namespace CTRPluginFramework::OnionFS
 			}
 			addr++;
 		}
-		if (!(formatSaveHook.isEnabled && regArchiveHook.isEnabled)) {
+		if (!(rtHookEnabled(&formatSaveHook) && rtHookEnabled(&regArchiveHook))) {
 			return false;
 		}
 		

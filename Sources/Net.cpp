@@ -4,9 +4,10 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 927/948 (97.78%)
+Open source lines: 936/957 (97.81%)
 *****************************************************/
 
+#include "main.hpp"
 #include "Net.hpp"
 #include "CourseManager.hpp"
 #include "Lang.hpp"
@@ -218,24 +219,7 @@ namespace CTRPluginFramework {
 
 			// This should be last
 			if (reqDoc.get("needsMiiUpload", false)) {
-				LZCompressArg arg;
-				arg.inputAddr = MarioKartFramework::GetSelfMiiIcon();
-				if (!arg.inputAddr) {
-					req->Cleanup();
-					return false;
-				}
-				arg.inputSize = 64 * 64 * 2;
-				LZ77Compress(arg);
-				LZ77CompressWait();
-				LZCompressResult res = LZ77CompressResult();
-				minibson::document newDoc;
-				newDoc.set("miiIcon", res.outputAddr, res.outputSize);
-				newDoc.set<int>("miiIconChecksum", MarioKartFramework::GetSelfMiiIconChecksum() & 0x7FFFFFFF);
-				LZ77Cleanup();
-				req->Cleanup();
-				req->AddRequest(NetHandler::RequestHandler::RequestType::UPLOAD_MII, newDoc);
-				req->Start(false);
-				return true;
+				UploadMii();
 			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH)) {
@@ -244,6 +228,7 @@ namespace CTRPluginFramework {
 					MarioKartFramework::dialogBlackOut();
 			}
 			else {
+#ifndef DISABLE_ONLINE_ACCESS
 				res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH, &reqDoc);
 				if (res < 0)
 					MarioKartFramework::dialogBlackOut();
@@ -259,6 +244,7 @@ namespace CTRPluginFramework {
 					ItemHandler::SetBlueShellShowdown(reqDoc.get("blueShellShowdown", false));
 				}
 				trackHistory = reqDoc.get("trackHistory", "");
+#endif
 			}
 		}
 		else if (req->Contains(NetHandler::RequestHandler::RequestType::ONLINE_PREPARING)) {
@@ -325,7 +311,7 @@ namespace CTRPluginFramework {
 
 	static u8 g_heartbeat_framectr = 0;
 	void Net::HeartBeat() {
-		if (g_heartbeat_framectr++ == 0 && heartBeatClock.HasTimePassed(Seconds(60 * 4))) {
+		if (g_heartbeat_framectr++ == 0 && heartBeatClock.HasTimePassed(Seconds((60 * 3) + 30))) {
 			minibson::document reqDoc;
 			reqDoc.set<u64>("token", currLoginToken);
 			netRequests.AddRequest(NetHandler::RequestHandler::RequestType::HEARTBEAT, reqDoc);
@@ -373,6 +359,7 @@ namespace CTRPluginFramework {
 			*PluginMenu::GetRunningInstance() += HeartBeat;
 		}
 		else if (mode == OnlineStateMachine::SEARCHING) { // Joining room
+#ifndef DISABLE_ONLINE_ACCESS
 			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
 				minibson::document reqDoc;
 				reqDoc.set<u64>("token", currLoginToken);
@@ -385,6 +372,7 @@ namespace CTRPluginFramework {
 				heartBeatClock.Restart();
 				netRequests.Start();
 			}
+#endif
 		}
 		else if (mode == OnlineStateMachine::PREPARING) { // Preparing room
 			if (g_getCTModeVal == CTMode::ONLINE_CTWW || g_getCTModeVal == CTMode::ONLINE_CTWW_CD || (g_getCTModeVal == CTMode::ONLINE_NOCTWW && Net::IsOnCTGP7Network())) {
@@ -716,12 +704,31 @@ namespace CTRPluginFramework {
 		minibson::document reqDoc;
 		messageHandler.AddRequest(NetHandler::RequestHandler::RequestType::ULTRASHORTCUT, reqDoc);
 		messageHandler.Start();
-		messageHandler.Wait();
 
 		return 0;
 	}
 
-	Net::DiscordInfo Net::GetDiscordInfo(bool requestLink)
+    void Net::UploadMii()
+    {
+		LZCompressArg arg;
+		arg.inputAddr = MarioKartFramework::GetSelfMiiIcon();
+		if (!arg.inputAddr) {
+			return;
+		}
+		arg.inputSize = 64 * 64 * 2;
+		arg.onCompressFinish = [](const LZCompressResult& result) {
+			NetHandler::RequestHandler req;
+			minibson::document newDoc;
+			newDoc.set("miiIcon", result.outputAddr, result.outputSize);
+			newDoc.set<int>("miiIconChecksum", MarioKartFramework::GetSelfMiiIconChecksum() & 0x7FFFFFFF);
+			LZ77Cleanup();
+			req.AddRequest(NetHandler::RequestHandler::RequestType::UPLOAD_MII, newDoc);
+			req.Start();
+		};
+		LZ77Compress(arg);
+    }
+
+    Net::DiscordInfo Net::GetDiscordInfo(bool requestLink)
 	{
 		Net::DiscordInfo ret;
 		#if CITRA_MODE == 0
@@ -729,6 +736,9 @@ namespace CTRPluginFramework {
 		{
 			minibson::document reqDoc;
 			reqDoc.set<bool>("request", requestLink);
+#ifdef DISCORD_BETA_GIVE_BADGE
+			reqDoc.set<bool>("discordBetaBadge", true);
+#endif
 			discordHandler.AddRequest(NetHandler::RequestHandler::RequestType::DISCORD_INFO, reqDoc);
 		}
 		
@@ -771,7 +781,6 @@ namespace CTRPluginFramework {
 		}
 		
 		discordHandler.Start();
-		discordHandler.Wait();
 		#endif
     }
 

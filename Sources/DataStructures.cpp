@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.cpp
-Open source lines: 66/66 (100.00%)
+Open source lines: 67/67 (100.00%)
 *****************************************************/
 
 #include "DataStructures.hpp"
@@ -30,8 +30,8 @@ namespace CTRPluginFramework {
     KartButtonData KartButtonData::GetFromVehicle(u32 vehicle) {
         KartButtonData ret;
         ret.raw = *(u32*)(vehicle + 0xFC);
-        u32 keyData = ((Key***)vehicle)[0xE4/4][0x8/4][0x110/4];
-        if (keyData & 0x8 || keyData & 0x2000)
+        u32 keyData = ((u32***)vehicle)[0xE4/4][0x8/4][0x110/4];
+        if ((keyData & 0x8) || (keyData & 0x2000))
             ret.item = true;
         return ret;
     }
@@ -49,13 +49,14 @@ namespace CTRPluginFramework {
         u32 el1 = elements[1];
         u32 el2 = elements[2];
         u32 el3 = elements[3];
-        u32 ret = el0 ^ (el0 << 11) ^ ((el0 ^ (el0 << 11)) >> 8) ^ el3 ^ (el3 >> 19);
+        u32 ret = ((el0 ^ (el0 << 11)) ^ ((el0 ^ (el0 << 11)) >> 8)) ^ (el3 ^ (el3 >> 19));
         elements[0] = el1;
         elements[1] = el2;
         elements[2] = el3;
         elements[3] = ret;
         return ret;
     }
+    // [low, high)
     u32 SeadRandom::Get(u32 low, u32 high)
     {
         u32 random = Get();

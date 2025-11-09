@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Lang.cpp
-Open source lines: 846/847 (99.88%)
+Open source lines: 868/869 (99.88%)
 *****************************************************/
 
 #include "Lang.hpp"
@@ -23,6 +23,7 @@ Open source lines: 846/847 (99.88%)
 #include "CustomTextEntries.hpp"
 #include "BCLIM.hpp"
 #include "BlueCoinChallenge.hpp"
+#include "PointsModeHandler.hpp"
 
 namespace CTRPluginFramework
 {
@@ -78,6 +79,9 @@ namespace CTRPluginFramework
 			settFile.Close();
 			UpdateLangSettings();
 		}
+	#ifdef FORCE_ENGLIGH_LANG
+		strcpy(currSettings.langID, "ENG");
+	#endif
 	}
 
 	const char* g_szsFileNames[] = { "common-", "menu-", "race-", "thankyou-", "trophy-" };
@@ -410,6 +414,7 @@ namespace CTRPluginFramework
 		CharacterHandler::UpdateMsbtPatches();
 		VersusHandler::InitializeText();
 		MissionHandler::InitializeText();
+		PointsModeHandler::InitializeText();
 		BlueCoinChallenge::InitializeLanguage();
 		CCSettings* settings = static_cast<CCSettings*>(ccselectorentry->GetArg());
 		if (settings->enabled) {
@@ -445,8 +450,25 @@ namespace CTRPluginFramework
         }
         return len;
     }
-	
-	bool Language::MsbtHandler::ControlString::GetChoice(char16_t* out, int choice) const {
+
+    std::string limitUtf8(const std::string &str, size_t amount)
+    {
+		size_t index = 0;
+		const char* s = str.c_str();
+		while (amount--) {
+			u32 temp;
+			auto size = decode_utf8(&temp, reinterpret_cast<const uint8_t*>(s) + index);
+			if (temp) {
+				if (size > 0) index += size;
+				else return "";
+			} else {
+				break;
+			}
+		}
+        return str.substr(0, index);
+    }
+
+    bool Language::MsbtHandler::ControlString::GetChoice(char16_t* out, int choice) const {
 		if (header.group == Group::STRFORMAT && header.type == 6) {
 			const u8* c = args;
 			int counter = 0;

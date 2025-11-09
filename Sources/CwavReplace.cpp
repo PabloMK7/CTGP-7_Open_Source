@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CwavReplace.cpp
-Open source lines: 101/101 (100.00%)
+Open source lines: 102/102 (100.00%)
 *****************************************************/
 
 #include "CwavReplace.hpp"
@@ -22,6 +22,7 @@ namespace CTRPluginFramework {
     const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::starThemeSE;
     const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::konohaStartSE;
     const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::konohaEndSE;
+    const constexpr std::pair<u32, u32> CwavReplace::KnownIDs::itemDecideSE;
     //
 
     void CwavReplace::SetReplacementCwav(u32 archiveID, u32 fileID, void* cwavFile, int times, float validForFrames, u32* sndHandle, bool amend) {

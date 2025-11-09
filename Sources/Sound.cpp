@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Sound.cpp
-Open source lines: 76/76 (100.00%)
+Open source lines: 135/135 (100.00%)
 *****************************************************/
 
 #include "Sound.hpp"
@@ -14,13 +14,16 @@ Open source lines: 76/76 (100.00%)
 #include "main.hpp"
 #include "OSDManager.hpp"
 #include "ExtraResource.hpp"
+#include "SaveHandler.hpp"
 
 extern "C" Result csndPlaySoundExtended(int chn, u32 flags, u32 sampleRate, float vol, float pan, void* data0, void* data1, u32 size);
 
 namespace CTRPluginFramework {
 
+	u32 Snd::SndHandle_writeSeqVarLocalAddr = 0;
 	u32 Snd::soundObject = 0;
 	u32(*Snd::playSysSe)(u32, Snd::SoundID) = nullptr;
+	RT_HOOK Snd::sndLoaderSetExtGroupAddressHook = {0};
 	/*
 	void (*Snd::setSoundFileAddress)(u32 soundLoader, u32 soundID, void* address) = (void(*)(u32, u32, void*))0x0026D768;
 	void* (*Snd::getSoundFileAddress)(u32 soundLoader, u32 soundID) = (void* (*)(u32, u32))0x004FB824;
@@ -60,7 +63,63 @@ namespace CTRPluginFramework {
 		}
 	}
 
-	/*
+    bool Snd::PlayHornSE(MK7::Sound::SndActorKart *sndActorKart, bool byUser)
+    {
+		bool doPlay = false;
+		if (byUser) {
+			if (
+				SaveHandler::saveData.flags1.improvedHonk &&
+				!MarioKartFramework::isRaceGoal && !sndActorKart->m_unk_0x1F1 && !sndActorKart->m_unk_0x1FE &&
+				!sndActorKart->m_vehicle->m_status_flags.accident_1 && !sndActorKart->m_vehicle->m_status_flags.hang &&
+				!sndActorKart->m_vehicle->m_status_flags.killer
+			) {
+				doPlay = true;
+			}
+		} else {		
+			if (
+				!sndActorKart->m_disabled && !sndActorKart->m_unk_0x1F1 && !sndActorKart->m_unk_0x1FE &&
+				!sndActorKart->m_vehicle->m_status_flags.accident_1 && !sndActorKart->m_vehicle->m_status_flags.wing_open &&
+				(!sndActorKart->m_vehicle->m_status_flags.unk_glider || !sndActorKart->m_vehicle->m_unk_0xE81) &&
+				sndActorKart->m_horn_timer >= 120
+			) {
+				sndActorKart->m_horn_counter++;
+				if (sndActorKart->m_horn_counter == 2) {
+					sndActorKart->m_horn_counter = 0;
+				} else {
+					doPlay = true;
+					sndActorKart->m_horn_timer = 0;
+				}
+			}
+		}
+
+		if (doPlay) {
+			u32 soundID = 0x01000600 + DriverIDToHornID((EDriverID)sndActorKart->m_vehicle->m_driver_id);
+			auto* handle = sndActorKart->startSoundPrioBefore(soundID, nullptr);
+			if (handle) {
+				void(*SndHandle_writeSeqVarLocal)(MK7::Sound::SndHandle* handle, int id, u16 value) = (decltype(SndHandle_writeSeqVarLocal))SndHandle_writeSeqVarLocalAddr;
+				SndHandle_writeSeqVarLocal(handle, 0, (u16)sndActorKart->m_vehicle->m_body_id);
+			} else {
+				doPlay = false;
+			}
+		}
+
+		return doPlay;
+    }
+
+    bool Snd::OnSndLoaderSetExtGroupAddress(MK7::Sound::SndLoader *loader, int unk)
+    {
+        bool res = ((bool(*)(MK7::Sound::SndLoader*, int))sndLoaderSetExtGroupAddressHook.callCode)(loader, unk);
+		MK7::System::ResourceLoader* resLoader = MK7::System::g_root_system->m_root_scene->get_system_engine()->m_resource_loader;
+
+		// Use resource loader last size for bcgrp, instead of the size value from the bcsar
+		if (unk == 0 && res && resLoader->m_last_loaded_file_address == loader->m_ext_group_address) {
+			loader->m_ext_group_size = resLoader->m_last_loaded_file_size;
+		}
+
+		return res;
+    }
+
+    /*
 	inline u32 Snd::getArchiveLoader()
 	{
 		u32 step1 = *(u32*)(MarioKartFramework::baseAllPointer + 0x10) + 0x1E0;

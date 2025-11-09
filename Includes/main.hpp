@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.hpp
-Open source lines: 112/121 (92.56%)
+Open source lines: 141/150 (94.00%)
 *****************************************************/
 
 #pragma once
@@ -13,8 +13,9 @@ Open source lines: 112/121 (92.56%)
 //#define LOAD_MINIMUM_RESOURCES
 //#define IGNORE_STATS
 //#define BETA_BUILD
-//#define BETA_PATTERN_FILES
 //#define DISCORD_BETA
+//#define DISCORD_BETA_GIVE_BADGE
+//#define BETA_PATTERN_FILES
 //#define NOMUSIC
 //#define LOG_ONIONFS_FILES
 //#define DISABLE_CT_HASH
@@ -24,6 +25,7 @@ Open source lines: 112/121 (92.56%)
 //#define BETA_GHOST_FILE
 //#define USE_HOKAKU
 //#define DISABLE_ONLINE_ACCESS
+//#define DISABLE_POINTS_WEEKLY
 //#define ALL_ACHIEVEMENTS
 //#define STRESS_TEST_DEMO_TITLE
 //#define ALLOW_SAVES_FROM_OTHER_CID
@@ -32,6 +34,8 @@ Open source lines: 112/121 (92.56%)
 //#define SETUP_BLUE_COINS
 //#define REPORT_RACE_PROGRESS
 //#define NO_CPUS_IN_CTWW
+//#define FORCE_ENGLIGH_LANG
+//#define SAVE_DATA_UNENCRYPTED
 
 #include "CTRPluginFramework.hpp"
 #include "Lang.hpp"
@@ -40,6 +44,28 @@ Open source lines: 112/121 (92.56%)
 #endif
 
 #define THREADVARS_MAGIC  0x21545624 // !TV$
+
+typedef struct
+{
+	// Magic value used to check if the struct is initialized
+	u32 magic;
+
+	// Pointer to the current thread (if exists)
+	Thread thread_ptr;
+
+	// Pointer to this thread's newlib state
+	struct _reent* reent;
+
+	// Pointer to this thread's thread-local segment
+	void* tls_tp; // !! Keep offset in sync inside __aeabi_read_tp !!
+
+	// FS session override
+	u32    fs_magic;
+	Handle fs_session;
+
+	// Whether srvGetServiceHandle is non-blocking in case of full service ports.
+	bool srv_blocking_policy;
+} ThreadVars;
 
 extern u8 g_isOnlineMode;
 
@@ -100,6 +126,9 @@ namespace CTRPluginFramework
 
 	void automaticdelaydrift_apply(bool enabled);
 	void automaticdelaydrift_entryfunc(MenuEntry* entry);
+
+	void improvedhorn_apply(bool enabled);
+	void improvedhorn_entryfunc(MenuEntry* entry);
 
 	void serverEntryHandler(MenuEntry* entry);
 

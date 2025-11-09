@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ItemHandler.cpp
-Open source lines: 1412/1414 (99.86%)
+Open source lines: 1866/1870 (99.79%)
 *****************************************************/
 
 #include "ItemHandler.hpp"
@@ -15,7 +15,9 @@ Open source lines: 1412/1414 (99.86%)
 #include "main.hpp"
 #include "CwavReplace.hpp"
 #include "ExtraUIElements.hpp"
+#include "PointsModeHandler.hpp"
 #include "SaveHandler.hpp"
+#include "OSDManager.hpp"
 
 namespace CTRPluginFramework {
 
@@ -32,8 +34,22 @@ namespace CTRPluginFramework {
     u32 ItemHandler::kartHoldItemFrames[MAX_PLAYER_AMOUNT];
     RT_HOOK ItemHandler::kartItemCalcAfterStructureHook = { 0 };
 
+    RT_HOOK ItemHandler::objThunderStateInitUseHook = {0};
+    RT_HOOK ItemHandler::objThunderStateInitAttackedHook = {0};
+    int ItemHandler::thunderPlayerID = -1;
+
+    RT_HOOK ItemHandler::objGessoStateInitUseHook = {0};
+    RT_HOOK ItemHandler::itemDirectorDoReactionHook = {0};
+
+    RT_HOOK ItemHandler::ItemDirectorClearItemHook = { 0 };
+
     MarioKartTimer ItemHandler::blueShellDodgeTimer[8] = {0};
     bool ItemHandler::blueShellDodged[8] = {0};
+
+    bool ItemHandler::userHoldingItem = false;
+    u8 ItemHandler::otherPlayerRemainingHonks[MAX_PLAYER_AMOUNT] = {0};
+    u8 ItemHandler::playerHonkCounter[MAX_PLAYER_AMOUNT] = {0};
+    u8 ItemHandler::prevPlayerHonkCounter[MAX_PLAYER_AMOUNT] = {0};
 
     ItemHandler::ItemDirectorVtable* ItemHandler::FakeBoxHandler::directorVtable = nullptr;
     ItemHandler::FakeBoxHandler::FakeBoxData* ItemHandler::FakeBoxHandler::fakeBoxData[FakeBoxAmount];
@@ -73,14 +89,19 @@ namespace CTRPluginFramework {
 
     u32 ItemHandler::GameAddr::sndengine_holdsound = 0;
 
-    u32 ItemHandler::GameAddr::itemObjStateInitUse = 0;
+    u32 ItemHandler::GameAddr::itemObjStateInitUseAddr = 0;
+    u32 ItemHandler::GameAddr::itemObjExitVanishAddr = 0;
+    u32 ItemHandler::GameAddr::sevenDirectorSendEventAddr = 0;
 
-    u32 ItemHandler::GameAddr::itemDirectorClearItem = 0;
+    u32 ItemHandler::GameAddr::Actor3DMdlCreateModelAddr = 0;
+    u32 ItemHandler::GameAddr::ItemObjBaseSetVisibleAddr = 0;
 
-    ItemHandler::ItemObjVtable* ItemHandler::GameAddr::starVtable = (decltype(ItemHandler::GameAddr::starVtable))0x625F14;
-    ItemHandler::ItemDirectorVtable* ItemHandler::GameAddr::starDirectorVtable = (decltype(ItemHandler::GameAddr::starDirectorVtable))0x00626E5C;
+    u32 ItemHandler::GameAddr::AIItemBaseIsInSnipeAreaAddr = 0;
+    u32 ItemHandler::GameAddr::AIItemRaceGetDirectionToThrowAddr = 0;
 
-    
+    ItemHandler::ItemObjVtable* ItemHandler::GameAddr::starVtable = 0;
+    ItemHandler::ItemDirectorVtable* ItemHandler::GameAddr::starDirectorVtable = 0;
+
 
     ItemHandler::ItemDirectorVtable* ItemHandler::MegaMushHandler::directorVtable = nullptr;
     ItemHandler::ItemObjVtable* ItemHandler::MegaMushHandler::itemVtable = nullptr;
@@ -88,7 +109,7 @@ namespace CTRPluginFramework {
     void* ItemHandler::MegaMushHandler::shrinkSound = nullptr;
     void* ItemHandler::MegaMushHandler::megaTheme = nullptr;
     u8 ItemHandler::MegaMushHandler::growMapFacePending[MAX_PLAYER_AMOUNT] = {0};
-
+    
     bool ItemHandler::isBlueShellShowdown = false;
     bool ItemHandler::isLessThan30Seconds = false;
     bool ItemHandler::nextForcedIBStop = false;
@@ -111,8 +132,6 @@ namespace CTRPluginFramework {
     }
 
     u32 ItemHandler::GetDirectorFromSlot(u32 itemDirector, EItemSlot itemSlot) {
-        // Do not use R3, for some reason this function in MK7 doesn't follow the arm ABI
-        asm ("push {r3}");
         u32* directorArray = (u32*)(itemDirector + 0x28);
         u32 ret = 0;
         switch (itemSlot)
@@ -180,13 +199,9 @@ namespace CTRPluginFramework {
         default:
             break;
         }
-        // Restore the saved R3
-        asm ("pop {r3}");
         return ret;
     }
     u32 ItemHandler::GetDirectorFromType(u32 itemDirector, EItemType itemType) {
-        // Do not use R3, for some reason this function in MK7 doesn't follow the arm ABI
-        asm ("push {r3}");
         u32* directorArray = (u32*)(itemDirector + 0x28);
         u32 ret = 0;
         switch (itemType)
@@ -242,8 +257,6 @@ namespace CTRPluginFramework {
         default:
             break;
         }
-        // Restore the saved R3
-        asm ("pop {r3}");
         return ret;
     }
 
@@ -327,7 +340,7 @@ namespace CTRPluginFramework {
         case EItemType::ITYPE_GESSO:
             return 1;
         case EItemType::ITYPE_BIGKINOKO:
-            return (!isSpecialMode) ? (megaAllowed ? MegaMushHandler::MegaMushAmount : 1) : 1;
+            return (!isSpecialMode) ? (megaAllowed ? 2 : 1) : 1;
         case EItemType::ITYPE_KILLER:
             return 1;
         case EItemType::ITYPE_FLOWER:
@@ -578,6 +591,7 @@ namespace CTRPluginFramework {
     }
 
     void ItemHandler::OnItemDirectorCreateBeforeStructure(u32 itemDirector) {
+        ActorArray* actorArray = (ActorArray*)(itemDirector + 0x14);
         // FIB
         fakeBoxDirector = (u32)GameAlloc::game_operator_new_autoheap(0xBC);
         if (fakeBoxDirector) {
@@ -586,7 +600,6 @@ namespace CTRPluginFramework {
             ((u32*)fakeBoxDirector)[0] = (u32)FakeBoxHandler::directorVtable;
             ((u32*)fakeBoxDirector)[4/4] = itemDirector;
         }
-        ActorArray* actorArray = (ActorArray*)(itemDirector + 0x14);
         actorArray->Push(fakeBoxDirector);
         // Mega Mush
         megaMushDirector = (u32)GameAlloc::game_operator_new_autoheap(0xBC);
@@ -609,15 +622,9 @@ namespace CTRPluginFramework {
             MarioKartFramework::ignoreKartAccident = true;
         }
 
+        EItemType ret = iType;
         if (iType == EItemType::ITYPE_FAKEBOX) {
-            if (reactParams[0] > 0x10)
-                reactParams[0] = EItemType::ITYPE_KOURAG + 0x11;
-            else
-                reactParams[0] = EItemType::ITYPE_KOURAG;
-
             if (!reactParams[1]) { // If not stunt
-                
-
                 if (MarioKartFramework::kartCanAccident(vehicle) && !MarioKartFramework::megaMushTimers[playerID])
                 {
                     FakeBoxHandler::isHittingFib = true;
@@ -636,11 +643,11 @@ namespace CTRPluginFramework {
                 FakeBoxHandler::PlaySoundEffect((u32)objBase, Snd::SoundID::BREAK_ITEMBOX);
             }
             
-            return EItemType::ITYPE_KOURAG;      
-        } /*else if (iType == EItemType::ITYPE_BIGKINOKO) {
+            ret = EItemType::ITYPE_KOURAG;      
+        } else if (iType == EItemType::ITYPE_BIGKINOKO) {
             SeadArrayPtr<u32*>& kartItems = *(SeadArrayPtr<u32*>*)(itemDirector + 0xC0);
             UseItem(itemDirector, EItemSlot::ITEM_TEST4, kartItems[playerID]);
-        }*/
+        }
         if (iType == EItemType::ITYPE_KOURAB) {
             u32 targetPlayerID = ((u32*)objBase)[0x28C/4];
             if (playerID == targetPlayerID) {
@@ -656,7 +663,7 @@ namespace CTRPluginFramework {
                 }
             }
         }
-        return iType;
+        return ret;
     }
 
     const char* ItemHandler::GetTextureNameForItem(u32 itslottexid) {
@@ -716,6 +723,32 @@ namespace CTRPluginFramework {
         }
 	}
 
+    void ItemHandler::raceTimerOnFrame(MarioKartTimer timer) {
+        if ((timer.GetFrames() & 0xFF) == 0) { // Every 4.2 seconds approx.
+            for (int i = 0; i < MAX_PLAYER_AMOUNT; i++) {
+                if (otherPlayerRemainingHonks[i] < MAX_HONKS) {
+                    otherPlayerRemainingHonks[i]++;
+                }
+            }
+        }
+    }
+
+    u32* ItemHandler::GetKartItem(int playerID)
+    {
+        u32 itemDirector = MarioKartFramework::getItemDirector();
+        SeadArrayPtr<u32*>& kartItemArray = *(SeadArrayPtr<u32*>*)(itemDirector + 0xC0);
+        return kartItemArray[playerID];
+    }
+
+    void ItemHandler::resetHonkStates(int playerID) {
+        if (playerID == MarioKartFramework::masterPlayerID) {
+            userHoldingItem = false;
+        }
+        playerHonkCounter[playerID] = 0;
+        prevPlayerHonkCounter[playerID] = 0xFF;
+        otherPlayerRemainingHonks[playerID] = MAX_HONKS;
+    }
+
     void ItemHandler::OnVehicleInit(u32 vehicle) {
         int playerID = ((u32*)vehicle)[0x84/4];
 		ItemHandler::MegaMushHandler::End(playerID, true);
@@ -724,6 +757,7 @@ namespace CTRPluginFramework {
         MarioKartFramework::loopVoiceCooldown[playerID] = 0;
         blueShellDodgeTimer[playerID] = 0;
         blueShellDodged[playerID] = false;
+        resetHonkStates(playerID);
     }
 
     void ItemHandler::OnVehicleCalc(u32 vehicle) {
@@ -735,6 +769,7 @@ namespace CTRPluginFramework {
                         Snd::PlayMenu(Snd::PAUSE_OFF);
                     }
                     SaveHandler::saveData.blueShellDodgeAmount++;
+                    if (PointsModeHandler::isPointsMode) PointsModeHandler::OnKartDodgedBlueShell(playerID);
                 }
             }
         }
@@ -742,21 +777,81 @@ namespace CTRPluginFramework {
             if (Controller::IsKeyPressed(Key::DPadLeft)) {
                 ItemSlotStatus status = GetItemSlotStatus(playerID);
                 if (status.mode == ItemSlotStatus::MODE_DECIDED && status.item == EItemSlot::ITEM_KOURAB) {
-                    ((void(*)(u32, int))GameAddr::itemDirectorClearItem)(MarioKartFramework::getItemDirector(), playerID);
+                    ItemHandler::ClearItem(playerID);
                     MarioKartFramework::nextForcedItem = EItemSlot::ITEM_KINOKO;
                     nextForcedIBStop = true;
                     MarioKartFramework::startItemSlot(playerID, 0);
                 }
             }
         }
+
+        u32* kartItem = GetKartItem(playerID);
+        if (playerID == MarioKartFramework::masterPlayerID) {
+            
+            KartButtonData buttons = KartButtonData::GetFromVehicle(vehicle);
+            if (buttons.item && !userHoldingItem) {
+                u32 itemSlot = ((u32*)kartItem)[0x34/4];
+                s8 stockItemID = ((s8*)kartItem)[0x38];
+                u8 mode = ((u8*)itemSlot)[0x10];
+                bool itemEquip = ((u8*)kartItem)[0x41] == 1 || ((u8*)kartItem)[0x41] == 2;
+                if (mode == ItemSlotStatus::MODE_EMPTY && !itemEquip && stockItemID < 0) {
+                    u32 sndactorkart = ((u32*)vehicle)[0xDC/4];
+                    if (Snd::PlayHornSE((MK7::Sound::SndActorKart*)sndactorkart, true)) {
+                        playerHonkCounter[playerID]++;
+                    }
+                }
+            }
+            userHoldingItem = buttons.item;
+        } else {
+            if (prevPlayerHonkCounter[playerID] != playerHonkCounter[playerID]) {
+                if (prevPlayerHonkCounter[playerID] != 0xFF && otherPlayerRemainingHonks[playerID]) {
+                    otherPlayerRemainingHonks[playerID]--;
+                    u32 sndactorkart = ((u32*)vehicle)[0xDC/4];
+                    Snd::PlayHornSE((MK7::Sound::SndActorKart*)sndactorkart, true);
+                }
+                prevPlayerHonkCounter[playerID] = playerHonkCounter[playerID];
+            }
+        }
+    }
+
+    void ItemHandler::OnObjThunderStateInitUse(u32 *ItemObjThunder)
+    {
+        thunderPlayerID = ((u32***)ItemObjThunder)[0x158/4][0][0x21];
+        ((void(*)(u32*))objThunderStateInitUseHook.callCode)(ItemObjThunder);
+        thunderPlayerID = -1;
+    }
+
+    void ItemHandler::OnObjThunderStateInitAttacked(u32 *ItemObjThunder)
+    {
+        ((void(*)(u32*))objThunderStateInitAttackedHook.callCode)(ItemObjThunder);
+    }
+
+    void ItemHandler::OnObjGessoStateInitUse(u32 *ItemObjGesso)
+    {
+        ((void(*)(u32*))objGessoStateInitUseHook.callCode)(ItemObjGesso);
+        if (PointsModeHandler::isPointsMode) PointsModeHandler::OnGessoAfterInitUse(ItemObjGesso);
+    }
+
+    void ItemHandler::OnItemDirectorDoReaction(u32 *director, u32 *itemObj1, u32 *itemObj2, EItemReact* react1, EItemReact* react2, Vector3 *pos1, Vector3 *pos2)
+    {
+        if (PointsModeHandler::isPointsMode) PointsModeHandler::OnItemDirectorDoReaction(director, itemObj1, itemObj2, react1, react2, pos1, pos2);
+        ((void(*)(u32*, u32*, u32*, EItemReact*, EItemReact*, Vector3*, Vector3*))itemDirectorDoReactionHook.callCode)(director, itemObj1, itemObj2, react1, react2, pos1, pos2);
+    }
+
+    SeadRandom &ItemHandler::GetItemRandom()
+    {
+        u32 itemDirector = MarioKartFramework::getItemDirector();
+        u32 itemslottable = ((u32*)itemDirector)[0x8C/4];
+        u32* something = ((u32**)itemslottable)[0xA4/4];
+        bool someFlag = something[0x1CC/4] == 1 || (something[0x1DC/4] & 8) != 0;
+
+        return *(SeadRandom*)(MarioKartFramework::getRaceDirector() + (someFlag ? 0x25C : 0x1E0));
     }
 
     ItemHandler::ItemSlotStatus ItemHandler::GetItemSlotStatus(int playerID)
     {
         ItemSlotStatus ret{};
-        u32 itemDirector = MarioKartFramework::getItemDirector();
-        SeadArrayPtr<u32*>& kartItemArray = *(SeadArrayPtr<u32*>*)(itemDirector + 0xC0);
-        u32* kartItem = kartItemArray[playerID];
+        u32* kartItem = GetKartItem(playerID);
         if (kartItem == nullptr) {
             return ret;
         }
@@ -767,6 +862,21 @@ namespace CTRPluginFramework {
         ret.mode = mode;
         ret.item = item;
         return ret;
+    }
+
+    static bool g_callingClearItem = false;
+    void ItemHandler::ClearItem(int playerID)
+    {
+        g_callingClearItem = true;
+        OnClearItem(MarioKartFramework::getItemDirector(), playerID);
+        g_callingClearItem = false;
+    }
+    void ItemHandler::OnClearItem(u32 director, int playerID)
+    {
+        ((void(*)(u32, int))ItemDirectorClearItemHook.callCode)(director, playerID);
+        if (!g_callingClearItem) {
+            if (PointsModeHandler::isPointsMode) PointsModeHandler::OnClearItem(playerID);
+        }
     }
 
     void ItemHandler::FakeBoxHandler::Initialize() {
@@ -1169,7 +1279,8 @@ namespace CTRPluginFramework {
         memcpy(itemVtable, GameAddr::starVtable, sizeof(ItemObjVtable));
         itemVtable->createInner = ObjCreateInner;
         itemVtable->stateInitUse = StateInitUse;
-        itemVtable->stateUse = FakeBoxHandler::nullfunc;
+        itemVtable->stateUse = StateUse;
+        itemVtable->getShadowScale = GetShadowScale;
     }
 
     void ItemHandler::MegaMushHandler::CreateBeforeStructure(u32 megaMushDirector, const void* createArg) {
@@ -1189,10 +1300,11 @@ namespace CTRPluginFramework {
 
         float* rankItemTexIDConverter = *(float**)(MarioKartFramework::getSequenceEngine() + 0xD4);
         rankItemTexIDConverter[EItemSlot::ITEM_TEST4] = 22.f;
+        rankItemTexIDConverter[EItemSlot::ITEM_SIZE + 1 + EItemType::ITYPE_BIGKINOKO] = 9.f;
     }
 
     void ItemHandler::MegaMushHandler::ObjCreateInner(u32 megaMushObj, const void* createArg) {
-        /*DrawMdlCreateArgs modelArgs;
+        DrawMdlCreateArgs modelArgs;
         strncpy((char*)modelArgs.fileName.strBase.data, "Item/itemBigKinoko/itemBigKinoko.bcmdl", modelArgs.fileName.bufferSize);
         modelArgs.unknown2 = true;
         modelArgs.unknown5 = 0;
@@ -1200,23 +1312,39 @@ namespace CTRPluginFramework {
         modelArgs.animationFlags = 4;
         modelArgs.unknown14 = true;
         modelArgs.unknown26 = 1;
-        void(*Actor3DMdlCreateModel)(u32 actor3dmodel, DrawMdlCreateArgs& args, void* drawmodel) = (void(*)(u32, DrawMdlCreateArgs&,void*))0x00410868;
-        void(*ItemObjBaseSetVisible)(u32 itemobj, bool visible, bool unk) = (void(*)(u32,bool,bool))0x002B4E90;
+        void(*Actor3DMdlCreateModel)(u32 actor3dmodel, DrawMdlCreateArgs& args, void* drawmodel) = (void(*)(u32, DrawMdlCreateArgs&,void*))GameAddr::Actor3DMdlCreateModelAddr;
+        void(*ItemObjBaseSetVisible)(u32 itemobj, bool visible, bool unk) = (void(*)(u32,bool,bool))GameAddr::ItemObjBaseSetVisibleAddr;
 
         Actor3DMdlCreateModel(megaMushObj, modelArgs, nullptr);
 
-        ItemObjBaseSetVisible(megaMushObj, false, true);*/
+        ItemObjBaseSetVisible(megaMushObj, false, true);
 
         return;
     }
 
     void ItemHandler::MegaMushHandler::StateInitUse(u32 megaMushObj) {
-        void(*objBaseStateInitUse)(u32 obj) = (decltype(objBaseStateInitUse))GameAddr::itemObjStateInitUse;
+        void(*objBaseStateInitUse)(u32 obj) = (decltype(objBaseStateInitUse))GameAddr::itemObjStateInitUseAddr;
         objBaseStateInitUse(megaMushObj);
         u32 infoProxy = ((u32*)megaMushObj)[0x158/4];
         u32 vehicle = ((u32*)infoProxy)[0];
         int playerID = ((u32*)vehicle)[0x84/4];
         Start(playerID);
+    }
+
+    void ItemHandler::MegaMushHandler::StateUse(u32 megaMushObj)
+    {
+        u32 infoProxy = ((u32*)megaMushObj)[0x158/4];
+        u32 vehicle = ((u32*)infoProxy)[0];
+        int playerID = ((u32*)vehicle)[0x84/4];
+        if (!MarioKartFramework::megaMushTimers[playerID]) {
+            void(*objBaseExitVanish)(u32 obj) = (decltype(objBaseExitVanish))GameAddr::itemObjExitVanishAddr;
+            objBaseExitVanish(megaMushObj);
+        }
+    }
+
+    float ItemHandler::MegaMushHandler::GetShadowScale()
+    {
+        return 15.0f;
     }
 
     void ItemHandler::MegaMushHandler::PlayChangeSizeSound(u32* vehicleMove, bool isGrow) {
@@ -1386,6 +1514,34 @@ namespace CTRPluginFramework {
         MarioKartFramework::megaMushTimers[playerID] = frames;
     }
 
+    void ItemHandler::MegaMushHandler::OnRaceEnter()
+    {
+        u32 baseRacePage = MarioKartFramework::getBaseRacePage();
+        ConstSizeArray<SeadArrayPtr<VisualControl::GameVisualControl*>, 0x10>& itemVisualControls = 
+        *(ConstSizeArray<SeadArrayPtr<VisualControl::GameVisualControl*>, 0x10>*)(baseRacePage + 0x30B4);
+        SeadArrayPtr<u32*>& objBasePtrs = *(SeadArrayPtr<u32*>*)(megaMushDirector + 0x8);
+
+        auto& megaMushVisualControlsArray = itemVisualControls[(int)EItemType::ITYPE_BIGKINOKO];
+        for (int i = 0; i < megaMushVisualControlsArray.count; i++) {
+            VisualControl::GameVisualControl* vc = megaMushVisualControlsArray[i];
+            u32* objBase = objBasePtrs[i];
+            *(u32**)((u32)vc + 0x80) = objBase;
+        }
+    }
+
+    void ItemHandler::MegaMushHandler::OnPointsModeSevenSelfMoveStar(u32 sevenDirector, u32 itemIndex, u32 kartinfoproxy)
+    {
+        SeadArrayPtr<u32*>& itemObjs = *(SeadArrayPtr<u32*>*)(sevenDirector + 0xBC);
+        void(*objBaseExitVanish)(u32* obj) = (decltype(objBaseExitVanish))GameAddr::itemObjExitVanishAddr;
+        objBaseExitVanish(itemObjs[itemIndex]);
+        
+        u32 typeDirector = megaMushDirector;
+        u32*(*directorBaseEntryFunc)(u32 director, u32 kartInfoProxy, bool isSingle, u32 multipleAmount) = (u32*(*)(u32, u32, bool, u32))(((u32**)typeDirector)[0][0x80/4]);
+        u32* ret = directorBaseEntryFunc(typeDirector, kartinfoproxy, false, -1);
+
+        ((void(*)(u32, EItemType, u32))GameAddr::sevenDirectorSendEventAddr)(sevenDirector, EItemType::ITYPE_BIGKINOKO, kartinfoproxy);
+    }
+
     float ItemHandler::MegaMushHandler::getMegaSizeFactor(int playerID) {
         const u8 playerSizeType[DRIVER_SIZE] = {2, 1, 2, 2, 0, 0, 1, 1, 2, 1, 1, 1, 2, 0, 0, 2, 2, 1};
         const u8 tireSizeType[TIRE_SIZE] = {0, 2, 1, 0, 1, 0, 0, 1, 2, 1};
@@ -1408,5 +1564,303 @@ namespace CTRPluginFramework {
         };
         CRaceInfo* raceInfo = MarioKartFramework::getRaceInfo(true);
         return sizeFactor[playerSizeType[raceInfo->kartInfos[playerID].driverID]][tireSizeType[raceInfo->kartInfos[playerID].tireID]];
+    }
+
+    void ItemHandler::AIItem::OnBaseStateIdle(AIItemBase *own)
+    {
+        if (own->kartItemProxy->isSpinSlot()) {
+            if (own->kartItemProxy->isValidQuickStop()) {
+                own->UseItem(true);
+            }
+        } else {
+            u32 vehicle = own->enemyAI->GetVehicle();
+            if (KartFlags::GetFromVehicle(vehicle).hasTail) {
+                own->ChangeState(AIItemBase::State::STATE_KONOHA);
+                return;
+            }
+            if (own->kartItemProxy->isEquipMulti()) {
+                own->ChangeState(AIItemBase::State::STATE_EQUIPTRIPLE);
+                EItemSlot slot = own->kartItemProxy->getEquipItem();
+                own->canSnipe = slot == EItemSlot::ITEM_BANANA || slot == EItemSlot::ITEM_KOURAG ||
+                                slot == EItemSlot::ITEM_BOMBHEI || slot == EItemSlot::ITEM_FLOWER ||
+                                slot == EItemSlot::ITEM_BANANA3 || slot == EItemSlot::ITEM_KOURAG3 ||
+                                slot == EItemSlot::ITEM_TEST3;
+                return;
+            }
+            // Edge case most likely
+            if (own->kartItemProxy->isEquipHang()) {
+                own->UseItem(true);
+                EItemSlot stockItem = own->kartItemProxy->getStockItem();
+                AIItemBase::State next = stockItem == EItemSlot::ITEM_KONOHA ? AIItemBase::State::STATE_KONOHA : AIItemBase::State::STATE_HOLD;
+                own->ChangeState(next);
+                EItemSlot slot = own->kartItemProxy->getEquipItem();
+                own->canSnipe = slot == EItemSlot::ITEM_BANANA || slot == EItemSlot::ITEM_KOURAG ||
+                                slot == EItemSlot::ITEM_BOMBHEI || slot == EItemSlot::ITEM_FLOWER ||
+                                slot == EItemSlot::ITEM_BANANA3 || slot == EItemSlot::ITEM_KOURAG3 ||
+                                slot == EItemSlot::ITEM_TEST3;
+                return;
+            }
+            if (own->kartItemProxy->isStock()) {
+                EItemSlot stockItem = own->kartItemProxy->getStockItem();
+                own->canSnipe = stockItem == EItemSlot::ITEM_BANANA || stockItem == EItemSlot::ITEM_KOURAG ||
+                                stockItem == EItemSlot::ITEM_BOMBHEI || stockItem == EItemSlot::ITEM_FLOWER ||
+                                stockItem == EItemSlot::ITEM_BANANA3 || stockItem == EItemSlot::ITEM_KOURAG3 ||
+                                stockItem == EItemSlot::ITEM_TEST3;
+            
+                switch (stockItem) {
+                    case EItemSlot::ITEM_KONOHA:
+                        own->UseItem(true);
+                        own->ChangeState(AIItemBase::State::STATE_KONOHA);
+                        break;
+                    case EItemSlot::ITEM_BANANA3:
+                    case EItemSlot::ITEM_KOURAG3:
+                    case EItemSlot::ITEM_KOURAR3:
+                        own->UseItem(true);
+                        own->ChangeState(AIItemBase::State::STATE_EQUIPTRIPLE);
+                        break;
+                    case EItemSlot::ITEM_KINOKO:
+                    case EItemSlot::ITEM_KINOKO3:
+                        own->ChangeState(AIItemBase::State::STATE_KINOKO);
+                        break;
+                    case EItemSlot::ITEM_BANANA:
+                    case EItemSlot::ITEM_KOURAG:
+                    case EItemSlot::ITEM_KOURAR:
+                    case EItemSlot::ITEM_BOMBHEI:
+                    case EItemSlot::ITEM_TEST3:
+                    {
+                        bool isTimeToHold = ((bool(*)(AIItemBase*))((u32*)own->vtable)[0x74/4])(own);
+                        if (isTimeToHold) {
+                            own->UseItem(true);
+                            own->ChangeState(AIItemBase::State::STATE_HOLD);
+                        } else {
+                            own->ChangeState(AIItemBase::State::STATE_STOCK);
+                        }
+                        break;
+                    }                        
+                    default:
+                        own->ChangeState(AIItemBase::State::STATE_STOCK);
+                        break;
+                    
+                }
+            }
+
+        }
+    }
+
+    void ItemHandler::AIItem::OnRaceInitStock(AIItemRace *own)
+    {
+        OnBaseInitStock(own);
+        if (PointsModeHandler::isPointsMode) {
+            if (PointsModeHandler::itemSlotInfos[own->playerID].frenzyFrames) {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 0, 250).GetFrames());
+            } else {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 2, 0).GetFrames()) + MarioKartTimer(0, 0, 500).GetFrames();
+            }
+        } else {
+            own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 3, 0).GetFrames()) + MarioKartTimer(0, 3, 0).GetFrames();
+        }
+    }
+
+    void ItemHandler::AIItem::OnRaceStateStock(AIItemRace *own)
+    {
+        EnemyAI* playerAI;
+        if (
+            own->flag5 ||
+            (playerAI = own->aiManager->getPlayerAI(0)) == nullptr ||
+            !KartFlags::GetFromVehicle(playerAI->GetVehicle()).isWingOpened
+        ) {
+            if (own->kartItemProxy->isStock() && own->isEnableToUse()) {
+                RaceUseItemCommon(own);
+            }
+        }
+        OnBaseStateStock(own);
+    }
+
+    void ItemHandler::AIItem::OnBaseInitStock(AIItemBase *own)
+    {
+        if (!own->kartItemProxy->isStock()) {
+            own->flag5 = 0;
+            return;
+        }
+        if (own->kartItemProxy->getStockItem() != EItemSlot::ITEM_THUNDER || own->flag6 == 0) {
+            return;
+        }
+        own->flag5 = (own->aiManager->getRandU32(100) < 30) ? 1 : 0;
+    }
+
+    void ItemHandler::AIItem::OnBaseStateStock(AIItemBase *own)
+    {
+        if (!own->kartItemProxy->isStock()) {
+            own->ChangeState(AIItemBase::State::STATE_IDLE);
+            return;
+        }
+        if (!own->requestUseItem) {
+            return;
+        }
+        switch (own->throwMode)
+        {
+        case 0:
+            own->ChangeState(AIItemBase::State::STATE_THROWDEFAULT);
+            break;
+        case 1:
+            own->ChangeState(AIItemBase::State::STATE_THROWFRONT);
+            break;
+        case 2:
+            own->ChangeState(AIItemBase::State::STATE_THROWBACK);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void ItemHandler::AIItem::OnRaceInitHold(AIItemRace *own)
+    {
+        if (PointsModeHandler::isPointsMode) {
+            if (PointsModeHandler::itemSlotInfos[own->playerID].frenzyFrames) {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 0, 250).GetFrames());
+            } else {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 2, 0).GetFrames()) + MarioKartTimer(0, 0, 500).GetFrames();
+            }
+        } else {
+            own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 3, 0).GetFrames()) + MarioKartTimer(0, 3, 0).GetFrames();
+        }
+    }
+
+    void ItemHandler::AIItem::OnRaceStateHold(AIItemRace *own)
+    {
+        if (own->enemyAI->flags.instantUse) {
+            own->requestUseItem = own->kartItemProxy->getEquipItem() == EItemSlot::ITEM_BOMBHEI;
+        } else if (own->isEnableToUse()) {
+            RaceUseItemCommon(own);
+        }
+        OnBaseStateHold(own);
+    }
+
+    void ItemHandler::AIItem::OnBaseStateHold(AIItemBase *own)
+    {
+        own->UseItem(true);
+        if (!own->kartItemProxy->isEquipHang()) {
+            own->ChangeState(AIItemBase::State::STATE_WAIT);
+            return;
+        }
+        if (!own->requestUseItem) {
+            return;
+        }
+        switch (own->throwMode)
+        {
+        case 0:
+            own->ChangeState(AIItemBase::State::STATE_THROWDEFAULT);
+            break;
+        case 1:
+            own->ChangeState(AIItemBase::State::STATE_THROWFRONT);
+            break;
+        case 2:
+            own->ChangeState(AIItemBase::State::STATE_THROWBACK);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void ItemHandler::AIItem::OnRaceInitEquipTriple(AIItemRace *own)
+    {
+        if (PointsModeHandler::isPointsMode) {
+            if (PointsModeHandler::itemSlotInfos[own->playerID].frenzyFrames) {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 0, 200).GetFrames()) + MarioKartTimer(0, 0, 200).GetFrames();
+            } else {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 2, 0).GetFrames()) + MarioKartTimer(0, 0, 500).GetFrames();
+            }
+        } else {
+            if (own->kartItemProxy->isEquipMulti() && own->kartItemProxy->getEquipNum() == 3) {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 2, 0).GetFrames()) + MarioKartTimer(0, 1, 0).GetFrames();
+            } else {
+                own->randomTimer = own->aiManager->getRandU32(MarioKartTimer(0, 2, 0).GetFrames()) + MarioKartTimer(0, 2, 0).GetFrames();
+            }
+        }        
+    }
+
+    void ItemHandler::AIItem::OnRaceStateEquipTriple(AIItemRace *own)
+    {
+        if (!own->enemyAI->flags.instantUse && own->kartItemProxy->isEquipMulti() && own->isEnableToUse()) {
+            RaceUseItemCommon(own);
+        }
+        OnBaseStateEquipTriple(own);
+    }
+
+    void ItemHandler::AIItem::OnBaseStateEquipTriple(AIItemBase *own)
+    {
+        if (!own->kartItemProxy->isEquipMulti()) {
+            own->ChangeState(AIItemBase::State::STATE_IDLE);
+            return;
+        }
+        if (!own->requestUseItem) {
+            return;
+        }
+        switch (own->throwMode)
+        {
+        case 0:
+            own->ChangeState(AIItemBase::State::STATE_THROWDEFAULT);
+            break;
+        case 1:
+            own->ChangeState(AIItemBase::State::STATE_THROWFRONT);
+            break;
+        case 2:
+            own->ChangeState(AIItemBase::State::STATE_THROWBACK);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void ItemHandler::AIItem::RaceUseItemCommon(AIItemRace *own)
+    {
+        bool(*AIItemBaseIsInSnipeArea)(AIItemBase*, float*, EnemyAI*, EnemyAI*) = (decltype(AIItemBaseIsInSnipeArea))GameAddr::AIItemBaseIsInSnipeAreaAddr;
+        u8(*AIItemRaceGetDirectionToThrow)(AIItemRace*) = (decltype(AIItemRaceGetDirectionToThrow))GameAddr::AIItemRaceGetDirectionToThrowAddr;
+
+        own->throwMode = 0;
+        if (own->flag6 != 0 && own->playerAI != 0) {
+            u32 vehicle = ((u32**)(own->playerAI))[0][0];
+            if (!((u8*)vehicle)[0xA6]) {
+                int playerID = ((u32*)vehicle)[0x84/4];
+                
+                u32 lapRankChecker = own->LapRankChecker;
+                FixedArrayPtr<LapRankCheckerKartInfo>& lapKartInfos = *(FixedArrayPtr<LapRankCheckerKartInfo>*)((u32)lapRankChecker + 0x28);
+                LapRankCheckerKartInfo& kartInfo = lapKartInfos[playerID];
+                
+                float raceProgressLastLap = kartInfo.currRaceProgress;
+                if (!own->courseOneLap) {
+                    if (kartInfo.currLap < 0 || kartInfo.currLap + 1 != 3) {
+                        raceProgressLastLap = 0.f;
+                    } else {
+                        raceProgressLastLap = raceProgressLastLap - 2.f;
+                    }
+                }
+                if (raceProgressLastLap > 0.9f && own->kartItemProxy->isStock() && own->kartItemProxy->getStockItem() == EItemSlot::ITEM_KOURAB) {
+                    own->requestUseItem = false;
+                    return;
+                }
+            }
+        }
+        if (own->randomTimer <= 0) {
+            EnemyAI* enemyAI = own->enemyAI;
+            if (enemyAI->flags.canSnipe && own->canSnipe && PointsModeHandler::itemSlotInfos[own->playerID].frenzyFrames == 0) {
+                EnemyAI* player0AI = own->aiManager->getAIByPlayerAI(0);
+                float somethingZero = 0.f;
+                bool isSnipe = AIItemBaseIsInSnipeArea(own, &somethingZero, own->enemyAI, player0AI);
+                if (isSnipe) {
+                    own->throwMode = 1;
+                    own->requestUseItem = true;
+                }
+                return;
+            } else {
+                own->throwMode = AIItemRaceGetDirectionToThrow(own);
+                own->requestUseItem = true;
+                return;
+            }
+        }
+        if (!KartFlags::GetFromVehicle(own->enemyAI->GetVehicle()).bigAccident) {
+            own->randomTimer--;
+        }
+        own->requestUseItem = false;
     }
 }

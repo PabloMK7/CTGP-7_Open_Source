@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 442/442 (100.00%)
+Open source lines: 441/456 (96.71%)
 *****************************************************/
 
 #pragma once
@@ -19,6 +19,7 @@ Open source lines: 442/442 (100.00%)
 #include "ExtraUIElements.hpp"
 
 namespace CTRPluginFramework {
+
 	class SaveHandler {
 	public:
 		enum class Achievements {
@@ -27,13 +28,14 @@ namespace CTRPluginFramework {
 			ALL_THREE_STAR = (1 << 2),
 			ALL_MISSION_TEN = (1 << 3),
 			VR_5000 = (1 << 4),
+			ALL_SCORE_COMPLETED = (1 << 5),
 		};
 		enum class SpecialAchievements {
 			NONE = -1,
 			ALL_BLUE_COINS = 0,
 			DODGED_BLUE_SHELL = 1,
 		};
-		static constexpr u32 TOTAL_ACHIEVEMENTS = 5;
+		static constexpr u32 TOTAL_ACHIEVEMENTS = 6;
 		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 2;
 		static constexpr u32 BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT = 3;
 		class CupRankSave {
@@ -74,7 +76,6 @@ namespace CTRPluginFramework {
 		struct CTGP7Save {
 			CCSettings cc_settings;
 			VersusHandler::CurrentSettings vsSettings;
-			u32 screenshotHotkey;
 			struct {
 				u32 backCamEnabled : 1;
 				u32 warnItemEnabled : 1;
@@ -83,7 +84,6 @@ namespace CTRPluginFramework {
 				u32 readyToFool : 1;
 				u32 isCTWWActivated : 1;
 				u32 isAlphabeticalEnabled : 1;
-				u32 screenshotEnabled : 1;
 				u32 improvedRoulette : 1;
 				u32 uploadStats : 1;
 				u32 improvedTricks : 1;
@@ -98,6 +98,7 @@ namespace CTRPluginFramework {
 				u32 blueCoinsEnabled : 1;
 				u32 enableVoiceChat : 1;
 				u32 needsBadgeObtainedMsg : 1;
+				u32 improvedHonk : 1;
 			} flags1;
 			struct 
 			{
@@ -202,7 +203,6 @@ namespace CTRPluginFramework {
 			CTGP7Save() {
 				cc_settings = CCSettings();
 				vsSettings = VersusHandler::CurrentSettings();
-				screenshotHotkey = Key::DPadLeft | Key::Y;
 				speedometer.enabled = false;
 				speedometer.mode = (u8)SpeedometerController::SpeedMode::NUMERIC;
 				speedometer.unit = (u8)SpeedometerController::SpeedUnit::KMPH;
@@ -250,7 +250,6 @@ namespace CTRPluginFramework {
 				cc_settings = CCSettings(doc);
 				vsSettings = VersusHandler::CurrentSettings(doc);
 
-				screenshotHotkey = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SCREENSHOT_HOTKEY), (int)(Key::DPadLeft | Key::Y));
 				flags1.backCamEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BACKCAM_ENABLED), false);
 				flags1.warnItemEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::WARNITEM_ENABLED), false);
 				flags1.firstOpening = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::FIRST_OPENING), true);
@@ -258,7 +257,6 @@ namespace CTRPluginFramework {
 				flags1.readyToFool = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::READY_TO_FOOL), true);
 				flags1.isCTWWActivated = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CTWW_ACTIVATED), true);
 				flags1.isAlphabeticalEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ALPHABETICAL_ENABLED), true);
-				flags1.screenshotEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SCREENSHOT_ENABLED), false);
 				flags1.improvedRoulette = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVEDROULETTE_ENABLED), true);
 				flags1.uploadStats = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_UPLOAD_STATS), true);
 				flags1.improvedTricks = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_TRICKS), true);
@@ -326,13 +324,13 @@ namespace CTRPluginFramework {
 				useBadgeOnline = (u64)doc.get<s64>(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), 0);
 				flags1.needsBadgeObtainedMsg = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), false);
 				blueShellDodgeAmount = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_SHELL_DODGE_AMOUNT), (int)0);
+				flags1.improvedHonk= doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_HONK), true);
 			}
 			
 			void serialize(minibson::document& doc) {
 				cc_settings.serialize(doc);
 				vsSettings.serialize(doc);
 
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SCREENSHOT_HOTKEY), (int)screenshotHotkey);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BACKCAM_ENABLED), (bool)flags1.backCamEnabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::WARNITEM_ENABLED), (bool)flags1.warnItemEnabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::FIRST_OPENING), (bool)flags1.firstOpening);
@@ -340,7 +338,6 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::READY_TO_FOOL), (bool)flags1.readyToFool);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CTWW_ACTIVATED), (bool)flags1.isCTWWActivated);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ALPHABETICAL_ENABLED), (bool)flags1.isAlphabeticalEnabled);
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SCREENSHOT_ENABLED), (bool)flags1.screenshotEnabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVEDROULETTE_ENABLED), (bool)flags1.improvedRoulette);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_UPLOAD_STATS), (bool)flags1.uploadStats);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_TRICKS), (bool)flags1.improvedTricks);
@@ -378,6 +375,7 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::USE_BADGE_ONLINE), (s64)useBadgeOnline);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::NEEDS_BADGE_OBTAINED_MSG), (bool)flags1.needsBadgeObtainedMsg);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::BLUE_SHELL_DODGE_AMOUNT), (int)blueShellDodgeAmount);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_HONK), (bool)flags1.improvedHonk);
 			}
 		};
 		static CTGP7Save saveData;
@@ -414,6 +412,7 @@ namespace CTRPluginFramework {
 				RACES,
 				MISSION,
 				BADGES,
+				POINT,
 
 				MAX_TYPE
 			};

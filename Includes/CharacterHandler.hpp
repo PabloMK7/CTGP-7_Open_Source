@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.hpp
-Open source lines: 302/302 (100.00%)
+Open source lines: 317/317 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -154,6 +154,11 @@ namespace CTRPluginFramework {
             return 9;
         }
 
+        static std::string GetDriverName(EDriverID driverID);
+        static std::string GetKartBodyName(EBodyID bodyID);
+        static std::string GetKartTireName(ETireID tireID);
+        static std::string GetKartWingName(EWingID wingID);
+
         enum class HeapVoiceMode {
             NONE,
             RACE,
@@ -167,6 +172,8 @@ namespace CTRPluginFramework {
         static void StartFetchOnlineSelectedCharacters();
         static void ApplyOnlineSelectedCharacters();
 
+        static bool IsCharacterAvailable(u64 characterID);
+        static bool IsCharacterAvailable(const CharacterEntry& entry);
         static void PopulateAvailableCharacters();
 
         static RT_HOOK getCharaTextureNameHook;
@@ -186,6 +193,10 @@ namespace CTRPluginFramework {
 
         static void CustomCharacterManagerMenu(MenuEntry* entry);
         static void enableCustomKartsSettings(MenuEntry* entry);
+
+        static void SetOnlineSelectedCharacter(int playerID, u64 characterID) {
+            onlineSelectedCharaceters[playerID] = characterID;
+        }
     private:
 
         static Mutex characterHandlerMutex;
@@ -207,7 +218,10 @@ namespace CTRPluginFramework {
 		static const char* selectBclimNames[EDriverID::DRIVER_SIZE];
         static const u8 wingColorOffset [EDriverID::DRIVER_SIZE];
         friend void MarioKartFramework::OnWifiFinishLoadDefaultPlayerSetting(int playerID);
-		static const int msbtOrder[EDriverID::DRIVER_SIZE];
+		static const u8 driverMsbtOrder[EDriverID::DRIVER_SIZE];
+        static const u8 bodyMsbtOrder[EBodyID::BODY_SIZE];
+        static const u8 tireMsbtOrder[ETireID::TIRE_SIZE];
+        static const u8 wingMsbtOrder[EWingID::WING_SIZE];
         static const char* bodyNames[EBodyID::BODY_SIZE];
         static const char* tireNames[ETireID::TIRE_SIZE];
         static const char* wingNames[EWingID::WING_SIZE];
@@ -222,6 +236,7 @@ namespace CTRPluginFramework {
         
         static bool updateRaceCharaNamePending;
         static std::array<u64, MAX_PLAYER_AMOUNT> selectedCharaceters;
+        static std::array<u64, MAX_PLAYER_AMOUNT> onlineSelectedCharaceters;
         static u64 selectedMenuCharacter;
 		static std::vector<std::string> authorNames;
 	    static std::array<std::string, EDriverID::DRIVER_SIZE> origCharNames;

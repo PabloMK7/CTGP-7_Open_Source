@@ -18,7 +18,7 @@ namespace CTRPluginFramework {
 		using BinarySequence = u32;
 		static const u32 rootSequenceID = 0x14E548E6;
 		static void registerBinarySequence(BinarySequence sequence);
-		static void addFlowPatch(u32 sequenceID, u32 offset, u16 seqEntry, u16 subEntry);
+		static void addFlowPatch(u32 sequenceID, u32 offset, u16 subEntry, u16 seqEntry);
 
 	private:
 		static void applyFlowPatches(u32 sequenceID);

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: ExtraUIElements.cpp
-Open source lines: 800/800 (100.00%)
+Open source lines: 1260/1260 (100.00%)
 *****************************************************/
 
 #include "ExtraUIElements.hpp"
@@ -14,6 +14,8 @@ Open source lines: 800/800 (100.00%)
 #include "UserCTHandler.hpp"
 #include "MusicSlotMngr.hpp"
 #include "MissionHandler.hpp"
+#include "PointsModeHandler.hpp"
+#include "str16utils.hpp"
 
 namespace CTRPluginFramework {
 
@@ -643,11 +645,13 @@ namespace CTRPluginFramework {
 		musicCreditsControl->LoadRace();
 	}
 
+    ExtendedItemBoxController::AmountMode ExtendedItemBoxController::nextAmountMode = ExtendedItemBoxController::AmountMode::AMOUNT_INVALID;
     RT_HOOK ExtendedItemBoxController::ItemBoxControlOnCalcHook = { 0 };
     RT_HOOK ExtendedItemBoxController::ItemBoxControlOnCreateHook = { 0 };
     u32 ExtendedItemBoxController::progBarHandle = 0;
     u32 ExtendedItemBoxController::progWinHandle = 0;
     u32 ExtendedItemBoxController::progBGHandle = 0;
+    u32 ExtendedItemBoxController::amountHandle = 0;
     float ExtendedItemBoxController::prevProgressbarValue = 1.01f;
     float ExtendedItemBoxController::prevVisibilityValue = 0.f;
     float ExtendedItemBoxController::targetProgressValue = 1.f;
@@ -659,14 +663,14 @@ namespace CTRPluginFramework {
     float ExtendedItemBoxController::killerProgress = -1.f;
 
     void ExtendedItemBoxController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
-        animationDefine->InitAnimationFamilyList(6);
+        animationDefine->InitAnimationFamilyList(7);
 
         animationDefine->InitAnimationFamily(0, "G_loop", 1);
         animationDefine->InitAnimation(0, "loop", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
 
         animationDefine->InitAnimationFamily(1, "G_inOut", 4);
         animationDefine->InitAnimationStopByRate(0, "inOut", 0.f);
-        animationDefine->InitAnimation(1, "inOut", VisualControl::AnimationDefine::AnimationKind::HOLD);
+        animationDefine->InitAnimation(1, "inOut", VisualControl::AnimationDefine::AnimationKind::NEXT);
         animationDefine->InitAnimationStopByRate(2, "inOut", 1.f);
         animationDefine->InitAnimationReverse(3, "inOut", VisualControl::AnimationDefine::AnimationKind::ONCE);
 
@@ -683,6 +687,9 @@ namespace CTRPluginFramework {
 
         animationDefine->InitAnimationFamily(5, "G_barInOut", 1);
         animationDefine->InitAnimation(0, "barInOut", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+
+        animationDefine->InitAnimationFamily(6, "G_amount", 1);
+        animationDefine->InitAnimation(0, "amount", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
     }
 
     void ExtendedItemBoxController::OnCreate(VisualControl::GameVisualControl* visualControl, void* createArg) {
@@ -692,6 +699,8 @@ namespace CTRPluginFramework {
         progWinHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_prog-00"), 0);
         progBarHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_bar-00"), 0);
         progBGHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_progBG-00"), 0);
+        amountHandle = layout->vtable->getElementHandle(layout, SafeStringBase("P_am-00"), 0);
+        if (amountHandle) layout->vtable->setVisibleImpl(layout, amountHandle, false);
 
         prevProgressbarValue = 1.01f;
         prevVisibilityValue = 0.f;
@@ -702,6 +711,7 @@ namespace CTRPluginFramework {
         visibilityAnimFrames = 0;
         konohaTimer = -1;
         killerProgress = -1.f;
+        nextAmountMode = AmountMode::AMOUNT_INVALID;
     }
 
     void ExtendedItemBoxController::OnCalc(VisualControl::GameVisualControl* visualControl) {
@@ -710,6 +720,10 @@ namespace CTRPluginFramework {
         bool isBoxDecided = ((u8*)visualControl)[0x92];
 
         if (isBoxVisible) {
+            if (nextAmountMode != AmountMode::AMOUNT_INVALID) {
+                ChangeAmountMode(visualControl, nextAmountMode);
+                nextAmountMode = AmountMode::AMOUNT_INVALID;
+            }
             EItemSlot currItem = GetCurrentItem(visualControl);
             if (!prevIsBoxVisible) {
                 ChangeVisibilityState(false);
@@ -796,5 +810,451 @@ namespace CTRPluginFramework {
                 currentProgressValue = targetProgressValue;
         }
         SetProgressBar(visualControl, currentProgressValue);
+    }
+
+    void ExtendedItemBoxController::ChangeAmountMode(VisualControl::GameVisualControl* visualControl, AmountMode mode)
+    {
+        VisualControl::NwlytControlSight* layout = visualControl->GetNwlytControl();
+        if (!amountHandle) return;
+
+        switch (mode)
+        {
+        case AmountMode::AMOUNT_NONE:
+            layout->vtable->setVisibleImpl(layout, amountHandle, false);
+            break;
+        case AmountMode::AMOUNT_2X:
+            layout->vtable->setVisibleImpl(layout, amountHandle, true);
+            visualControl->GetAnimationFamily(6)->SetAnimation(0, 0.f);
+            visualControl->GetAnimationFamily(3)->SetAnimation(0, 0.f);
+            visualControl->CalcAnim(amountHandle);
+            break;
+        case AmountMode::AMOUNT_3X:
+            layout->vtable->setVisibleImpl(layout, amountHandle, true);
+            visualControl->GetAnimationFamily(6)->SetAnimation(0, 1.f);
+            visualControl->GetAnimationFamily(3)->SetAnimation(0, 0.f);
+            visualControl->CalcAnim(amountHandle);
+            break;
+        case AmountMode::AMOUNT_FRENZY:
+            layout->vtable->setVisibleImpl(layout, amountHandle, true);
+            visualControl->GetAnimationFamily(6)->SetAnimation(0, 2.f);
+            visualControl->GetAnimationFamily(3)->SetAnimation(0, 3.f);
+            visualControl->CalcAnim(amountHandle);
+            break;
+        default:
+            break;
+        }
+    }
+
+    std::array<std::u16string, 4> PointsModeDisplayController::ComboCongratController::congratNames{};
+    std::u16string PointsModeDisplayController::ComboCongratController::comboName{};
+
+    PointsModeDisplayController::PointsModeDisplayController() {
+        vControl = new VisualControl("PointsMCtrl", false);
+        vControl->SetUserData(this);
+        vControl->SetDeallocateCallback(OnDeallocate);
+        vControl->SetAnimationDefineCallback([](VisualControl::AnimationDefine* animationDefine) {
+            reinterpret_cast<PointsModeDisplayController*>(animationDefine->GetVisualControl()->GetUserData())->DefineAnimation(animationDefine);
+        });
+        vControl->SetOnCreateCallback([](VisualControl::GameVisualControl* v, void* args) {
+            reinterpret_cast<PointsModeDisplayController*>(v->GetVisualControl()->GetUserData())->Create(v, args);
+        });
+        vControl->SetOnResetCallback([](VisualControl::GameVisualControl* v) {
+            reinterpret_cast<PointsModeDisplayController*>(v->GetVisualControl()->GetUserData())->Reset(v);
+        });
+        vControl->SetOnCalcCallback([](VisualControl::GameVisualControl* v) {
+            reinterpret_cast<PointsModeDisplayController*>(v->GetVisualControl()->GetUserData())->Calc(v);
+        });
+        vControl->LoadRace();
+    }
+
+    void PointsModeDisplayController::OnDeallocate(VisualControl* v) {
+        v->Deallocate();
+        PointsModeHandler::DestroyDisplayController();
+    }
+
+    void PointsModeDisplayController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
+        animationDefine->InitAnimationFamilyList(AnimFamilyID::SIZE);
+
+        animationDefine->InitAnimationFamily(AnimFamilyID::ALL_IN, "G_root", 3);
+        animationDefine->InitAnimationStopByRate(0, "in", 0.f);
+        animationDefine->InitAnimation(1, "in", VisualControl::AnimationDefine::AnimationKind::NEXT);
+        animationDefine->InitAnimationStopByRate(2, "in", 1.f);
+
+        numberController.DefineAnimation(animationDefine);
+        reasonController.DefineAnimation(animationDefine);
+        comboCongratController.DefineAnimation(animationDefine);
+    }
+
+    void PointsModeDisplayController::Create(VisualControl::GameVisualControl* control, void* createArgs) {
+        rootHandle = control->GetNwlytControl()->vtable->getElementHandle(control->GetNwlytControl(), SafeStringBase("R_center"), 0);
+
+        numberController.Create(control, createArgs);
+        reasonController.Create(control, createArgs);
+        comboCongratController.Create(control, createArgs);
+    }
+    
+    void PointsModeDisplayController::Reset(VisualControl::GameVisualControl* control) {
+        control->GetAnimationFamily(AnimFamilyID::ALL_IN)->SetAnimation(0, 0.f);
+
+        currState = State::HIDDEN;
+        stateTimer = 0;
+
+        numberController.Reset(control);
+        reasonController.Reset(control);
+        comboCongratController.Reset(control);
+    }
+    
+    void PointsModeDisplayController::Calc(VisualControl::GameVisualControl* control) {
+        PointsModeHandler::OnVisualElementCalc();
+
+        switch (currState)
+        {
+        case State::APPEARING:
+        {
+            if (++stateTimer >= MarioKartTimer(0, 3, 250)) {
+                control->GetAnimationFamily(AnimFamilyID::ALL_IN)->ChangeAnimation(1, 0.f);
+                currState = State::SHOWED;
+                stateTimer = 0;
+            }
+        }
+        break;
+        case State::SHOWED:
+        {
+        }
+        break;
+        
+        default:
+            break;
+        }
+
+        numberController.Calc(control);
+        reasonController.Calc(control);
+        comboCongratController.Calc(control);
+    }
+
+    void PointsModeDisplayController::NumberController::GotoNumber(u32 number, const MarioKartTimer& timer) {
+        targetGotoNumber = number;
+        targetGotoTimer = timer;
+        fromGotoNumber = requestedNumber;
+        fromGotoTimer = MarioKartTimer(1);
+        StartBounce();
+    }
+
+    void PointsModeDisplayController::NumberController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
+        const char* const groups[] = {"G_num_00", "G_num_01", "G_num_02", "G_num_03", "G_num_04"};
+        for (int i = AnimFamilyID::NUM_0_PAT; i <= AnimFamilyID::NUM_4_PAT; i++) {
+            animationDefine->InitAnimationFamily(i, groups[i - AnimFamilyID::NUM_0_PAT], 1);
+            animationDefine->InitAnimation(0, "point_val", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+        }
+        for (int i = AnimFamilyID::NUM_0_PAT; i <= AnimFamilyID::NUM_4_PAT; i++) {
+            animationDefine->InitAnimationFamily(i, groups[i - AnimFamilyID::NUM_0_PAT], 1);
+            animationDefine->InitAnimation(0, "point_col", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+        }
+        for (int i = AnimFamilyID::NUM_0_BNC; i <= AnimFamilyID::NUM_4_BNC; i++) {
+            animationDefine->InitAnimationFamily(i, groups[i - AnimFamilyID::NUM_0_BNC], 2);
+            animationDefine->InitAnimationStopByRate(0, "point_bnc", 0.f);
+            animationDefine->InitAnimation(1, "point_bnc", VisualControl::AnimationDefine::AnimationKind::LOOP);
+        }
+    }
+
+    void PointsModeDisplayController::NumberController::Create(VisualControl::GameVisualControl* control, void* createArgs) {
+        const char* const num_names[] = {"LNumber_0_00", "LNumber_0_01", "LNumber_0_02", "LNumber_0_03", "LNumber_0_04"};
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+
+        for (int i = 0; i < NUMBER_AMOUNT; i++) {
+            numberHandle[i] = layout->vtable->getElementHandle(layout, SafeStringBase(num_names[i]), 0);
+        }
+    }
+    
+    void PointsModeDisplayController::NumberController::Reset(VisualControl::GameVisualControl* control) {
+        currentColor = requestColor = ColorState::ORANGE;
+        currBounceState = nextBounceState = BounceState::IDLE;
+        bounceTimer = 0;
+        forcedGrey = false;
+        for (int i = 0; i < NUMBER_AMOUNT; i++) {
+            control->GetAnimationFamily(AnimFamilyID::NUM_0_COL + i)->SetAnimation(0, 0.f);
+            control->GetAnimationFamily(AnimFamilyID::NUM_0_BNC + i)->SetAnimation(0, 0.f);
+        }
+        currentNumber = requestedNumber = 0;
+        for (int i = 0; i < NUMBER_AMOUNT; i++) {
+            numberValue[i] = 0;
+            numberHidden[i] = i != 0;
+            control->GetNwlytControl()->vtable->setVisibleImpl(control->GetNwlytControl(), numberHandle[i], i == 0);
+            control->GetAnimationFamily(AnimFamilyID::NUM_0_PAT + i)->SetAnimation(0, 0);
+        }
+    }
+    
+    void PointsModeDisplayController::NumberController::Calc(VisualControl::GameVisualControl* control) {
+        ColorState nextColor = forcedGrey ? ColorState::GREY : requestColor;
+        if (currentColor != nextColor) {
+            currentColor = nextColor;
+            for (int i = 0; i < NUMBER_AMOUNT; i++) {
+                control->GetAnimationFamily(AnimFamilyID::NUM_0_COL + i)->SetAnimation(0, static_cast<float>(currentColor));
+            }
+        }
+
+        switch (currBounceState)
+        {
+        case BounceState::STARTING:
+        {
+            requestColor = ColorState::PINK;
+            bool allBouncing = true;
+            for (int i = 0; i < NUMBER_AMOUNT; i++) {
+                int trigger_frame = 2 * i;
+                if (!isBouncing[i] && trigger_frame == bounceTimer) {
+                    control->GetAnimationFamily(AnimFamilyID::NUM_0_BNC + i)->ChangeAnimation(1, 0.f);
+                    isBouncing[i] = true;
+                }
+                allBouncing &= isBouncing[i];
+            }
+            if (allBouncing) {
+                currBounceState = nextBounceState;
+                nextBounceState = BounceState::IDLE;
+            }
+            bounceTimer++;
+            break;
+        }
+        case BounceState::STOPPING:
+        {
+            bool anyBouncing = false;
+            for (int i = 0; i < NUMBER_AMOUNT; i++) {
+                VisualControl::AnimationFamily* family = control->GetAnimationFamily(AnimFamilyID::NUM_0_BNC + i);
+                if ((i == 0 || !isBouncing[0]) && isBouncing[i] && family->GetAnimationRate() == 0.f) {
+                    family->ChangeAnimation(0, 0.f);
+                    isBouncing[i] = false;
+                }
+                anyBouncing |= isBouncing[i];
+            }
+            if (!anyBouncing) {
+                requestColor = ColorState::ORANGE;
+                currBounceState = nextBounceState;
+                nextBounceState = BounceState::IDLE;
+            }
+            break;
+        }
+        default:
+            currBounceState = nextBounceState;
+            break;
+        }
+
+        if (fromGotoTimer != 0) {
+            float progress = (float)fromGotoTimer.GetFrames() / (float)targetGotoTimer.GetFrames();
+            s32 difference = (s32)targetGotoNumber - (s32)fromGotoNumber;
+            SetNumber((u32)(progress * difference + (s32)fromGotoNumber));
+            if (fromGotoTimer++ >= targetGotoTimer) {
+                fromGotoTimer = 0;
+                SetNumber(targetGotoNumber);
+                EndBounce();
+            }
+        }
+
+        if (requestedNumber != currentNumber) {
+            currentNumber = requestedNumber;
+            SetNumberImpl(control, requestedNumber);
+        }
+    }
+
+    void PointsModeDisplayController::NumberController::SetNumberImpl(VisualControl::GameVisualControl* control, u32 number) {
+        if (number > 99999) number = 99999;
+        u8 numberNew[NUMBER_AMOUNT] = { 0 };
+        for (int i = 0; i < NUMBER_AMOUNT; i++) {
+            numberNew[i] = number % 10;
+            number /= 10;
+        }
+        bool hideZeroes = true;
+        for (int i = NUMBER_AMOUNT - 1; i >= 0; i--) {
+            if (numberNew[i] != numberValue[i]) {
+                numberValue[i] = numberNew[i];
+                control->GetAnimationFamily(AnimFamilyID::NUM_0_PAT + i)->SetAnimation(0, numberNew[i]);
+            }
+            if (numberNew[i] != 0 || i == 0) hideZeroes = false;
+            if (numberNew[i] == 0 && hideZeroes) {
+                if (!numberHidden[i]) {
+                    numberHidden[i] = true;
+                    control->GetNwlytControl()->vtable->setVisibleImpl(control->GetNwlytControl(), numberHandle[i], false);
+                }
+            } else if (numberHidden[i]) {
+                numberHidden[i] = false;
+                control->GetNwlytControl()->vtable->setVisibleImpl(control->GetNwlytControl(), numberHandle[i], true);
+            }
+        }
+    }
+
+    void PointsModeDisplayController::ReasonController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
+        animationDefine->InitAnimationFamily(AnimFamilyID::REASON_IN, "G_reason", 4);
+        animationDefine->InitAnimationStopByRate(0, "reason_in", 0.f);
+        animationDefine->InitAnimation(1, "reason_in", VisualControl::AnimationDefine::AnimationKind::NEXT);
+        animationDefine->InitAnimationStopByRate(2, "reason_in", 1.f);
+        animationDefine->InitAnimationReverse(3, "reason_in", VisualControl::AnimationDefine::AnimationKind::ONCE);
+    }
+
+    void PointsModeDisplayController::ReasonController::Create(VisualControl::GameVisualControl* control, void* createArgs) {
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+        reasonHandle = layout->vtable->getElementHandle(layout, SafeStringBase("PM_reason"), 0);
+        amountHandle = layout->vtable->getElementHandle(layout, SafeStringBase("PM_points"), 0);
+    }
+    
+    void PointsModeDisplayController::ReasonController::Reset(VisualControl::GameVisualControl* control) {
+        requestedAmount = currentAmount = 0;
+        requestedReason = u"";
+        appearRequest = AppearRequest::NONE;
+        SetReasonImpl(control, u"");
+        SetAmountImpl(control, 0);
+        appearTimer = 0;
+        control->GetAnimationFamily(AnimFamilyID::REASON_IN)->SetAnimation(0, 0.f);
+    }
+    
+    void PointsModeDisplayController::ReasonController::Calc(VisualControl::GameVisualControl* control) {
+        if (!requestedReason.empty()) {
+            SetReasonImpl(control, requestedReason);
+            requestedReason = u"";
+        }
+        if (requestedAmount != currentAmount) {
+            currentAmount = requestedAmount;
+            SetAmountImpl(control, currentAmount);
+        }
+        if (appearRequest == AppearRequest::APPEAR) {
+            control->GetAnimationFamily(AnimFamilyID::REASON_IN)->ChangeAnimation(1, 0.f);
+            appearRequest = AppearRequest::NONE;
+        } else if (appearRequest == AppearRequest::DISAPPEAR) {
+            control->GetAnimationFamily(AnimFamilyID::REASON_IN)->ChangeAnimation(3, 0.f);
+            appearRequest = AppearRequest::NONE;
+        }
+        if (appearTimer != 0) {
+            if (--appearTimer == 0) {
+                SetReason(u"", 0);
+            }
+        }
+    }
+
+    void PointsModeDisplayController::ReasonController::SetReason(const std::u16string& reason, int amount, const MarioKartTimer& time) {
+        if (reason.empty()) {
+            Disappear();
+        } else {
+            appearTimer = time;
+            SetReason(reason);
+            SetAmount(amount);
+            Appear();
+        }
+    }
+
+    void PointsModeDisplayController::ReasonController::SetReasonImpl(VisualControl::GameVisualControl* control, const std::u16string& reason) {
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+        layout->vtable->replaceMessageImpl(layout, reasonHandle, VisualControl::Message(reason.c_str()), nullptr, nullptr);
+    }
+    void PointsModeDisplayController::ReasonController::SetAmountImpl(VisualControl::GameVisualControl* control, int amount) {
+        std::u16string reason_16;
+        Utils::ConvertUTF8ToUTF16(reason_16, Utils::Format("%+d", amount));
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+        layout->vtable->replaceMessageImpl(layout, amountHandle, VisualControl::Message(reason_16.c_str()), nullptr, nullptr);
+    }
+
+    void PointsModeDisplayController::ComboCongratController::DefineAnimation(VisualControl::AnimationDefine* animationDefine) {
+        animationDefine->InitAnimationFamily(AnimFamilyID::COMBO_IN, "G_combo", 4);
+        animationDefine->InitAnimationStopByRate(0, "combo_in", 0.f);
+        animationDefine->InitAnimation(1, "combo_in", VisualControl::AnimationDefine::AnimationKind::NEXT);
+        animationDefine->InitAnimationStopByRate(2, "combo_in", 1.f);
+        animationDefine->InitAnimationReverse(3, "combo_in", VisualControl::AnimationDefine::AnimationKind::ONCE);
+
+        animationDefine->InitAnimationFamily(AnimFamilyID::CONGRAT_IN, "G_congrat", 4);
+        animationDefine->InitAnimationStopByRate(0, "congrat_in", 0.f);
+        animationDefine->InitAnimation(1, "congrat_in", VisualControl::AnimationDefine::AnimationKind::NEXT);
+        animationDefine->InitAnimationStopByRate(2, "congrat_in", 1.f);
+        animationDefine->InitAnimationReverse(3, "congrat_in", VisualControl::AnimationDefine::AnimationKind::ONCE);
+
+        animationDefine->InitAnimationFamily(AnimFamilyID::CONGRAT_COL, "G_congrat", 1);
+        animationDefine->InitAnimation(0, "congrat_col", VisualControl::AnimationDefine::AnimationKind::NOPLAY);
+    }
+
+    void PointsModeDisplayController::ComboCongratController::Create(VisualControl::GameVisualControl* control, void* createArgs) {
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+        comboHandle = layout->vtable->getElementHandle(layout, SafeStringBase("PM_combo"), 0);
+        congratHandle = layout->vtable->getElementHandle(layout, SafeStringBase("PM_congrat"), 0);
+    }
+    
+    void PointsModeDisplayController::ComboCongratController::Reset(VisualControl::GameVisualControl* control) {
+        requestedCombo = requestedCongrat = u"";
+        SetCongratComboImpl(control, u"", true);
+        SetCongratComboImpl(control, u"", false);
+
+        currentColor = requestedColor = CongratColor::NONE;
+        control->GetAnimationFamily(AnimFamilyID::CONGRAT_COL)->SetAnimation(0, static_cast<float>(CongratColor::GREEN));
+
+        isComboAppeared = false;
+        comboAppearRequest = AppearRequest::NONE; congratAppearRequest = AppearRequest::NONE;
+        control->GetAnimationFamily(AnimFamilyID::COMBO_IN)->SetAnimation(0, 0.f);
+        control->GetAnimationFamily(AnimFamilyID::CONGRAT_IN)->SetAnimation(0, 0.f);
+    }
+    
+    void PointsModeDisplayController::ComboCongratController::Calc(VisualControl::GameVisualControl* control) {
+        if (!requestedCombo.empty()) {
+            SetCongratComboImpl(control, requestedCombo, true);
+            requestedCombo = u"";
+        }
+        if (!requestedCongrat.empty()) {
+            SetCongratComboImpl(control, requestedCongrat, false);
+            requestedCongrat = u"";
+        }
+        if (requestedColor != currentColor) {
+            currentColor = requestedColor;
+            control->GetAnimationFamily(AnimFamilyID::CONGRAT_COL)->SetAnimation(0, static_cast<float>(currentColor));
+        } else {
+            if (comboAppearRequest == AppearRequest::APPEAR) {
+                comboAppearRequest = AppearRequest::NONE;
+                control->GetAnimationFamily(AnimFamilyID::COMBO_IN)->ChangeAnimation(1, 0.f);
+            } else if (comboAppearRequest == AppearRequest::DISAPPEAR) {
+                comboAppearRequest = AppearRequest::NONE;
+                control->GetAnimationFamily(AnimFamilyID::COMBO_IN)->ChangeAnimation(3, 0.f);
+            }
+            if (congratAppearRequest == AppearRequest::APPEAR) {
+                congratAppearRequest = AppearRequest::NONE;
+                control->GetAnimationFamily(AnimFamilyID::CONGRAT_IN)->ChangeAnimation(1, 0.f);
+            } else if (congratAppearRequest == AppearRequest::DISAPPEAR) {
+                congratAppearRequest = AppearRequest::NONE;
+                control->GetAnimationFamily(AnimFamilyID::CONGRAT_IN)->ChangeAnimation(3, 0.f);
+            }
+        }
+    }
+
+    void PointsModeDisplayController::ComboCongratController::SetCongrat(CongratState state) {
+        if (state == CongratState::NONE) {
+            DisappearCongrat();
+        } else {
+            SetColor(static_cast<CongratColor>(state));
+            SetCongratText(congratNames[static_cast<int>(state) - 1]);
+            AppearCongrat();
+        }
+    }
+
+    void PointsModeDisplayController::ComboCongratController::SetCombo(u32 combo) {
+        if (combo == 0) {
+            if (isComboAppeared) {
+                isComboAppeared = false;
+                DisappearCombo();
+            }
+        } else {
+            isComboAppeared = true;
+            SetComboText(comboName + to_u16string(combo));
+            AppearCombo();
+        }
+    }
+
+    void PointsModeDisplayController::ComboCongratController::InitializeText()
+    {
+        Utils::ConvertUTF8ToUTF16(congratNames[0], NAME("sc_at_nice"));
+        Language::RemoveEntry("sc_at_nice");
+        Utils::ConvertUTF8ToUTF16(congratNames[1], NAME("sc_at_great"));
+        Language::RemoveEntry("sc_at_great");
+        Utils::ConvertUTF8ToUTF16(congratNames[2], NAME("sc_at_excel"));
+        Language::RemoveEntry("sc_at_excel");
+        Utils::ConvertUTF8ToUTF16(congratNames[3], NAME("sc_at_fanta"));
+        Language::RemoveEntry("sc_at_fanta");
+        Utils::ConvertUTF8ToUTF16(comboName, NAME("sc_at_combo"));
+        Language::RemoveEntry("sc_at_combo");
+    }
+
+    void PointsModeDisplayController::ComboCongratController::SetCongratComboImpl(VisualControl::GameVisualControl* control, const std::u16string& text, bool isCombo) {
+        VisualControl::NwlytControlSight* layout = control->GetNwlytControl();
+        layout->vtable->replaceMessageImpl(layout, isCombo ? comboHandle : congratHandle, VisualControl::Message(text.c_str()), nullptr, nullptr);
     }
 }

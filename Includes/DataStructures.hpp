@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: DataStructures.hpp
-Open source lines: 924/924 (100.00%)
+Open source lines: 1351/1351 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -15,6 +15,76 @@ Open source lines: 924/924 (100.00%)
 #define MAX_PLAYER_AMOUNT 8
 
 namespace CTRPluginFramework {
+    
+    enum EItemSlot : u32 {
+		ITEM_BANANA = 0,
+		ITEM_KOURAG,
+		ITEM_KOURAR,
+		ITEM_KINOKO,
+		ITEM_BOMBHEI,
+		ITEM_GESSO,
+		ITEM_KOURAB,
+		ITEM_KINOKO3,
+		ITEM_STAR,
+		ITEM_KILLER,
+		ITEM_THUNDER,
+		ITEM_KINOKOP,
+		ITEM_FLOWER,
+		ITEM_KONOHA,
+		ITEM_SEVEN,
+		ITEM_TEST3,
+		ITEM_TEST4,
+		ITEM_BANANA3,
+		ITEM_KOURAG3,
+		ITEM_KOURAR3,
+		ITEM_SIZE
+	};
+
+    enum EItemType {
+        ITYPE_KOURAG = 0,
+        ITYPE_KOURAR = 1,
+		ITYPE_BANANA = 2,
+        ITYPE_KINOKO = 3,
+        ITYPE_STAR = 4,
+        ITYPE_KOURAB = 5,
+        ITYPE_THUNDER = 6,
+        ITYPE_FAKEBOX = 7,
+        ITYPE_KINOKOP = 8,
+        ITYPE_BOMB = 9,
+        ITYPE_GESSO = 10,
+        ITYPE_BIGKINOKO = 11,
+        ITYPE_KILLER = 12,
+        ITYPE_FLOWER = 13,
+        ITYPE_TAIL = 14,
+        ITYPE_SEVEN = 15,
+
+        ITYPE_SIZE,
+	};
+
+    enum EItemDirector {
+        IDIR_BANANA = 0, // 0x28
+        IDIR_KOURAG = 1, // 0x2C
+        IDIR_KOURAR = 2,  // 0x30
+        IDIR_BOMB = 3, // 0x34
+        IDIR_GESSO = 4, // 0x38
+        IDIR_STAR = 5, // 0x3C
+        IDIR_THUNDER = 6, // 0x40
+        IDIR_KILLER = 7, // 0x44
+        IDIR_KOURAB = 8, // 0x48
+        IDIR_FLOWER = 9, // 0x4C
+        IDIR_TAIL = 10, // 0x50
+        IDIR_KINOKO = 11, // 0x54
+        IDIR_SEVEN = 12 // 0x58
+    };
+
+    enum EItemReact {
+        REACT_NONE = 0,
+        REACT_DESTROY = 1,
+        REACT_RICOCHET = 2,
+        REACT_BOUNCE = 3,
+        REACT_TAILDESTROY = 4,
+        REACT_TAILDEFLECT = 5,
+    };
 
     enum EDriverID : s32 {
 		DRIVER_BOWSER = 0,
@@ -119,6 +189,29 @@ namespace CTRPluginFramework {
         ITEMMODE_CUSTOM = 100,
         ITEMMODE_RANDOM = 101,
     };
+    enum EDashType {
+		MUSHROOM = (1 << 0),
+		BOOST_PAD = (1 << 1),
+		LAKITU_RECOVERY = (1 << 2),
+		MINITURBO = (1 << 3),
+		SUPERMINITURBO = (1 << 4),
+		START_VERYSMALL = (1 << 5),
+		START_SMALL = (1 << 6),
+		START_MEDIUM = (1 << 7),
+		START_BIG = (1 << 8),
+		START_PERFECT = (1 << 9),
+		TRICK_GROUND = (1 << 10),
+		TRICK_WATER_DIVE = (1 << 11),
+		TRICK_WATER = (1 << 12),
+		STAR_RING = (1 << 13),
+		COIN_GRAB = (1 << 14),
+		WATER_DIVE = (1 << 15)
+	};
+    enum EEngineLevel : u32 {
+        ENGINELEVEL_50CC = 0,
+        ENGINELEVEL_100CC = 1,
+        ENGINELEVEL_150CC = 2,
+    };
     enum ECharaIconType : u32
     {
         CHARAICONTYPE_MAPRACE = 0, // map_(name)_r90.bclim
@@ -148,6 +241,17 @@ namespace CTRPluginFramework {
         u32 unknown;
         bool unknown2;
         u32 archiveID; // 0x9 = ThankYou3D, 0xB = romfs root
+    };
+
+    template <class T, size_t S>
+    struct ConstSizeArray {
+        T data[S]{};
+
+        ConstSizeArray() {}
+
+        inline T& operator[](int element) {
+            return (element < S) ? data[element] : data[0];
+        }   
     };
 
     template <class T>
@@ -287,6 +391,8 @@ namespace CTRPluginFramework {
                 u8 forceRenderOptim : 1;
                 u8 disableBulletBill : 1;
                 u8 speedupMusicOnLap : 1;
+                u8 disableLensFlare : 1;
+                u8 reserved : 3;
             } CustomFlags;
         };
         u8 PolePosition;
@@ -343,6 +449,125 @@ namespace CTRPluginFramework {
 		u32 gap2[3];
 		POTIRoute*** entries;
 	};
+
+    struct KartInfoProxy {
+        u32 vehicle;
+
+        u32 GetVehicle() {
+            return vehicle;
+        }
+    };
+    struct KartItemProxy {
+        u32 kartItem; // kartItem[0x34] -> ItemSlot
+
+        int getEquipNum() {
+            return ((u32*)kartItem)[0x44/4];
+        }
+
+        bool isSpinSlot() {
+            int slotTimer = ((u32**)kartItem)[0x34/4][0x40/4];
+            return slotTimer >= 0;
+        }
+
+        EItemSlot getEquipItem() {
+            return ((EItemSlot*)kartItem)[0x40/4];
+        }
+
+        EItemSlot getStockItem() {
+            return ((EItemSlot*)kartItem)[0x38/4];
+        }
+
+        bool isEquipHang() {
+            return ((u8*)kartItem)[0x41] == 1;
+        }
+
+        float getRatioSlot() {
+            return ((float**)kartItem)[0x34/4][0x38/4];
+        }
+
+        bool isEquipMulti() {
+            return ((u8*)kartItem)[0x41] == 2;
+        }
+
+        int getNextIDSlot() {
+            return (int)((u32**)kartItem)[0x34/4][0x34/4];
+        }
+
+        int getCurrentIDSlot() {
+            return (int)((u32**)kartItem)[0x34/4][0x30/4];
+        }
+
+        bool isEquip() {
+            return isEquipHang() || isEquipMulti();
+        }
+
+        bool isValidQuickStop() {
+            int slotTimer = ((u32**)kartItem)[0x34/4][0x40/4];
+            return slotTimer >= 60;
+        }
+
+        bool isStock() {
+            u32* itemSlot = ((u32**)kartItem)[0x34/4];
+            if (((u8*)itemSlot)[0x10] == 3) {
+                u32 someTimer = itemSlot[0x24/4];
+                return someTimer >= 5;
+            }
+            return false;
+        }
+    };
+
+    class SeadRandom {
+    public:
+        void Init(u32 seed);
+        u32 Get();
+        u32 Get(u32 low, u32 high); // [low, high)
+    private:
+        static constexpr u32 multValue = 0x6C078965;
+        std::array<u32, 4> elements;
+    };
+
+    struct EnemyAI {
+        KartInfoProxy* infoProxy;
+        u32 unknown1; // 0x4
+        u32 unknown2; // 0x8
+        u32 unknwon3; // 0xC
+        struct {
+            u32 canSnipe : 1;
+            u32 instantUse : 1;
+            u32 unknown : 30;
+        } flags; // 0x10
+        // ...
+        u32 GetVehicle() {
+            return infoProxy->GetVehicle();
+        }
+    };
+
+    struct AIManager {
+        u32 gap[0x14/4]; // 0x0
+        u32 randomSomething; // 0x14
+        u32 gap2[0x20/4]; // 0x18
+        EnemyAI* enemyAIs[8]; // 0x38
+        u32 gap3[0x20/4]; // 0x58;
+        EnemyAI* playerAIs[8]; // 0x78
+
+        EnemyAI* getAIByPlayerAI(int playerID) {
+            for (int i = 0; i < 8; i++) {
+                if (((u32*)(enemyAIs[i]->GetVehicle()))[0x84/4] == playerID) {
+                    return enemyAIs[i];
+                }
+            }
+            return nullptr;
+        }
+
+        EnemyAI* getPlayerAI(int playerID) {
+            return playerAIs[playerID];
+        }
+
+        u32 getRandU32(u32 max) {
+            SeadRandom* rnd = (SeadRandom*)(randomSomething + 0x4);
+            return rnd->Get(0, max);
+        }
+    };
 
 	struct MiiData {
 		u8 always3;
@@ -632,7 +857,7 @@ namespace CTRPluginFramework {
             /*0x40*/                u32 isStartingFallbackOOB : 1; // Out of checkpoints or AI recover
             /*0x80*/                u32 isWingOpened : 1;
             /*0x100*/                u32 isInGliderPad : 1;
-            /*0x200*/                u32 isGliding : 1;
+            /*0x200*/                u32 isGlidingSometimes : 1; // Not understood, sometimes set when gliding and other not
             /*0x400*/                u32 wingClosedOutOfPath : 1;
             /*0x800*/                u32 wingTricked : 1;
             /*0x1000*/                u32 isInWater : 1;
@@ -770,7 +995,7 @@ namespace CTRPluginFramework {
         u32 engineLevel; 
         bool isMirror;
         bool teamsEnabled;
-        u8 unknown4;
+        u8 lapAmount;
         u32 raceModeFlag;
         EItemMode itemMode;
         u32 playerAmount;
@@ -815,12 +1040,31 @@ namespace CTRPluginFramework {
         INVALID = 0xFF
     };
 
+    struct PACKED CustomCTGP7MenuData
+    {
+        u8 version;
+        u16 netVersion;
+        u16 startingCupButtonID;
+        u64 selectedCustomCharacter;
+
+        static const u8 dataVersion = 0;
+
+        void MakeValid() {
+            version = (0b101 << 5) | dataVersion;
+        }
+
+        bool IsValid() {
+            return version == ((0b101 << 5) | dataVersion);
+        }
+    };
+
     struct PACKED CustomCTGP7KartData 
     {
         u8 version;
         u8 megaMushTimer;
         struct {
-            u8 reserved : 8;
+            u8 honkTimer : 3;
+            u8 reserved : 5;
         } info;
         u8 padding[1];
 
@@ -834,6 +1078,7 @@ namespace CTRPluginFramework {
             version = 0;
             megaMushTimer = 0;
             info.reserved = 0;
+            info.honkTimer = 0;
             padding[0] = 0;
         }
 
@@ -861,13 +1106,27 @@ namespace CTRPluginFramework {
             {
                 u32 accel : 1;
                 u32 brake : 1;
-                u32 drift : 1;
+                u32 drift : 1; // R button hold
+                u32 hop : 1; // R button press
                 u32 item : 1;
+                u32 reserved : 27;
             };
             
         };
         static KartButtonData GetFromVehicle(u32 vehicle);
     };
+
+    struct LapRankCheckerKartInfo {
+        KartInfoProxy* kartInfoProxy; // 0x0
+        u32 gap[0x10/4]; // 0x4
+        float currRaceProgress; // 0x14
+        float maxRaceProgress; // 0x18
+        int currLap; // 0x1C (Zero index)
+        u32 gap2[0x4/4];
+        u32 flags;
+        u32 gap3[0x1C/4];
+    };
+    static_assert(sizeof(LapRankCheckerKartInfo) == 0x44);
 
     class SndLfoSin
     {
@@ -910,15 +1169,183 @@ namespace CTRPluginFramework {
 
         friend void initPatches();
         static void (*CalcImpl)(SndLfoSin* myself);
-     };
+    };
 
-    class SeadRandom {
+    template <class T>
+    class TStateObserver {
     public:
-        void Init(u32 seed);
-        u32 Get();
-        u32 Get(u32 low, u32 high); // [low, high)
-    private:
-        static constexpr u32 multValue = 0x6C078965;
-        std::array<u32, 4> elements;
+        TStateObserver() {}
+        struct Vtable {
+            void(*destructor)(TStateObserver*);
+            void(*resetState)(TStateObserver*);
+            void(*executeState)(TStateObserver*);
+        };
+        struct StateCallInfo {
+            union {
+                void(*stateFunc)(T*);
+                u32 vtableOffset;
+
+                u32 raw;
+            } callInfo;
+            union {
+                struct {
+                    u32 isVtableOffset : 1;
+                    u32 baseObjectOffset : 31;
+                } flags;
+                u32 rawFlags;
+            };
+        };
+        static_assert(sizeof(StateCallInfo) == 8);
+        Vtable* vtable; // Offset 0x0
+        u8 currState; // Offset 0x4
+        u8 prevState; // Offset 0x5
+        bool stateChange; // Offset 0x6
+        T* baseObject; // Offset 0x8
+        StateCallInfo* stateInitCallInfos; // Offset 0xC
+        StateCallInfo* stateCalcCallInfos; // Offset 0x10
+        StateCallInfo* stateEndCallInfos; // Offset 0x14
+        u32 stateCounter; // Offset 0x18
+        u8 totalStateCount; // Offset 0x1C
+
+        static void CallState(T* baseObject, StateCallInfo* sci, u8 state) {
+            if (!sci->callInfo.raw && (!sci->flags.isVtableOffset || !sci->rawFlags))
+                return;
+            T* UseObject = (T*)(((uintptr_t)baseObject) + sci->flags.baseObjectOffset);
+            if (sci->flags.isVtableOffset) {
+                ((void(*)(T*))((uintptr_t**)UseObject)[0][sci->callInfo.vtableOffset/4])(UseObject);
+            } else {
+                sci->callInfo.stateFunc(UseObject);
+            }
+        }
+
+        void ExecuteState(void) {
+            if (stateChange) {
+                CallState(baseObject, stateEndCallInfos, prevState);
+                stateChange = false;
+                CallState(baseObject, stateInitCallInfos, currState);
+            }
+            CallState(baseObject, stateCalcCallInfos, currState);
+            stateCounter++;
+        }
+
+        void ResetState(void) {
+            prevState = currState = 0;
+            stateChange = true;
+            stateCounter = 0;
+        }
+    };
+    static_assert(sizeof(TStateObserver<int>) == 0x20);
+
+    template <class T>
+    class TStateObserverEx {
+    public:
+        TStateObserverEx() {}
+        TStateObserver<T>::Vtable* vtable; // Offset 0x0
+        u8 currState; // Offset 0x4
+        u8 prevState; // Offset 0x5
+        bool stateChange; // Offset 0x6
+        T* baseObject; // Offset 0x8
+        TStateObserver<T>::StateCallInfo* stateInitCallInfos; // Offset 0xC
+        TStateObserver<T>::StateCallInfo* stateCalcCallInfos; // Offset 0x10
+        TStateObserver<T>::StateCallInfo* stateEndCallInfos; // Offset 0x14
+        u32 stateCounter; // Offset 0x18
+        u8 totalStateCount; // Offset 0x1C
+        u8 requestedState; // Offset 0x1D
+
+        void ExecuteState(void) {
+            this->stateCounter++;
+            if (this->stateChange) {
+                TStateObserver<T>::CallState(this->baseObject, this->stateEndCallInfos, this->currState);
+                this->prevState = this->currState;
+                this->currState = this->requestedState;
+                this->stateCounter = 0;
+                TStateObserver<T>::CallState(this->baseObject, this->stateInitCallInfos, this->currState);
+            }
+            TStateObserver<T>::CallState(this->baseObject, this->stateCalcCallInfos, this->currState);
+        }
+
+        void ResetState(void) {
+            this->prevState = this->currState = 0;
+            this->stateChange = true;
+            this->stateCounter = 0;
+            this->requestedState = 0;
+        }
+    };
+    static_assert(sizeof(TStateObserverEx<int>) == 0x20);
+
+    struct AIItemBase {
+        enum State : u8 {
+            STATE_IDLE = 0,
+            STATE_EQUIPTRIPLE,
+            STATE_STOCK,
+            STATE_KINOKO,
+            STATE_THROWFRONT,
+            STATE_THROWBACK,
+            STATE_THROWDEFAULT,
+            STATE_HOLD,
+            STATE_KONOHA,
+            STATE_FLOWER,
+            STATE_GOAL,
+            STATE_WAIT,
+        };
+        void* vtable; // Offset 0x0
+        TStateObserverEx<AIItemBase> stateObserver; // Offset 0x4 (0xA request change, 0x21 requestedState)
+        u32 AIInfo; // Offset 0x24
+        EnemyAI* enemyAI; // Offset 0x28
+        u32 PointParam; // Offset 0x2C
+        u32 AIControlRace; // Offset 0x30
+        AIManager* aiManager; // Offset 0x34
+        u32 unknwown3; // Offset 0x38
+        KartItemProxy* kartItemProxy; // Offset 0x3C
+        u32 playerID; // Offset 0x40
+        u32 unknownState; // Offset 0x44
+        float unknown5; // Offset 0x48 (Init to 400.f)
+        float unknown6; // Offset 0x4C (Init to 0.95f)
+        bool requestUseItem; // Offset 0x50
+        u8 flag2; // Offset 0x51
+        u8 flag3; // Offset 0x52
+        bool canSnipe; // Offset 0x53 (Item == Banana | KouraG | Bomb | Flower | Banana3 | KouraG)
+        u8 flag5; // Offset 0x54
+        u8 flag6; // Offset 0x55
+        u8 throwMode; // Offset 0x56
+        u32 useFlags; // Offset 0x58 (Set to 0x2000 to use item)  
+        float useDirection; // Offset 0x5C
+
+        void UseItem(bool use) {
+            static constexpr u32 useFlagValue = 0x2000; 
+            useFlags = use ? useFlagValue : 0;
+        }
+
+        void ChangeState(State state) {
+            stateObserver.requestedState = state;
+            stateObserver.stateChange = true;
+        }
+
+        bool isEnableToUse() {
+            u8* aistuck = ((u8**)AIControlRace)[0x28/4];
+            return aistuck[0x8] != 2 || aistuck[0x21] != 2 || aistuck[0xA] != 0;
+        }
+    };
+    static_assert(sizeof(AIItemBase) == 0x60);
+
+    struct AIItemRace : public AIItemBase {
+        u32 playerAI; // Offset 0x60
+        u32 AIAutoSteer; // Offset 0x64
+        u32 MapDataAccessorEnemyPoint; // Offset 0x68
+        u32 LapRankChecker; // Offset 0x6C
+        u32 UnknownCheckPathAccessor; // Offset 0x70
+        int randomTimer; // Offset 0x74
+        u32 difficulty; // (?) Offset 0x78 
+        u32 unknownFromAIManager; // Offset 0x7C
+        bool courseOneLap; // Offset 0x80
+    };
+    static_assert(sizeof(AIItemRace) == 0x84);
+
+    struct PadData {
+        u32 currentPad;
+        u32 pressedPad;
+        u32 releasedPad;
+        s16 analogX;
+        s16 analogY;
     };
 }

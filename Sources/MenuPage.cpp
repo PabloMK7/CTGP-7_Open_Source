@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2393/2756 (86.83%)
+Open source lines: 2496/2880 (86.67%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -24,6 +24,8 @@ Open source lines: 2393/2756 (86.83%)
 #include "CharacterHandler.hpp"
 #include "CwavReplace.hpp"
 #include "SequenceHandler.hpp"
+#include "PointsModeHandler.hpp"
+#include "Stresser.hpp"
 
 extern "C" {
     void coursePageInitOmakaseTfunc();
@@ -36,6 +38,9 @@ extern "C" {
 	u32 g_trophyPageSelectNextScene2ret;
 	void thankyouPageInitControlfunc();
 	u32 g_thankyouPageInitControlret;
+    void multiCupGPbuttonHandlerOKSaveButtonIDfunc();
+    void onCompleteNetworkButtonIDfunc();
+    u32 g_onCompleteNetworkButtonIDret;
 }
 
 namespace CTRPluginFramework {
@@ -54,29 +59,16 @@ namespace CTRPluginFramework {
     MenuPageHandler::MenuWifiCourseVote* MenuPageHandler::menuWifiCourseVote;
     MenuPageHandler::MenuEndingPage* MenuPageHandler::menuEndingPage;
     int MenuPageHandler::MenuSingleCupBasePage::startingButtonID = 0;
+    int MenuPageHandler::MenuSingleCupBasePage::hostStartingButtonID = 0;
     int MenuPageHandler::MenuSingleCupBasePage::selectedCupIcon = 0;
     const VisualControl::AnimationDefineVtable MenuPageHandler::MenuSingleCupBasePage::cupSelectBGAnimationDefineVtable = {MenuPageHandler::MenuSingleCupBasePage::CupSelectBGControlAnimationDefine, 0, 0};
     bool MenuPageHandler::MenuSingleModePage::IsButtonConstructing = false;
 
-    RT_HOOK MenuPageHandler::MenuSingleCupBasePage::onPageEnterHook;
-    RT_HOOK MenuPageHandler::MenuSingleCupBasePage::onPagePreStepHook;
-    RT_HOOK MenuPageHandler::MenuSingleCupBasePage::initControlHook;
     RT_HOOK MenuPageHandler::MenuSingleCupBasePage::buttomHandlerOKHook;
-
-    RT_HOOK MenuPageHandler::MenuSingleCupGPPage::onPagePreStepHook;
-    RT_HOOK MenuPageHandler::MenuSingleCupGPPage::buttonHandlerOKHook;
-
-    RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::onPageEnterHook;
-    RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseTHook;
-    RT_HOOK MenuPageHandler::MenuSingleCourseBasePage::coursePageInitOmakaseBHook;
 
     RT_HOOK MenuPageHandler::MenuSingleCourseBattle::onPageEnterHook;
 
     std::vector<u32> MenuPageHandler::MenuSingleCourseBasePage::blockedCourses;
-
-    RT_HOOK MenuPageHandler::trophyPageSelectNextSceneHook;
-    RT_HOOK MenuPageHandler::trophyPageSelectNextSceneHook2;
-    RT_HOOK MenuPageHandler::thankyouPageInitControlHook;
 
     bool MenuPageHandler::MenuEndingPage::loadCTGPCredits = false;
 
@@ -199,14 +191,15 @@ namespace CTRPluginFramework {
 
     int MenuPageHandler::MenuSingleModePage::HandleCursor(CursorMove* move, CursorItem* item) {
         CursorMove::KeyType k = move->GetDir(item);
-        const u8 moveCursorTable[7][4] = { // Down, Right, Up, Left
+        const u8 moveCursorTable[8][4] = { // Down, Right, Up, Left
             {4, 1, 4, 3},
             {5, 2, 5, 0},
             {6, 3, 6, 1},
-            {6, 0, 6, 2},
-            {0, 5, 0, 6},
+            {7, 0, 7, 2},
+            {0, 5, 0, 7},
             {1, 6, 1, 4},
-            {2, 4, 2, 5},
+            {2, 7, 2, 5},
+            {3, 4, 3, 6},
         };
         k = (CursorMove::KeyType)(k & 0xF);
         if (!k) return -1;
@@ -247,7 +240,9 @@ namespace CTRPluginFramework {
         control->GetAnimationFamily(2)->SetAnimation(0, 0.f);
     }
     
+
     void MenuPageHandler::MenuSingleModePage::OnPageEnter(GameSequenceSection* own) {
+
         MenuSingleModePage* page = (MenuSingleModePage*)own->vtable->userData;
         u32* ownU32 = (u32*)own;
         u32 selectedEntry = ((u32***)own)[0x88/4][0][0x100/4];
@@ -258,7 +253,7 @@ namespace CTRPluginFramework {
         
         VisualControl::GameVisualControl* movieView = (VisualControl::GameVisualControl*)ownU32[0x2E4/4];
         u32 movieViewTextElementID = ((u32*)movieView)[0x7C/4];
-        const u32 messageIDs[] = {2200, 2201, 2204, CustomTextEntries::mission, 2202, 2203, CustomTextEntries::options};
+        const u32 messageIDs[] = {2200, 2201, 2204, CustomTextEntries::mission, CustomTextEntries::points, 2202, 2203, CustomTextEntries::options};
         const char16_t* textStr = Language::MsbtHandler::GetText(messageIDs[selectedEntry]);
         movieView->GetNwlytControl()->vtable->replaceMessageImpl(movieView->GetNwlytControl(), movieViewTextElementID, VisualControl::Message(textStr), nullptr, nullptr);
         
@@ -270,10 +265,7 @@ namespace CTRPluginFramework {
         ((void(*)(u32))GameFuncs::SetPlayerMasterID)(0);
         ((void(*)(u32))GameFuncs::SetCameraTargetPlayer)(0);
 
-        if (MissionHandler::isMissionMode)
-            GarageRequestChangeState(MarioKartFramework::getGarageDirector(), 6, 1);
-        else
-            GarageRequestChangeState(MarioKartFramework::getGarageDirector(), 3, ownU32[0x48/4] != 1 ? 1 : 0);
+        GarageRequestChangeState(MarioKartFramework::getGarageDirector(), 3, ownU32[0x48/4] != 1 ? 1 : 0);
 
         VersusHandler::OnMenuSingleEnterCallback();
     }
@@ -282,7 +274,7 @@ namespace CTRPluginFramework {
         u32* ownU32 = (u32*)own;
 
         VisualControl::GameVisualControl* movieView = (VisualControl::GameVisualControl*)ownU32[0x2E4/4];
-        const u32 messageIDs[] = {2200, 2201, 2202, 2203, 2204, CustomTextEntries::mission, CustomTextEntries::options};
+        const u32 messageIDs[] = {2200, 2201, 2202, 2203, 2204, CustomTextEntries::mission, CustomTextEntries::points, CustomTextEntries::options};
 
         movieView->GetAnimationFamily(1)->ChangeAnimation(1, 0.f);
         ((u32*)movieView)[0xA8/4] = messageIDs[selected];
@@ -293,9 +285,13 @@ namespace CTRPluginFramework {
         u32 selectedEntry = ((u32***)own)[0x88/4][0][0x100/4];
 
         if (!g_isFoolActive) {
-            VersusHandler::OnMenuSingleOKCallback(selectedEntry);
-            
-            if (selectedEntry == 6) {
+            if (selectedEntry == 2)
+                VersusHandler::IsVersusMode = true;
+            else if (selectedEntry == 3)
+                MissionHandler::onModeMissionEnter();
+            else if (selectedEntry == 4)
+                PointsModeHandler::onPointsModeEnter();
+            else if (selectedEntry == 7) {
                 page->openCTGP7Setting = true;
                 SequenceHandler::addFlowPatch(0x5B3E8654, 0x2274, 0x4, 0x2); // single to single
             }
@@ -340,13 +336,16 @@ namespace CTRPluginFramework {
         VisualControl::GameVisualControl* msButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_03"));
         own->GetButtonArray(0x2C0).Push(msButton);
 
-        VisualControl::GameVisualControl* bbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_10"));
+        VisualControl::GameVisualControl* saButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_10"));
+        own->GetButtonArray(0x2C0).Push(saButton);
+
+        VisualControl::GameVisualControl* bbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_11"));
         own->GetButtonArray(0x2C0).Push(bbButton);
 
-        VisualControl::GameVisualControl* cbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_11"));
+        VisualControl::GameVisualControl* cbButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_12"));
         own->GetButtonArray(0x2C0).Push(cbButton);
 
-        VisualControl::GameVisualControl* stButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_12"));
+        VisualControl::GameVisualControl* stButton = setupMenuButton(own, SafeStringBase("chara_select_btn"), SafeStringBase("chara_select_btn_8_13"));
         own->GetButtonArray(0x2C0).Push(stButton);
         IsButtonConstructing = false;
 
@@ -357,6 +356,7 @@ namespace CTRPluginFramework {
         ((u32*)ttButton)[0x230/4] = !g_isFoolActive ? 1 : 0;
         ((u32*)vsButton)[0x230/4] = 0;
         ((u32*)msButton)[0x230/4] = 0;
+        ((u32*)saButton)[0x230/4] = 0;
         ((u32*)bbButton)[0x230/4] = !g_isFoolActive ? 2 : 0;
         ((u32*)cbButton)[0x230/4] = !g_isFoolActive ? 3 : 0;
         ((u32*)stButton)[0x230/4] = 0;
@@ -365,6 +365,7 @@ namespace CTRPluginFramework {
         ((u32*)ttButton)[0x210/4] = !g_isFoolActive ? 1 : 0;
         ((u32*)vsButton)[0x210/4] = 0;
         ((u32*)msButton)[0x210/4] = 0;
+        ((u32*)saButton)[0x210/4] = 0;
         ((u32*)bbButton)[0x210/4] = !g_isFoolActive ? 2 : 0;
         ((u32*)cbButton)[0x210/4] = !g_isFoolActive ? 3 : 0;
         ((u32*)stButton)[0x210/4] = 0;
@@ -373,22 +374,25 @@ namespace CTRPluginFramework {
         ((u32*)ttButton)[0x214/4] = 1;
         ((u32*)vsButton)[0x214/4] = 4;
         ((u32*)msButton)[0x214/4] = 5;
+        ((u32*)saButton)[0x214/4] = 6;
         ((u32*)bbButton)[0x214/4] = 2;
         ((u32*)cbButton)[0x214/4] = 3;
-        ((u32*)stButton)[0x214/4] = 6;
+        ((u32*)stButton)[0x214/4] = 7;
 
         setButtonTex(gpButton, 0, 2);
         setButtonTex(ttButton, 1, 2);
         setButtonTex(vsButton, 2, 2);
         setButtonTex(msButton, 3, 2);
+        setButtonTex(saButton, 6, 2);
         setButtonTex(bbButton, 4, 2);
         setButtonTex(cbButton, 5, 2);
-        setButtonTex(stButton, 6, 2);
+        setButtonTex(stButton, 7, 2);
 
         ((u8*)gpButton)[0x224] = 65;
         ((u8*)ttButton)[0x224] = 65;
         ((u8*)vsButton)[0x224] = 65;
         ((u8*)msButton)[0x224] = 65;
+        ((u8*)saButton)[0x224] = 65;
         ((u8*)bbButton)[0x224] = 65;
         ((u8*)cbButton)[0x224] = 65;
         ((u8*)stButton)[0x224] = 65;
@@ -399,10 +403,11 @@ namespace CTRPluginFramework {
         SetCaption(cbButton, caption, 2213);
         SetCaption(vsButton, caption, 2214);
         SetCaption(msButton, caption, CustomTextEntries::missionDesc);
+        SetCaption(saButton, caption, CustomTextEntries::pointsDesc);
         SetCaption(stButton, caption, CustomTextEntries::optionsDesc);
 
         SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 8; i++)
             ((void(*)(void*, VisualControl::GameVisualControl*))GameFuncs::ControlSliderSetSlideH)(controlSliderArray[0], own->GetButtonArray(0x2C0)[i]);
 
         u8* defaultSlider = (u8*)controlSliderArray[0];
@@ -490,9 +495,10 @@ namespace CTRPluginFramework {
         ((u8*)own)[0x2BC/1] = 0;
         ((u8*)own)[0x319/1] = 0;
         ((u32*)own)[0x31C/4] = 0;
+        ((u32*)own)[0x320/4] = 0;
         ((u32*)own)[0x32C/4] = 0;
         ((u32*)own)[0x324/4] = -1;
-        ((u8*)own)[0x320/1] = 1;
+        ((u8*)own)[0x319/1] = 1; // Yes, this is correct
         ((u8*)own)[0x284/1] &= ~1;
         ((u32*)own)[0x290/4] = 0x14;
 
@@ -500,9 +506,8 @@ namespace CTRPluginFramework {
         vtable._deallocating = OnMenuMultiCupGPDeallocate;
         vtable.enterCursor = MenuSingleCupBasePage::EnterCursor;
         vtable.buttonHandler_SelectOn = (decltype(vtable.buttonHandler_SelectOn))VisualControl::nullFunc;
-        OnPageCompleteBackup = vtable.onPageComplete;
-        vtable.onPageComplete = OnPageComplete;
-        vtable.onPageExit = [](GameSequenceSection* own) { MenuSingleCupBasePage::OnPageExit(own, false);};
+        OnPageExitBackup = vtable.onPageExit;
+        vtable.onPageExit = OnPageExit;
         vtable.userData = this;
         return own;
     }
@@ -874,14 +879,17 @@ namespace CTRPluginFramework {
         if (mode == 0) {
             for (int i = 0; i < 8; i++) {
                 VisualControl::GameVisualControl* currCupButton = buttonList[i];
-                u32 finalCup;
+                u32 finalCup, cupIconID;
                 if (i < 4) {
-                    finalCup = cupTransTable[(startingButtonID + i) % (size / 2)];
+                    finalCup = cupIconID = cupTransTable[(startingButtonID + i) % (size / 2)];
                 } else {
-                    finalCup = cupTransTable[(startingButtonID + i - 4) % (size / 2) + (size / 2)];
+                    finalCup = cupIconID = cupTransTable[(startingButtonID + i - 4) % (size / 2) + (size / 2)];
+                }
+                if (finalCup == POINTSWEEKLYCHALLENGECUPID) {
+                    cupIconID = 9; 
                 }
                 ((u32*)currCupButton)[0x214/4] = isAllRandom ? VERSUSCUPID : finalCup;
-                CourseManager::BaseMenuButtonControl_setTex((u32)currCupButton, (finalCup == USERCUPID || isAllRandom) ? 8 : finalCup, 2);
+                CourseManager::BaseMenuButtonControl_setTex((u32)currCupButton, (finalCup == USERCUPID || finalCup == POINTSRANDOMCUPID || isAllRandom) ? 8 : cupIconID, 2);
                 ((u32*)currCupButton)[0x210/4] = isAllRandom ? VERSUSCUPID : finalCup;
             }
         }
@@ -889,10 +897,17 @@ namespace CTRPluginFramework {
             int start = startingButtonID;
             if (mode == 1 && startingButtonID == 0) // Edge case to prevent negative module
                 start = (size / 2);
-            u32 top = cupTransTable[(start + ((mode == 1) ? -1 : 4)) % (size / 2)];
-            u32 bot = cupTransTable[(start + ((mode == 1) ? -1 : 4)) % (size / 2) + (size / 2)];
-            CourseManager::BaseMenuButtonControl_setTex((u32)buttonList[8], (top == USERCUPID || isAllRandom) ? 8 : top, 2);
-            CourseManager::BaseMenuButtonControl_setTex((u32)buttonList[9], (bot == USERCUPID || isAllRandom) ? 8 : bot, 2);
+            u32 top, bot, cupIconIDTop, cupIconIDBot;
+            top = cupIconIDTop = cupTransTable[(start + ((mode == 1) ? -1 : 4)) % (size / 2)];
+            bot = cupIconIDBot = cupTransTable[(start + ((mode == 1) ? -1 : 4)) % (size / 2) + (size / 2)];
+            if (top == POINTSWEEKLYCHALLENGECUPID) {
+                cupIconIDTop = 9; 
+            }
+            if (bot == POINTSWEEKLYCHALLENGECUPID) {
+                cupIconIDBot = 9; 
+            }
+            CourseManager::BaseMenuButtonControl_setTex((u32)buttonList[8], (top == USERCUPID || top == POINTSRANDOMCUPID || isAllRandom) ? 8 : cupIconIDTop, 2);
+            CourseManager::BaseMenuButtonControl_setTex((u32)buttonList[9], (bot == USERCUPID || bot == POINTSRANDOMCUPID || isAllRandom) ? 8 : cupIconIDBot, 2);
             ((u32*)buttonList[8])[0x214/4] = isAllRandom ? VERSUSCUPID : top;
             ((u32*)buttonList[9])[0x214/4] = isAllRandom ? VERSUSCUPID : bot;
             ((u32*)buttonList[8])[0x210/4] = isAllRandom ? VERSUSCUPID : top;
@@ -999,6 +1014,7 @@ namespace CTRPluginFramework {
             VisualControl::Message message;
             Language::MsbtHandler::GetMessageFromList(message, (Language::MsbtHandler::MessageDataList*)racestart->GetMessageDataList(), 2400);
             racestart->GetNwlytControl()->vtable->replaceMessageImpl(racestart->GetNwlytControl(), ((u32*)racestart)[0x94/4], message, nullptr, nullptr);
+            obj->raceStartControl = racestart;
         }
 
         if (ownU32[0x284/4] & 1) {
@@ -1057,6 +1073,13 @@ namespace CTRPluginFramework {
         obj->isInPage = true;
         obj->comesFromOK = false;
         obj->autoButtonPressed = false;
+        obj->netGP = MarioKartFramework::currentRaceMode.type == 1 && MarioKartFramework::currentRaceMode.mode == 0;
+        if (obj->netGP) {
+            obj->netGPimHost = MarioKartFramework::netImHost();
+            if (!obj->netGPimHost) {
+                startingButtonID = hostStartingButtonID;
+            }
+        }
         obj->UpdateCupButtonState(0);
         obj->ctPreview.Load();
         if (!obj->ctPreviewChildTrack) obj->ctPreview.SetPreview(-1, 0, true);
@@ -1065,6 +1088,9 @@ namespace CTRPluginFramework {
         u32 lastSelectedCup = obj->selectedCupIcon;  // Check it's not 0xA random button
         own->SetLastSelectedButton(obj->selectedCupIcon);
         moflexUpdateCup(own);
+
+        // Call this so that the text will be updated when cup is selected
+        UserCTHandler::UpdateCurrentCustomCup(-1, startingButtonID, obj->selectedCupIcon);
         
         if (obj->selectedCupIcon == 10) {
             bool isCupLocked = true;
@@ -1117,6 +1143,10 @@ namespace CTRPluginFramework {
             // Returned from a race, reload character voice
             CharacterHandler::SetupMenuVoices(CharacterHandler::GetSelectedMenuCharacter());
         }
+        if (PointsModeHandler::isPointsMode && PointsModeHandler::comesFromRace) {
+            // Returned from a race, cannot go back to select a character
+            SequenceHandler::addFlowPatch(0x5B3E8654, 0x235C, 0x4, 0x2); // GP cup to single
+        }
     }
 
     void MenuPageHandler::MenuMultiCupPage::OnPageEnter(GameSequenceSection* own) {
@@ -1155,8 +1185,11 @@ namespace CTRPluginFramework {
         bool isCupLocked = cupID < 0 || cupID > 7 && cupID < 0xA;
         for (int i = 0; i < 4; i++) {
             u32 nameID = CourseManager::getCourseGlobalIDName(cupID, i);
-            u32 courseID; CourseManager::getGPCourseID(&courseID, cupID, i);
-            bool courseLocked = std::find(MenuSingleCourseBasePage::blockedCourses.begin(), MenuSingleCourseBasePage::blockedCourses.end(), courseID) != MenuSingleCourseBasePage::blockedCourses.end();
+            bool courseLocked = false;
+            if (!PointsModeHandler::isPointsMode) {
+                u32 courseID; CourseManager::getGPCourseID(&courseID, cupID, i);
+                courseLocked = std::find(MenuSingleCourseBasePage::blockedCourses.begin(), MenuSingleCourseBasePage::blockedCourses.end(), courseID) != MenuSingleCourseBasePage::blockedCourses.end();
+            }
             
             u32 courseButtonHandle = (u32)(courseButtonDummies[i]->vtable->getRootPane(courseButtonDummies[i]));
             courseButtonDummies[i]->GetNwlytControl()->vtable->setVisibleImpl(courseButtonDummies[i]->GetNwlytControl(), courseButtonHandle, !isCupLocked);
@@ -1293,16 +1326,37 @@ namespace CTRPluginFramework {
 
     void MenuPageHandler::MenuSingleCupBasePage::CalcConveyor() {
         int lastSelectedButtton = gameSection->GetLastSelectedButton();
-        if (lastSelectedButtton == 8 || lastSelectedButtton == 9) {
-            if (prevSelectedButton == 0 || prevSelectedButton == 4) {
-                StartConveyor(true);
-            } else if (prevSelectedButton == 3 || prevSelectedButton == 7) {
-                StartConveyor(false);
+
+        bool rPressed = false, lPressed = false;
+
+        if (conveyorState == ConveyorState::STOPPED && !conveyorBlockedFrames) {
+            if (lastSelectedButtton == 8 || lastSelectedButtton == 9) {
+                if (prevSelectedButton == 0 || prevSelectedButton == 4) {
+                    lPressed = true;
+                } else if (prevSelectedButton == 3 || prevSelectedButton == 7) {
+                    rPressed = true;
+                }
+            }
+            if (!rPressed && !lPressed) {
+                rPressed = Controller::IsKeyDown(Key::R) || (g_StresserLastPad() & Key::R);
+                lPressed = !rPressed && Controller::IsKeyDown(Key::L);
+            }
+
+            if (netGP && !netGPimHost && hostStartingButtonID != startingButtonID) {
+                u32 size;
+                CourseManager::getCupTranslatetable(&size);
+                int diff = (hostStartingButtonID - startingButtonID + (size / 2)) % (size / 2);
+                if (diff <= size / 4) {
+                    rPressed = true;
+                } else {
+                    lPressed = true;
+                }
             }
         }
-        if (Controller::IsKeyDown(Key::R) && ((u8*)gameSection)[0x8F/1] == 0) {
+
+        if (rPressed && ((u8*)gameSection)[0x8F/1] == 0) {
             StartConveyor(false);
-        } else if (Controller::IsKeyDown(Key::L) && ((u8*)gameSection)[0x8F/1] == 0) {
+        } else if (lPressed && ((u8*)gameSection)[0x8F/1] == 0) {
             StartConveyor(true);
         }       
 
@@ -1326,7 +1380,6 @@ namespace CTRPluginFramework {
     void MenuPageHandler::MenuSingleCupBasePage::OnConveyorEnd(bool directionRight) {
         u32 size;
         void(*UIManipulatorSetCursor)(u32*, int) = (decltype(UIManipulatorSetCursor))GameFuncs::UIManipulatorSetCursor;
-        float(*AnimationItemGetCurrentFrame)(void*) = (decltype(AnimationItemGetCurrentFrame))GameFuncs::AnimationItemGetCurrentFrame;
 		CourseManager::getCupTranslatetable(&size);
         conveyorTimer = 100.f;
         SetCupButtonVisible(8, false);
@@ -1373,8 +1426,8 @@ namespace CTRPluginFramework {
         }
         VisualControl::GameVisualControl* newSelectedButtonControl = this->buttonList[lastSelectedbutton];
 
-        float prevButtonBackgroundLoopFrame = AnimationItemGetCurrentFrame(prevSelectedButtonControl->GetAnimationFamily(4)->GetAnimationItem(0));
-        float prevButtonIconLoopFrame = AnimationItemGetCurrentFrame(prevSelectedButtonControl->GetAnimationFamily(3)->GetAnimationItem(0));
+        float prevButtonBackgroundLoopFrame = prevSelectedButtonControl->GetAnimationFamily(4)->GetAnimationItem(0)->GetCurrentFrame();
+        float prevButtonIconLoopFrame = prevSelectedButtonControl->GetAnimationFamily(3)->GetAnimationItem(0)->GetCurrentFrame();
         int *currentManipulatorBlockedFrames = (int*)((u32)(gameSection->GetUIManipulator()) + 0x108);
         int prevManipulatorBlockedFrames = *currentManipulatorBlockedFrames;
 
@@ -1548,6 +1601,10 @@ namespace CTRPluginFramework {
                 buttonKeyHandlerCommon(own->GetButtonArray(0x2E0)[lastSelectedButton], 0, Key::A);
             obj->autoButtonPressed = true;
         }
+        if (obj->cancelCupSelect && ownU8[0x14/1] == 5 && ((u32*)defaultSlider)[0xC/4] && ((u8*)defaultSlider)[0x1866/1] && ownU8[0x8F/1] == 3) {
+            buttonKeyHandlerCommon(obj->backButtonControl, 0, Key::B);
+            obj->cancelCupSelect = false;
+        }
     }
 
     void MenuPageHandler::MenuSingleCupBasePage::ButtonHandler_SelectOn(GameSequenceSection* own, int buttonID) {
@@ -1577,6 +1634,9 @@ namespace CTRPluginFramework {
         else
             obj->ctPreview.SetPreview((buttonID == 9 || MissionHandler::isMissionMode) ? -2 : buttonID, obj->ctPreviewCurrTrack, false);
 
+        // Call this so that the text will be updated when cup is selected
+        UserCTHandler::UpdateCurrentCustomCup(-1, startingButtonID, own->GetLastSelectedButton());
+
         VisualControl::GameVisualControl** courseButtonDummies = (VisualControl::GameVisualControl**)(ownU32 + 0x2C8/4);
         for (int i = 0; i < 4; i++) {
             if (i == obj->ctPreviewCurrTrack && buttonID != 9)
@@ -1599,6 +1659,7 @@ namespace CTRPluginFramework {
 
     void MenuPageHandler::MenuSingleCupGPPage::ButtonHandler_OK(GameSequenceSection* own, int buttonID) {
         u32* ownU32 = (u32*)own;
+        u8* ownU8 = (u8*)own;
         MenuSingleCupGPPage* obj = (MenuSingleCupGPPage*)own->vtable->userData;
 
         void(*controlSliderStartH)(void* controlSlider) = (decltype(controlSliderStartH))GameFuncs::controlSliderStartH;
@@ -1609,10 +1670,24 @@ namespace CTRPluginFramework {
             return;
         
         if (buttonID != 8) {
+            if (VersusHandler::IsVersusMode) {
+                VersusHandler::OnCupSelect(buttonID);
+                buttonID = VERSUSCUPID;
+            }
+            else if (MissionHandler::isMissionMode) {
+                MissionHandler::OnCupSelect(buttonID);
+                buttonID = MISSIONCUPID;
+            } else if (PointsModeHandler::isPointsMode) {
+                PointsModeHandler::OnCupSelect(buttonID);
+                buttonID = POINTSCUPID;
+            }
+            UserCTHandler::UpdateCurrentCustomCup(buttonID, startingButtonID, own->GetLastSelectedButton());
+            MarioKartFramework::BasePageSetCup(buttonID & 0xFF);
+
             if (!((u8*)own)[0x2BC/1]) {
                 GarageRequestChangeState(MarioKartFramework::getGarageDirector(), 0xF, 1);
             }
-            ownU32[0x318/4] = 1;
+            ownU8[0x318/1] = 1;
             ownU32[0x314/4] = 0;
             SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
             ((u8*)controlSliderArray[0])[0x1838] = 1;
@@ -1622,20 +1697,10 @@ namespace CTRPluginFramework {
             ((u8*)controlSliderArray[0])[0x4] = 0;
             ((u32*)controlSliderArray[0])[0] = 0;
             controlSliderStartH(controlSliderArray[0]);
-            controlSliderStartH(controlSliderArray[0]);
-            if (VersusHandler::IsVersusMode) {
-                VersusHandler::OnCupSelect(buttonID);
-                buttonID = VERSUSCUPID;
-            }
-            else if (MissionHandler::isMissionMode) {
-                MissionHandler::OnCupSelect(buttonID);
-                buttonID = MISSIONCUPID;
-            }
-            UserCTHandler::UpdateCurrentCustomCup(buttonID);
-            MarioKartFramework::BasePageSetCup(buttonID & 0xFF);
+            controlSliderStartV(controlSliderArray[0]);
         } else {
             if (((u8*)own)[0x8F/1]) {
-                ownU32[0x318/4] = 1;
+                ownU8[0x318/1] = 1;
                 ownU32[0x314/4] = 0;
                 SeadArrayPtr<void*>& controlSliderArray = *(SeadArrayPtr<void*>*)(ownU32 + 0x26C/4);
                 ((u8*)controlSliderArray[0])[0x1838] = 2;
@@ -1645,13 +1710,17 @@ namespace CTRPluginFramework {
                 ((u8*)controlSliderArray[0])[0x4] = 1;
                 ((u32*)controlSliderArray[0])[0] = 0;
                 controlSliderStartH(controlSliderArray[0]);
-                controlSliderStartH(controlSliderArray[0]);
+                controlSliderStartV(controlSliderArray[0]);
                 obj->comesFromOK = true;
                 obj->autoButtonPressed = false;
             }
             u32 garageDirector = MarioKartFramework::getGarageDirector();
             garageDirectorFade(garageDirector, true);
-            GarageRequestChangeState(garageDirector, 0xB, 0);
+            if ((MissionHandler::isMissionMode || (PointsModeHandler::isPointsMode && PointsModeHandler::comesFromRace)) && !((u8*)own)[0x8F/1]) {
+                GarageRequestChangeState(garageDirector, 0x6, 1);
+            } else {
+                GarageRequestChangeState(garageDirector, 0xB, 0);
+            }
         }
     }
 
@@ -1668,8 +1737,11 @@ namespace CTRPluginFramework {
         else if (MissionHandler::isMissionMode) {
             MissionHandler::OnCupSelect(buttonID);
             buttonID = MISSIONCUPID;
+        } else if (PointsModeHandler::isPointsMode) {
+            PointsModeHandler::OnCupSelect(buttonID);
+            buttonID = POINTSCUPID;
         }
-        UserCTHandler::UpdateCurrentCustomCup(buttonID);
+        UserCTHandler::UpdateCurrentCustomCup(buttonID, startingButtonID, own->GetLastSelectedButton());
         MarioKartFramework::BasePageSetCup(buttonID & 0xFF);
 
         if (!((u8*)own)[0x2BC/1]) {
@@ -1690,20 +1762,39 @@ namespace CTRPluginFramework {
         }
     }
 
-    void MenuPageHandler::MenuMultiCupGPPage::OnPageComplete(GameSequenceSection* own) {
-        ((MenuMultiCupGPPage*)own->vtable->userData)->OnPageCompleteBackup(own);
+    void MenuPageHandler::MenuMultiCupGPPage::OnPageExit(GameSequenceSection* own) {
+        ((MenuMultiCupGPPage*)own->vtable->userData)->OnPageExitBackup(own);
+        ((MenuSingleCupGPPage*)own->vtable->userData)->ctPreview.Unload();
+        int uiManipulatorLastButton =  own->GetLastSelectedButton();
+        if (uiManipulatorLastButton >= 0)
+            ((MenuSingleCupGPPage*)own->vtable->userData)->selectedCupIcon = uiManipulatorLastButton;
+    }
 
-        void(*SequenceStartFadeout)(int faderType, u32 frames, int faderScreen) = (decltype(SequenceStartFadeout))GameFuncs::SequenceStartFadeout;
-        void(*SequenceReserveFadeIn)(int faderType, u32 frames, int faderScreen) = (decltype(SequenceStartFadeout))GameFuncs::SequenceReserveFadeIn;
-        
-        SequenceStartFadeout(1, 30, 2);
-        SequenceReserveFadeIn(1, 30, 2);
-        ((u8*)own)[0x320/1] = 1;
+    int MenuPageHandler::MenuMultiCupGPPage::GetCorrectButtonID(int origButtonID) {
+        MenuMultiCupGPPage* page = GetInstace();
+        return (origButtonID == 8 || origButtonID == 9) ? origButtonID : page->gameSection->GetLastSelectedButton();
+    }
+
+    void MenuPageHandler::MenuMultiCupGPPage::OnCompleteNetworkButtonID(int origButtonID)
+    {
+        // The code is bugged and couldnt figure out why
+        // for some reason if the cup id is not < 8 then it displays an OK button on clients
+        // instead of skipping it and going into the race.
+        // As a hack, we force pressing the OK button directly instead of the cup icon.
+        // Since we never press the cup icon we call the button handler ok with the cup button ID
+        void(*buttonKeyHandlerCommon)(VisualControl::GameVisualControl*, int, Key) = (decltype(buttonKeyHandlerCommon))GameFuncs::buttonKeyHandlerCommon;
+
+        MenuMultiCupGPPage* page = GetInstace();
+
+        int buttonID = ((u32*)page->buttonList[origButtonID])[0x214/4];
+        MenuSingleCupGPPage::ButtonHandler_OK(page->gameSection, buttonID);
+
+        buttonKeyHandlerCommon(page->raceStartControl, 0, Key::A);
     }
 
     void MenuPageHandler::MenuSingleCupBasePage::OnPageExit(GameSequenceSection* own, bool isCupBase) {
         u32* ownU32 = (u32*)own;
-        ((MenuMultiCupGPPage*)own->vtable->userData)->isInPage = false;
+        ((MenuSingleCupBasePage*)own->vtable->userData)->isInPage = false;
         void(*MoflexReset)(bool enable) = (decltype(MoflexReset))GameFuncs::MoflexReset;
 
         VisualControl::GameVisualControl* movieView = (VisualControl::GameVisualControl*)ownU32[0x2C0/4];
@@ -2123,7 +2214,7 @@ namespace CTRPluginFramework {
         }
         if (page->loadAllIconsDelay != 0)
             page->loadAllIconsDelay--;
-        bool rPressed = Controller::IsKeyDown(Key::R);
+        bool rPressed = Controller::IsKeyDown(Key::R) || (g_StresserLastPad() & Key::R);
         bool lPressed = !rPressed && Controller::IsKeyDown(Key::L);
         if ((rPressed || lPressed) && page->coolDownScrollTimer == 0) {
             page->coolDownScrollTimer = 15;
@@ -2389,5 +2480,17 @@ namespace CTRPluginFramework {
     }
 
     void MenuPageHandler::InitHooksFromDefinePageClassInfoList(u32 funcaddr) {
-    }   
+    }
+    int MenuPageHandler::OnMenuModeSetterOnTaskMain(u32 menuModeSetterTask)
+    {
+        // 0 -> GP, 1 -> TT, 2 -> VS, 3 -> Coin, 4 -> Balloon
+        u32 mode = ((u32*)menuModeSetterTask)[0x48/4];
+        u32 garageDirector = MarioKartFramework::getGarageDirector();
+
+        if (MissionHandler::isMissionMode || PointsModeHandler::isPointsMode) mode = 1;
+
+        ((u8*)garageDirector)[0x64] = mode;
+
+        return 0;
+    }
 }

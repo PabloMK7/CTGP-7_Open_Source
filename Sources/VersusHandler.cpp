@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VersusHandler.cpp
-Open source lines: 696/696 (100.00%)
+Open source lines: 745/745 (100.00%)
 *****************************************************/
 
 #include "VersusHandler.hpp"
@@ -23,6 +23,9 @@ Open source lines: 696/696 (100.00%)
 #include "str16utils.hpp"
 #include <algorithm>
 #include "CustomTextEntries.hpp"
+#include "PointsModeHandler.hpp"
+#include "Stresser.hpp"
+#include "AsyncRunner.hpp"
 
 namespace CTRPluginFramework {
 
@@ -58,7 +61,9 @@ namespace CTRPluginFramework {
 		"cup_rock",
 		"cup_moon",
 		"cup_hammer",
-		"cup_wonder"
+		"cup_wonder",
+		"cup_shine",
+		"cup_darkstar",
 	};
 
 	std::vector<CustomIcon> VersusHandler::cupIcons;
@@ -160,6 +165,9 @@ namespace CTRPluginFramework {
 		u32 selCup = 0x8;
 		const u32* cupTransTable = CourseManager::getCupTranslatetable(&maxButton, true);
 		int isArrow = 0;
+#if STRESS_MODE == 1
+		return cupTransTable[g_StresserRnd(0, maxButton)];
+#endif
 		while (loop) {
 			keyboardArgs.startCupButton = startCupButton;
 			keyboardArgs.topMessage = &topMessage;
@@ -225,12 +233,15 @@ namespace CTRPluginFramework {
 		return selCup;
 	}
 
-	u32 VersusHandler::OpenCourseKeyboard(u32 cupId, bool canAbort)
+	u32 VersusHandler::OpenCourseKeyboard(u32 cupId, bool canAbort, const std::string& topMessage, void(*event)(Keyboard&, KeyboardEvent &event))
 	{
-		if (cupId == 0x8) return 0xFFFFFFFF;
-		Keyboard courseKbd("");
+		if (cupId == 0x8) return INVALIDTRACK;
+		Keyboard courseKbd(topMessage);
 		courseKbd.CanAbort(canAbort);
-		courseKbd.DisplayTopScreen = false;
+		if (topMessage == "")
+			courseKbd.DisplayTopScreen = false;
+		if (event)
+			courseKbd.OnKeyboardEvent(event);
 		std::vector<std::string> courses;
 		std::string s;
 		for (int i = 0; i < 4; i++) {
@@ -240,8 +251,15 @@ namespace CTRPluginFramework {
 		}
 		courseKbd.Populate(courses);
 		while (true) {
+#if STRESS_MODE == 1
+			int val = g_StresserRnd(0, 4);
+#else
 			int val = courseKbd.Open();
+#endif
 			if (val == -2) {
+				if (canAbort) {
+					return INVALIDTRACK;
+				}
 				int lastVal = courseKbd.GetLastSelectedEntry();
 				if (lastVal >= 0 && lastVal <= 3)
 					val = lastVal;
@@ -296,10 +314,12 @@ namespace CTRPluginFramework {
 		if (openSettingsKeyboardMode == 1) {
 			OpenSettingsKeyboard();
 		} else if (openSettingsKeyboardMode == 2) {
+#if STRESS_MODE != 1
 			PluginMenu::GetRunningInstance()->ForceOpen();
+#endif
 		}
 		openSettingsKeyboardMode = 0;
-		*(PluginMenu::GetRunningInstance()) -= OpenSettingsKeyboardCallback;
+		AsyncRunner::StopAsync(OpenSettingsKeyboardCallback);
 	}
 
 	void VersusHandler::getCupKeyboardText(std::string& string, u32 cup, std::string& topMessage) {
@@ -404,15 +424,26 @@ namespace CTRPluginFramework {
 		bool loop = true;
 		u32 round;
 		int val;
+		int res, subRes;
 		Process::Pause();
 		while (loop) {
 			getSettingsKeyboardText(mainSet.GetMessage());
 			subSet.GetMessage() = mainSet.GetMessage();
-			switch (mainSet.Open())
+#if STRESS_MODE == 1
+			res = g_StresserRnd(0, 6);
+#else
+			res = mainSet.Open();
+#endif
+			switch (res)
 			{
 			case 1:
 				subSet.Populate(cpudifficulty, true);
-				switch (subSet.Open())
+#if STRESS_MODE == 1
+				subRes = g_StresserRnd(0, 3);
+#else
+				subRes = subSet.Open();
+#endif
+				switch (subRes)
 				{
 				case 0:
 					SaveHandler::saveData.vsSettings.cpuOption = VSCPUDifficulty::STANDARD;
@@ -430,18 +461,28 @@ namespace CTRPluginFramework {
 			case 2:
 				subSet.SetCompareCallback([](const void* val, std::string& error) {
 					const u32* nval = (u32*)val;
-					if (*nval < 0 || *nval > 7) {
+					if (*nval > 7) {
 						error = Utils::Format(NAME("num_betw").c_str(), 0, 7);
 						return false;
 					}
 					return true;
 				});
+#if STRESS_MODE == 1
+				val = 0;
+				round = g_StresserRnd(0, 8);
+#else
 				val = subSet.Open(round, SaveHandler::saveData.vsSettings.cpuAmount);
+#endif
 				if (val == 0) SaveHandler::saveData.vsSettings.cpuAmount = round;
 				break;
 			case 3:
 				subSet.Populate(courseOpts, true);
-				switch (subSet.Open())
+#if STRESS_MODE == 1
+				subRes = g_StresserRnd(0, 6);
+#else
+				subRes = subSet.Open();
+#endif
+				switch (subRes)
 				{
 				case 0:
 					SaveHandler::saveData.vsSettings.courseOption = VSCourseOption::CHOOSE;
@@ -474,12 +515,22 @@ namespace CTRPluginFramework {
 					}
 					return true;
 				});
+#if STRESS_MODE == 1
+				val = 0;
+				round = g_StresserRnd(1, 33);
+#else
 				val = subSet.Open(round, SaveHandler::saveData.vsSettings.roundAmount);
+#endif			
 				if (val == 0) SaveHandler::saveData.vsSettings.roundAmount = round;
 				break;
 			case 5:
 				subSet.Populate(itemOpts, true);
-				switch (subSet.Open())
+#if STRESS_MODE == 1
+				subRes = g_StresserRnd(0, 6);
+#else
+				subRes = subSet.Open();
+#endif
+				switch (subRes)
 				{
 				case 0:
 					SaveHandler::saveData.vsSettings.itemOption = EItemMode::ITEMMODE_ALL;
@@ -593,10 +644,14 @@ namespace CTRPluginFramework {
 	void VersusHandler::OnCupSelectCallback()
 	{
 		Process::Pause();
-		u32 courseID = OpenCourseKeyboard(g_selectedCupID, false);
+		u32 courseID = OpenCourseKeyboard(g_selectedCupID, true);
+		if (courseID == INVALIDTRACK) {
+			MenuPageHandler::MenuSingleCupGPPage::GetInstace()->cancelCupSelect = true;
+		} else {
+			GenerateVersusCupTable(courseID);
+		}
 		Process::Play();
-		GenerateVersusCupTable(courseID);
-		*(PluginMenu::GetRunningInstance()) -= OnCupSelectCallback;
+		AsyncRunner::StopAsync(OnCupSelectCallback);
 	}
 
 	void VersusHandler::OnCupSelect(u32 cupID)
@@ -607,7 +662,7 @@ namespace CTRPluginFramework {
 		}
 		else {
 			g_selectedCupID = cupID;
-			*(PluginMenu::GetRunningInstance()) += OnCupSelectCallback;
+			AsyncRunner::StartAsync(OnCupSelectCallback);
 		}
 		ApplyVSModeSettings();
 	}
@@ -619,7 +674,7 @@ namespace CTRPluginFramework {
 			u32 nextTrack = OpenCupCourseKeyboard(&MenuPageHandler::MenuSingleCupBasePage::startingButtonID, &selectedCupButtonKeyboard, false, topMessage);
 			versusCupTable[currentVersusCupTableEntry + 1] = nextTrack;
 		}
-		*(PluginMenu::GetRunningInstance()) -= OnNextTrackLoadCallback;
+		AsyncRunner::StopAsync(OnNextTrackLoadCallback);
 	}
 
 	void VersusHandler::OnNextTrackLoad()
@@ -630,7 +685,7 @@ namespace CTRPluginFramework {
 	void VersusHandler::OnNextMenuShow()
 	{
 		if (IsVersusMode && SaveHandler::saveData.vsSettings.courseOption == VSCourseOption::CHOOSE) {
-			*(PluginMenu::GetRunningInstance()) += OnNextTrackLoadCallback;
+			AsyncRunner::StartAsync(OnNextTrackLoadCallback);
 		}
 	}
 
@@ -643,16 +698,10 @@ namespace CTRPluginFramework {
 
 		IsVersusMode = false;
 		MissionHandler::onModeMissionExit();
-		UserCTHandler::UpdateCurrentCustomCup(0);
+		PointsModeHandler::onPointsModeExit();
+		UserCTHandler::UpdateCurrentCustomCup(0, -1, -1);
 		CharacterHandler::ResetCharacters();
 		MarioKartFramework::ClearCustomItemMode();
-	}
-
-	void VersusHandler::OnMenuSingleOKCallback(u32 val) {
-		if (val == 2)
-			IsVersusMode = true;
-		else if (val == 3)
-			MissionHandler::onModeMissionEnter();
 	}
 
 	void VersusHandler::OpenItemSelectorMenu(bool isRandom) {

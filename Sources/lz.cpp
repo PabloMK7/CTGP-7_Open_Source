@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: lz.cpp
-Open source lines: 591/591 (100.00%)
+Open source lines: 594/594 (100.00%)
 *****************************************************/
 
 #include "lz.hpp"
@@ -560,13 +560,16 @@ namespace CTRPluginFramework {
     static s32 lzCompressFunc(void* args UNUSED) {
         g_lzCompressResult.outputSize = LZ_Compress((u8*)g_lzCompressArg.inputAddr, ((u8*)g_lzCompressResult.outputAddr) + 4, g_lzCompressArg.inputSize) + 4;
         ((u32*)g_lzCompressResult.outputAddr)[0] = g_lzCompressArg.inputSize;
+        if (g_lzCompressArg.onCompressFinish) {
+            g_lzCompressArg.onCompressFinish(g_lzCompressResult);
+        }
         return 0;
     }
 
     static Task g_lzCompressTask(lzCompressFunc);
 
     void LZ77Compress(const LZCompressArg& input) {
-        g_lzCompressTask.Wait();
+        LZ77CompressWait();
         LZ77Cleanup();
         g_lzCompressArg = input;
         g_lzCompressResult.outputAddr = operator new(input.inputSize + input.inputSize * 0.004f + 1 + 4);

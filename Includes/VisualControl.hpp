@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: VisualControl.hpp
-Open source lines: 382/382 (100.00%)
+Open source lines: 393/393 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -106,28 +106,38 @@ namespace CTRPluginFramework {
         };
 
         struct AnimationFamily {
+            struct AnimationItem {
+                u32 vtable;
+
+                float GetCurrentFrame();
+            };
+            
             struct AnimationItemArray
             {
                 u32 size;
-                u32* data;
-                u32 current;
+                AnimationItem** data;
             };
             u32 vtable;
             u32 unk;
             u32 unk2;
             AnimationItemArray animArray;
+            u32 current_anim;
+            float unk3;
 
             void SetAnimation(u32 subAnimationID, float frame);
             void ChangeAnimation(u32 subAnimationID, float frame);
             void ChangeAnimationByRate(u32 subAnimationID, float frame);
 
-            void* GetAnimationItem(u32 subAnimationID) {
-                void* animationItem = (void*)animArray.data[subAnimationID < animArray.size ? subAnimationID : 0];
+            // Gets progress of current animation
+            float GetAnimationRate();
+
+            AnimationItem* GetAnimationItem(u32 subAnimationID) {
+                AnimationItem* animationItem = animArray.data[subAnimationID < animArray.size ? subAnimationID : 0];
                 return animationItem;
             }
 
             u32 GetCurrentAnimationItem() {
-                return animArray.current;
+                return current_anim;
             }
         };
 
@@ -273,10 +283,10 @@ namespace CTRPluginFramework {
             static AnimationDefineVtable empty;
 
             enum class AnimationKind : s32 {
-                NOPLAY = -1,
-                ONCE = 0,
-                LOOP = 1,
-                HOLD = 2
+                NOPLAY = -1, // Does not play, frame needs to be set manually
+                ONCE = 0, // Plays once, then returns to frame 0
+                LOOP = 1, // Plays in a loop until the animation is changed
+                NEXT = 2 // Plays once, then goes to the next animation
             };
 
             void InitAnimationFamilyList(int animationCount);
@@ -359,6 +369,7 @@ namespace CTRPluginFramework {
             static u32 animFamilySetAnimation;
             static u32 animFamilyChangeAnimation;
             static u32 animFamilyChangeAnimationByRate;
+            static u32 animFamilyGetAnimationRate;
 
             static u32 BaseMenuViewControlCons;
         };

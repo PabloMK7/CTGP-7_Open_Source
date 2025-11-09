@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.hpp
-Open source lines: 147/147 (100.00%)
+Open source lines: 100/100 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -17,59 +17,6 @@ Open source lines: 147/147 (100.00%)
 #include <vector>
 
 namespace CTRPluginFramework {
-	class BadgeManager {
-	public:
-		
-		class Badge {
-		public:
-			u64 bID;
-			u64 epoch;
-			std::string name;
-			std::string desc;
-			BCLIM icon;
-		};
-
-		enum GetBadgeMode {
-			SAVED = (1 << 0),
-			CACHED = (1 << 1),
-			BOTH = SAVED | CACHED,
-		};
-
-		static void Initialize();
-
-		static std::vector<u64> GetSavedBadgeList();
-		static Badge GetBadge(u64 badgeID, GetBadgeMode mode);
-
-		static void ProcessMyBadges(const std::vector<u64>& badges, const std::vector<u64>& times);
-
-		static void BadgesMenuKbdEvent(Keyboard& kbd, KeyboardEvent &event);
-		static void BadgesMenu(MenuEntry* entry);
-
-		static bool CheckAndShowBadgePending();
-
-		static void CommitToFile();
-		
-		static void UpdateOnlineBadges();
-		static s32 CacheBadgesFunc(void* args);
-		static void CacheBadges(const std::vector<u64>& badges);
-		static void ClearBadgeCache();
-
-		static void SetupExtraResource();
-
-		static minibson::document saved_badges;
-		static minibson::document cached_badges;
-		static Mutex badges_mutex;
-
-		static u64 cache_badge_time;
-		static std::vector<u64> badges_to_cache;
-		static Task cacheBadgesTask;
-		static BCLIM empty_badge;
-		static std::array<BCLIM, 8> badge_slots;
-	private:
-		static minibson::document& GetBadgeDocument(u64 badgeID, GetBadgeMode mode);
-		static std::vector<u64> RequestBadges(minibson::document& out_document, const std::vector<u64> badges);
-	};
-
 	class StatsHandler
 	{
 	public:
@@ -90,6 +37,8 @@ namespace CTRPluginFramework {
 			CD_RACES,
 			ONLINE_COIN_BATTLES,
 			ONLINE_BALLOON_BATTLES,
+			SCORE_ATTACK_RACES,
+			WEEKLY_CHALLENGE_ATTEMPTS,
 			R_END,
 
 			M_START,
@@ -103,7 +52,8 @@ namespace CTRPluginFramework {
 			
 			RACE_POINTS,
 			
-			TRACK_FREQ
+			TRACK_FREQ,
+			SCORE_ATTACK_MEAN,
 		};
 
 		static void Initialize();
@@ -113,12 +63,14 @@ namespace CTRPluginFramework {
 		static minibson::document FetchSendStatus();
 
 		static int GetStat(Stat stat, int courseID = -1);
+		static std::pair<s64, s64> GetStatPair(Stat stat, int courseID = -1);
 		static void IncreaseStat(Stat stat, int courseID = -1, int amount = 1);
 		static double GetMissionMean();
 		static void UpdateMissionMean(double newValue, bool increaseCount = true);
 
 		static void OnCourseFinish();
 		static void OnMissionFinish(int missionGrade, bool checksumValid, int world);
+		static void OnScoreAttackFinish(bool isweekly, int score, int courseID);
 		static void StatsMenu(MenuEntry* entry);
 	private:
 		static const char* statStr[];
@@ -130,13 +82,14 @@ namespace CTRPluginFramework {
 
 		static s32 racePointsPos;
 
-		static const minibson::document& GetUploadedStats();
-		static const minibson::document& GetPendingStats();
+		static minibson::document& GetUploadedStats();
+		static minibson::document& GetPendingStats();
 		static int GetSequenceID();
 		static void SetSequenceID(int seqID);
 		static void RemovePendingUploads();
 		static s32 UploadStatsFunc(void* args);
 		static int GetDocStat(const minibson::document& doc, Stat stat, int courseID = -1);
+		static std::pair<s64, s64> GetDocStatPair(const minibson::document& doc, Stat stat, int courseID = -1);
 		static void IncreaseDocStat(minibson::document &doc, Stat stat, int courseID = -1, int amount = 1);
 		static void ForceDocStat(minibson::document &doc, Stat stat, int courseID, int amount);
 		static std::pair<double, int> GetDocMissionMean(const minibson::document& doc);

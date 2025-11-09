@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: rt.cpp
-Open source lines: 77/77 (100.00%)
+Open source lines: 84/84 (100.00%)
 *****************************************************/
 
 #include <cstring>
@@ -46,32 +46,39 @@ u32 rtGenerateJumpCode(u32 dst, u32* buf) {
 	return 8;
 }
 
-void rtInitHook(RT_HOOK* hook, u32 funcAddr, u32 callbackAddr) {
-	hook->isEnabled = 0;
-	hook->funcAddr = funcAddr;
+void rtSimpleHook(u32 funcAddr, u32 callbackAddr)
+{
+	rtGenerateJumpCode(callbackAddr, (u32*)funcAddr);
+}
 
-	memcpy(hook->bakCode, (void*) funcAddr, 8);
-	rtGenerateJumpCode(callbackAddr, hook->jmpCode);
+void rtInitHook(RT_HOOK *hook, u32 funcAddr, u32 callbackAddr)
+{
+    hook->funcAddr = funcAddr;
+	hook->dstAddress = callbackAddr;
+
 	memcpy(hook->callCode, (void*) funcAddr, 8);
 	rtGenerateJumpCode(funcAddr + 8, &(hook->callCode[2]));
 }
 
 void rtEnableHook(RT_HOOK* hook) {
-	if (hook->isEnabled) {
+	if (rtHookEnabled(hook)) {
 		return;
 	}
-	u32* dst = (u32*)hook->funcAddr;
-	dst[0] = hook->jmpCode[0];
-	dst[1] = hook->jmpCode[1];
-	hook->isEnabled = 1;
+	u32* src = (u32*)hook->funcAddr;
+	rtGenerateJumpCode(hook->dstAddress, src);
 }
 
 void rtDisableHook(RT_HOOK* hook) {
-	if (!hook->isEnabled) {
+	if (!rtHookEnabled(hook)) {
 		return;
 	}
-	u32* dst = (u32*)hook->funcAddr;
-	dst[0] = hook->bakCode[0];
-	dst[1] = hook->bakCode[1];
-	hook->isEnabled = 0;
+	u32* src = (u32*)hook->funcAddr;
+	src[0] = hook->callCode[0];
+	src[1] = hook->callCode[1];
+}
+
+bool rtHookEnabled(RT_HOOK *hook)
+{
+	u32* src = (u32*)hook->funcAddr;
+	return src[1] == hook->dstAddress;
 }

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 442/531 (83.24%)
+Open source lines: 448/537 (83.43%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -12,7 +12,7 @@ Open source lines: 442/531 (83.24%)
 
 namespace CTRPluginFramework {
 	u64 NetHandler::ConsoleSecureHash[2] = {0, 0};
-	std::vector<NetHandler::Session*> NetHandler::Session::pendingSessions;
+	std::vector<std::shared_ptr<NetHandler::Session>> NetHandler::Session::pendingSessions;
 	Mutex NetHandler::Session::pendingSessionsMutex{};
 	ThreadEx* NetHandler::Session::sessionThread;
 	LightEvent NetHandler::Session::threadEvent;
@@ -40,11 +40,14 @@ namespace CTRPluginFramework {
 		"req_discordinfo",
 		"put_miiicon",
 		"req_onlinetoken",
-		"req_uniquepid",
+		"req_uniquepidv2",
 		"req_roomcharids",
 		"req_message",
 		"put_ultrashortcut",
 		"req_badges",
+		"req_ptsweekcfg",
+		"req_ptsweekbrd",
+		"put_ptsweekscore",
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)
@@ -63,7 +66,7 @@ namespace CTRPluginFramework {
 		LightEvent_Init(&threadEvent, RESET_STICKY);
 		LightEvent_Init(&threadFinishEvent, RESET_ONESHOT);
 		#if CITRA_MODE == 0
-		sessionThread = new ThreadEx(sessionFunc, 0x800, 0x20, System::IsNew3DS() ? 2 : 1);
+		sessionThread = new ThreadEx(sessionFunc, 0x800, 0x20, 1);
 		#else
 		sessionThread = new ThreadEx(sessionFunc, 0x800, 0x20, 1);
 		#endif
@@ -135,16 +138,11 @@ namespace CTRPluginFramework {
 			return defaultDoc;
 	}
 
-	void NetHandler::Session::Start()
+	void NetHandler::Session::PrepareStart()
 	{
-		Lock lock(pendingSessionsMutex);
-
 		status = Status::PROCESSING;
 		isFinished = false;
-		pendingSessions.push_back(this);
 		LightEvent_Clear(&waitEvent);
-
-		LightEvent_Signal(&threadEvent);	
 	}
 
 	void NetHandler::Session::Wait()
@@ -199,7 +197,7 @@ namespace CTRPluginFramework {
 
 	void NetHandler::Session::sessionFunc(void* arg)
 	{		
-		Session* currS;
+		std::shared_ptr<Session> currS;
 		u32				downSize = 0;
 		u32             responseCode = 0;
 		u32             totalSize = 0, bytesRead = 0;
@@ -258,7 +256,7 @@ namespace CTRPluginFramework {
 					{
 						if (responseCode == 200)
 						{
-							if (totalSize == 0 || totalSize > 0x2000) {
+							if (totalSize == 0 || totalSize > 0x4000) {
 								res = -4;
 							}
 							else {
@@ -296,6 +294,7 @@ namespace CTRPluginFramework {
 				if (!repeatSession) LightEvent_Signal(&currS->waitEvent);
 			}
 			if (R_SUCCEEDED(initres)) httpcExit();
+			currS.reset();
 		}
 
 		LightEvent_Signal(&threadFinishEvent);
@@ -325,7 +324,7 @@ namespace CTRPluginFramework {
 	{
 	}
 
-	NetHandler::RequestHandler::RequestHandler() : session(NetHandler::mainServerURL) { }
+	NetHandler::RequestHandler::RequestHandler() : session( std::make_unique<Session>(NetHandler::mainServerURL)) { }
 
 	template<class Tin>
 	void NetHandler::RequestHandler::AddRequest(RequestType type, const Tin& value)
@@ -352,57 +351,64 @@ namespace CTRPluginFramework {
 	void NetHandler::RequestHandler::Cleanup()
 	{
 		Lock l(requestMutex);
-		session.Cleanup();
+		session->Cleanup();
 		doc.clear();
 		addedRequests.clear();
 	}
 
-	void NetHandler::RequestHandler::Start(bool startSession)
+	void NetHandler::RequestHandler::Start()
 	{
 		Lock l(requestMutex);
-		session.SetData(doc);
+		session->SetData(doc);
 		doc.clear();
-		if (startSession) session.Start();
+			
+		session->PrepareStart();
+		{
+			Lock lock(Session::pendingSessionsMutex);
+			Session::pendingSessions.push_back(session);
+		}
+		
+		LightEvent_Signal(&Session::threadEvent);
 	}
 
 	void NetHandler::RequestHandler::Wait()
 	{
-		session.Wait();
+		session->Wait();
 	}
 
 	void NetHandler::RequestHandler::WaitTimeout(const Time& time)
 	{
-		session.WaitTimeout(time);
+		session->WaitTimeout(time);
 	}
 
 	Result NetHandler::RequestHandler::GetLastResult()
 	{
-		return session.lastRes;
+		return session->lastRes;
 	}
 
 	NetHandler::Session::Status NetHandler::RequestHandler::GetStatus()
 	{
-		return session.GetStatus();
+		return session->GetStatus();
 	}
 
 	bool NetHandler::RequestHandler::HasFinished()
 	{
-		return session.HasFinished();
+		return session->HasFinished();
 	}
 
 	void NetHandler::RequestHandler::SetFinishedCallback(bool(*callback)(RequestHandler*))
 	{
-		session.setFinishedCallback(reinterpret_cast<bool(*)(void*)>(callback), this);
+		session->setFinishedCallback(reinterpret_cast<bool(*)(void*)>(callback), this);
 	}
 
 	template<class Tout>
 	int NetHandler::RequestHandler::GetResult(RequestType type, Tout* value)
 	{
 		int res = -1;
-		if (session.GetStatus() != Session::Status::SUCCESS)
+		if (session->GetStatus() != Session::Status::SUCCESS)
 			return res;
 
-		const minibson::document& out = session.GetData();
+		const minibson::document& out = session->GetData();
 
 		if (out.contains<minibson::document>(reqStr[(int)type])) {
 			minibson::document defDoc;
@@ -419,10 +425,10 @@ namespace CTRPluginFramework {
 	int NetHandler::RequestHandler::GetResult(RequestType type, minibson::document* value)
 	{
 		int res = -1;
-		if (session.GetStatus() != Session::Status::SUCCESS)
+		if (session->GetStatus() != Session::Status::SUCCESS)
 			return res;
 
-		const minibson::document& out = session.GetData();
+		const minibson::document& out = session->GetData();
 
 		if (out.contains<minibson::document>(reqStr[(int)type])) {
 			minibson::document defDoc;

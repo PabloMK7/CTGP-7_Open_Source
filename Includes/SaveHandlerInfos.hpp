@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandlerInfos.hpp
-Open source lines: 156/156 (100.00%)
+Open source lines: 158/158 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -28,7 +28,7 @@ namespace CTRPluginFramework {
 		"7_1",  // VS_CUSTOM_ITEMS_RANDOM
 		"7_2",  // VS_CUSTOM_ITEMS_CUSTOM 
 
-		"a",	// SCREENSHOT_HOTKEY
+		"a",	// SCREENSHOT_HOTKEY_LEGACY
 		"b",	// BACKCAM_ENABLED
 		"c",	// WARNITEM_ENABLED
 		"d",	// FIRST_OPENING
@@ -36,7 +36,7 @@ namespace CTRPluginFramework {
 		"f",	// READY_TO_FOOL
 		"g",	// CTWW_ACTIVATED
 		"h",	// ALPHABETICAL_ENABLED
-		"i",	// SCREENSHOT_ENABLED
+		"i",	// SCREENSHOT_ENABLED_LEGACY
 		"j",	// IMPROVEDROULETTE_ENABLED
 		"k",	// NUMBER_OF_ROUNDS
 		"l",	// SERVER_UPLOAD_STATS
@@ -54,7 +54,7 @@ namespace CTRPluginFramework {
 		"w", 	// ACHIEVEMENTS
 		"x",    // AUTOMATIC_DELAY_DRIFT
 		"y",	// USE_CTGP7_SERVER
-		"z",	// PRINCIPAL_ID
+		"zz",	// PRINCIPAL_ID
 		"_0",   // CHAR_HANDLER_DRIVER_CHOICES
 		"_1",   // CHAR_HANDLER_DISABLED
 		"_2",   // COLLECTED_BLUE_COINS
@@ -67,6 +67,7 @@ namespace CTRPluginFramework {
 		"_9",   // USE_BADGE_ONLINE
 		"_a",   // NEEDS_BADGE_OBTAINED_MSG
 		"_b",   // BLUE_SHELL_DODGE_AMOUNT
+		"_c",   // IMPROVED_HONK
 	};
 
 	class CTGP7SaveInfo
@@ -89,7 +90,7 @@ namespace CTRPluginFramework {
 			VS_CUSTOM_ITEMS_RANDOM,
 			VS_CUSTOM_ITEMS_CUSTOM,
 
-			SCREENSHOT_HOTKEY,
+			SCREENSHOT_HOTKEY_LEGACY,
 			BACKCAM_ENABLED,
 			WARNITEM_ENABLED,
 			FIRST_OPENING,
@@ -97,7 +98,7 @@ namespace CTRPluginFramework {
 			READY_TO_FOOL,
 			CTWW_ACTIVATED,
 			ALPHABETICAL_ENABLED,
-			SCREENSHOT_ENABLED,
+			SCREENSHOT_ENABLED_LEGACY,
 			IMPROVEDROULETTE_ENABLED,
 			NUMBER_OF_ROUNDS,
 
@@ -145,6 +146,7 @@ namespace CTRPluginFramework {
 			NEEDS_BADGE_OBTAINED_MSG,
 
 			BLUE_SHELL_DODGE_AMOUNT,
+			IMPROVED_HONK,
 		};
 
 		static constexpr const char* getSaveCode(CTGP7SaveCode saveCode) {

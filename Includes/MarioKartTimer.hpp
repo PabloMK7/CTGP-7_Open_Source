@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartTimer.hpp
-Open source lines: 151/151 (100.00%)
+Open source lines: 158/158 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -53,7 +53,11 @@ namespace CTRPluginFramework {
 			float tot = ((float)Frames / FramesPerSecond);
 			float floor = floorf(tot);
 			return tot * 1000 - floor * 1000;
-		}	
+		}
+
+        inline void DecrementIfNonZero() {
+            if (Frames) --(*this);
+        }
 
         std::string Format();
 
@@ -64,7 +68,9 @@ namespace CTRPluginFramework {
 
         inline MarioKartTimer operator-(const MarioKartTimer& right) const
         {
-            return MarioKartTimer(this->Frames - right.Frames);
+            int newFrames = (int)this->Frames - (int)right.Frames;
+            if (newFrames < 0) newFrames = 0;
+            return MarioKartTimer(newFrames);
         }
 
         inline MarioKartTimer operator*(const u32 amount) const
@@ -122,7 +128,8 @@ namespace CTRPluginFramework {
 
         inline MarioKartTimer& operator--()
         {
-            --this->Frames;
+            if (this->Frames)
+                --this->Frames;
             return *this;
         }
 

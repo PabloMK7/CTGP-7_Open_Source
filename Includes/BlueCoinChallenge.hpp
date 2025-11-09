@@ -23,7 +23,7 @@ namespace CTRPluginFramework {
         static std::u16string blueCoinCollectedStr;
         static void InitCoinLocations();
         static void SetCoinCollected(u32 courseID);
-        static bool closeCoinCollectedDialog(const Screen &s);
+        static void closeCoinCollectedDialog();
         
         static void SaveCoinLoc();
         static void DumpCoinLocsToFile();

@@ -17,7 +17,7 @@ Open source lines: 40/40 (100.00%)
 #include <3ds/services/frd.h>
 #include <3ds/util/utf.h>
 
-Result FRD_GetMyPassword(char *password, size_t max_size)
+Result FRDExt_GetMyPassword(char *password, size_t max_size)
 {
 	Result ret = 0;
 	u32 *cmdbuf = getThreadCommandBuffer();
