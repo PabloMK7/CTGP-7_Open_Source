@@ -131,10 +131,10 @@ namespace CTRPluginFramework {
         if (mystatus == 5) {
             requeststatus = 0;
             finished = true;
-            GameAlloc::game_operator_delete(logo_v->data);
-            GameAlloc::game_operator_delete(logo_k->data);
-            GameAlloc::game_operator_delete(logo_r->data);
-            GameAlloc::game_operator_delete(logo_l->data);
+            GameAlloc::game_operator_delete((void*)logo_v->data);
+            GameAlloc::game_operator_delete((void*)logo_k->data);
+            GameAlloc::game_operator_delete((void*)logo_r->data);
+            GameAlloc::game_operator_delete((void*)logo_l->data);
             delete logo_v;
             delete logo_k;
             delete logo_r;

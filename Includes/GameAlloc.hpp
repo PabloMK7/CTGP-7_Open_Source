@@ -13,7 +13,7 @@ Open source lines: 65/65 (100.00%)
 
 namespace CTRPluginFramework {
     class GameAlloc {
-    static constexpr u32 EXTRAHEAPSIZE = 0x600000;
+    static constexpr u32 EXTRAHEAPSIZE = 0x640000;
     public:
         static void* (*get_current_heap)();
         static void* (*game_operator_new)(u32 size, u32* heap, u32 unk);

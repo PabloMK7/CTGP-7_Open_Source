@@ -37,10 +37,10 @@ namespace CTRPluginFramework
 		static void     Import(void);
 		static void		PopulateLang();
 
-        static const std::string &GetName(const std::string &key);
-        static const std::string &GetNote(const std::string &key);
+        static const std::string &GetName(const std::string_view key);
+        static const std::string &GetNote(const std::string_view key);
 		static const char* GetCurrLangID();
-		static void RemoveEntry(const std::string &key) { currLanguage.removeEntry(key); }
+		static void RemoveEntry(const std::string_view key) { currLanguage.removeEntry(key); }
 
 		static std::string GenerateOrdinal(u32 number);
 		

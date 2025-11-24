@@ -28,7 +28,7 @@ namespace CTRPluginFramework {
             value = 150;
         }
 
-        CCSettings(minibson::document& doc) {
+        CCSettings(const minibson::document& doc) {
             value = (float)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CC_SELECTOR_VALUE), 150.0);
             enabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CC_SELECTOR_ENABLED), false);
         }

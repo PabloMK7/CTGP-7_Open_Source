@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 420/433 (97.00%)
+Open source lines: 431/444 (97.07%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -44,6 +44,7 @@ Open source lines: 420/433 (97.00%)
 #include "TLSAccessPatcher.hpp"
 #include "AsyncRunner.hpp"
 #include "BadgeManager.hpp"
+#include "SaveBackupHandler.hpp"
 
 extern bool g_checkMenu;
 extern u32* g_gameSrvHandle;
@@ -76,6 +77,7 @@ namespace CTRPluginFramework
 	MenuEntry* achievementsEntry;
 	MenuEntry* badgesEntry;
 	MenuEntry* blueCoinsEntry;
+	MenuEntry* saveBackupEntry;
 
 	OnlineMenuEntry* ccSelOnlineEntry;
 	OnlineMenuEntry* numbRoundsOnlineEntry;
@@ -189,10 +191,20 @@ namespace CTRPluginFramework
 	void InitMainClasses(void) {
 		CrashReport::stateID = CrashReport::StateID::STATE_INITIALIZE;
 		Sleep(Seconds(2));
-		BootSceneHandler::ProgressHandle mainProg = BootSceneHandler::RegisterProgress(9);
+		BootSceneHandler::ProgressHandle mainProg = BootSceneHandler::RegisterProgress(8);
+		BootSceneHandler::Progress(mainProg);
+
+		if (!Directory::IsExists("/CTGP-7/savefs"))
+			Directory::Create("/CTGP-7/savefs");
+		if (!Directory::IsExists("/CTGP-7/savefs/game"))
+			Directory::Create("/CTGP-7/savefs/game");
+		if (!Directory::IsExists("/CTGP-7/savefs/mod"))
+			Directory::Create("/CTGP-7/savefs/mod");
+		
 		BootSceneHandler::Progress(mainProg);
 
 		
+		SaveBackupHandler::Initialize();
 		SaveHandler::LoadSettings();
 		renderImprovements_apply(SaveHandler::saveData.flags1.renderOptimization);
 		CharacterHandler::customKartsEnabled = SaveHandler::saveData.flags1.customKartsEnabled;
@@ -205,21 +217,11 @@ namespace CTRPluginFramework
 
 		BootSceneHandler::Progress(mainProg);
 
-		if (!Directory::IsExists("/CTGP-7/savefs"))
-			Directory::Create("/CTGP-7/savefs");
-		if (!Directory::IsExists("/CTGP-7/savefs/game"))
-			Directory::Create("/CTGP-7/savefs/game");
-		if (!Directory::IsExists("/CTGP-7/savefs/mod"))
-			Directory::Create("/CTGP-7/savefs/mod");
-
-		BootSceneHandler::Progress(mainProg);
-
 		Language::Initialize();
 		CharacterHandler::Initialize();
 		Language::Import(); BootSceneHandler::Progress(mainProg);
 		MusicSlotMngr::Initialize(); BootSceneHandler::Progress(mainProg);
 		MarioKartFramework::InitializeLedPatterns(); BootSceneHandler::Progress(mainProg);
-		StatsHandler::Initialize(); BootSceneHandler::Progress(mainProg);
 		UserCTHandler::Initialize();
 		CourseCredits::Initialize(); BootSceneHandler::Progress(mainProg);
 		if (checkFoolsDay()) {
@@ -290,6 +292,15 @@ namespace CTRPluginFramework
 				entry->SetArg(&addr);
 			}
 		}, ""));
+		menu.Append(new MenuEntry("Heap Usage", nullptr, [](MenuEntry* entry) {
+			struct mallinfo mi = mallinfo();
+			std::string t =  Utils::Format("Heap used:   %d bytes\n", mi.uordblks) +
+    				  		Utils::Format("Heap free:   %d bytes\n", mi.fordblks) +
+    						Utils::Format("Heap total:  %d bytes\n", mi.arena);
+			Keyboard kbd(t);
+			kbd.Populate({"Exit"});
+			kbd.Open();
+		}, ""));
         #endif
 		MenuFolder* features = new MenuFolder(NAME("gameplay_folder"), NOTE("gameplay_folder"), {
 			ccselectorentry = new MenuEntry(NAME("ccsel"), nullptr, ccselectorsettings, NOTE("ccsel")),
@@ -315,6 +326,7 @@ namespace CTRPluginFramework
 		});
 
 		MenuFolder* other = new MenuFolder(NAME("other_folder"), NOTE("other_folder"), {
+			saveBackupEntry = new MenuEntry(NAME("cloudsaveentry"), nullptr, SaveBackupHandler::BackupHandlerEntry, NOTE("cloudsaveentry")),
 			statsEntry = new MenuEntry(NAME("statsentry"), nullptr, StatsHandler::StatsMenu, NOTE("statsentry")),
 			resetGhostsEntry = new MenuEntry(NAME("resghost"), nullptr, CourseManager::resetGhost, NOTE("resghost"))
 		});
@@ -400,8 +412,7 @@ namespace CTRPluginFramework
 
 	void HandleProcessEvent(Process::Event event) {
 		if (event == Process::Event::EXIT) {
-			SaveHandler::SaveSettingsAll();
-			SaveHandler::WaitSaveSettingsAll();
+			SaveHandler::SaveSettingsAll(false);
 			Net::WaitOnlineStateMachine();
 			Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::OFFLINE);
 			Net::WaitOnlineStateMachine();

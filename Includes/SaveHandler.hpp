@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 441/456 (96.71%)
+Open source lines: 473/500 (94.60%)
 *****************************************************/
 
 #pragma once
@@ -41,9 +41,9 @@ namespace CTRPluginFramework {
 		class CupRankSave {
 			public:
 				struct GrandPrixData {
-					bool isCompleted;
-					u32 starRank; // 4 -> 1 star; 5 -> 2 stars; 6 -> 3 stars
-					u32 trophyType; // 1 -> bronze; 2 -> silver; 3 -> gold
+					bool isCompleted{};
+					u32 starRank{}; // 4 -> 1 star; 5 -> 2 stars; 6 -> 3 stars
+					u32 trophyType{}; // 1 -> bronze; 2 -> silver; 3 -> gold
 				};
 				static std::map<u32, u8> cupData; 
 				static inline void fromPackedToGP(GrandPrixData* out, const u8 inPackedData)
@@ -63,6 +63,8 @@ namespace CTRPluginFramework {
 
 				static void Load();
 				static void Save();
+				static minibson::document SaveBackup();
+				static bool RestoreBackup(const minibson::document& doc);
 
 				enum class SatisfyCondition {
 					COMPLETED,
@@ -72,6 +74,9 @@ namespace CTRPluginFramework {
 				};
 				static bool CheckModAllSatisfy(SatisfyCondition condition);
 				static std::pair<int, std::array<int, 4>> CheckModSatisfyProgress(SatisfyCondition condition);
+			private:
+				static minibson::document ToDocument();
+				static void FromDocument(const minibson::document& doc);
 		};
 		struct CTGP7Save {
 			CCSettings cc_settings;
@@ -85,7 +90,7 @@ namespace CTRPluginFramework {
 				u32 isCTWWActivated : 1;
 				u32 isAlphabeticalEnabled : 1;
 				u32 improvedRoulette : 1;
-				u32 uploadStats : 1;
+				u32 serverCommunication : 1;
 				u32 improvedTricks : 1;
 				u32 renderOptimization : 1;
 				u32 autoacceleration : 1;
@@ -112,6 +117,9 @@ namespace CTRPluginFramework {
 			u32 ctVR;
 			u32 cdVR;
 			u64 consoleID;
+
+			bool newlyGeneratedID = false;
+			u64 saveID[2] = {0};
 
 			u32 pendingAchievements;
 			u32 achievements;
@@ -197,6 +205,9 @@ namespace CTRPluginFramework {
 				#endif
 			}
 
+			void GenerateNewSaveID() {
+			}
+
 			CTGP7Save& operator=(const CTGP7Save& other) = default;
 			CTGP7Save& operator=(CTGP7Save&& other) = default;
 
@@ -212,7 +223,7 @@ namespace CTRPluginFramework {
 				flags1.isCTWWActivated = true;
 				flags1.isAlphabeticalEnabled = true;
 				flags1.improvedRoulette = true;
-				flags1.uploadStats = true;
+				flags1.serverCommunication = true;
 				flags1.improvedTricks = true;
 				flags1.renderOptimization = true;
 				flags1.autoacceleration = false;
@@ -246,7 +257,16 @@ namespace CTRPluginFramework {
 				blueShellDodgeAmount = 0;
 			}
 
-			CTGP7Save(minibson::document& doc) {
+			CTGP7Save(const minibson::document& doc, bool generateIDIfMissing) {
+				saveID[0] = doc.get<s64>("sID0", (s64)0);
+				saveID[1] = doc.get<s64>("sID1", (s64)0);
+				if ((saveID[0] == 0 || saveID[1] == 0) && generateIDIfMissing) {
+					newlyGeneratedID = true;
+					GenerateNewSaveID();
+				} else {
+					newlyGeneratedID = false;
+				}
+
 				cc_settings = CCSettings(doc);
 				vsSettings = VersusHandler::CurrentSettings(doc);
 
@@ -258,7 +278,7 @@ namespace CTRPluginFramework {
 				flags1.isCTWWActivated = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CTWW_ACTIVATED), true);
 				flags1.isAlphabeticalEnabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ALPHABETICAL_ENABLED), true);
 				flags1.improvedRoulette = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVEDROULETTE_ENABLED), true);
-				flags1.uploadStats = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_UPLOAD_STATS), true);
+				flags1.serverCommunication = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_COMMUNICATION), true);
 				flags1.improvedTricks = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_TRICKS), true);
 				speedometer.enabled = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPEED_ENABLED), false);
 				speedometer.mode = doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPEED_MODE), (int)0);
@@ -288,23 +308,25 @@ namespace CTRPluginFramework {
 				if (principalID < 100000000)
 					principalID = 0;
 				#endif
-				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES))) {
-					const minibson::binary::buffer& char_handler_choices = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES));
-					if (char_handler_choices.length == sizeof(driverChoices))
-						memcpy(driverChoices, char_handler_choices.data, char_handler_choices.length);
+				const auto& char_handler_choices = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES));
+				if (!char_handler_choices.Empty()) {
+					if (char_handler_choices.Size() == sizeof(driverChoices))
+						memcpy(driverChoices, char_handler_choices.Data(), char_handler_choices.Size());
 				} else memset(driverChoices, 0, sizeof(driverChoices));
-				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED))) {
-					const minibson::binary::buffer& char_handler_disabled = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED));
-					if (char_handler_disabled.length && char_handler_disabled.length % sizeof(u64) == 0) {
-						disabledChars.resize(char_handler_disabled.length / sizeof(u64));
-						memcpy(disabledChars.data(), char_handler_disabled.data, char_handler_disabled.length);
+
+				const auto& char_handler_disabled = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED));
+				if (!char_handler_disabled.Empty()) {
+					if (char_handler_disabled.Size() && char_handler_disabled.Size() % sizeof(u64) == 0) {
+						disabledChars.resize(char_handler_disabled.Size() / sizeof(u64));
+						memcpy(disabledChars.data(), char_handler_disabled.Data(), char_handler_disabled.Size());
 					}
 				} else disabledChars.clear();
-				if (doc.contains(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS))) {
-					const minibson::binary::buffer& collected_blue_coins = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS));
-					if (collected_blue_coins.length && collected_blue_coins.length % sizeof(u32) == 0) {
-						collectedBlueCoins.resize(collected_blue_coins.length / sizeof(u32));
-						memcpy(collectedBlueCoins.data(), collected_blue_coins.data, collected_blue_coins.length);
+
+				const auto& collected_blue_coins = doc.get_binary(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS));
+				if (!collected_blue_coins.Empty()) {
+					if (collected_blue_coins.Size() && collected_blue_coins.Size() % sizeof(u32) == 0) {
+						collectedBlueCoins.resize(collected_blue_coins.Size() / sizeof(u32));
+						memcpy(collectedBlueCoins.data(), collected_blue_coins.Data(), collected_blue_coins.Size());
 					}
 				} else collectedBlueCoins.clear();
 				pendingSpecialAchievements = (u32)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)0);
@@ -339,7 +361,7 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CTWW_ACTIVATED), (bool)flags1.isCTWWActivated);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ALPHABETICAL_ENABLED), (bool)flags1.isAlphabeticalEnabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVEDROULETTE_ENABLED), (bool)flags1.improvedRoulette);
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_UPLOAD_STATS), (bool)flags1.uploadStats);
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SERVER_COMMUNICATION), (bool)flags1.serverCommunication);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_TRICKS), (bool)flags1.improvedTricks);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPEED_ENABLED), (bool)speedometer.enabled);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPEED_MODE), (int)speedometer.mode);
@@ -362,9 +384,9 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_ACHIEVEMENTS), (int)pendingAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::ACHIEVEMENTS), (int)achievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PRINCIPAL_ID), (int)principalID);
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES), driverChoices, sizeof(driverChoices));
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED), disabledChars.data(), disabledChars.size() * sizeof(u64));
-				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS), collectedBlueCoins.data(), collectedBlueCoins.size() * sizeof(u32));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DRIVER_CHOICES), MiscUtils::Buffer(driverChoices, sizeof(driverChoices)));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CHAR_HANDLER_DISABLED), MiscUtils::Buffer(disabledChars.data(), disabledChars.size() * sizeof(u64)));
+				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::COLLECTED_BLUE_COINS), MiscUtils::Buffer(collectedBlueCoins.data(), collectedBlueCoins.size() * sizeof(u32)));
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::PENDING_SPECIAL_ACHIEVEMENTS), (int)pendingSpecialAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::SPECIAL_ACHIEVEMENTS), (int)specialAchievements);
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::CUSTOM_KARTS_ENABLED), (bool)flags1.customKartsEnabled);
@@ -378,18 +400,25 @@ namespace CTRPluginFramework {
 				doc.set(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::IMPROVED_HONK), (bool)flags1.improvedHonk);
 			}
 		};
+		static bool disableSaving;
 		static CTGP7Save saveData;
 		static void LoadSettings();
-		static void SaveSettings();
+		static void SaveOptions();
 		static void ApplySettings();
 		static void DefaultSettings();
 		static void UpdateAchievementCryptoFiles();
 		static void UpdateAchievementsConditions();
 		static void UpdateCharacterIterator();
 		static bool CheckAndShowAchievementMessages();
+		static bool CheckAndShowServerCommunicationDisabled();
 		
-		static void SaveSettingsAll() {
-			saveSettinsTask.Start();
+		static void SaveSettingsAll(bool async = true) {
+			if (async) {
+				saveSettinsTask.Wait();
+				saveSettinsTask.Start();
+			} else {
+				SaveSettingsTaskFunc(nullptr);	
+			}			
 		}
 		static void WaitSaveSettingsAll() {
 			saveSettinsTask.Wait();
@@ -424,8 +453,8 @@ namespace CTRPluginFramework {
 				u8 bsondata[];
 			};
 
-			static minibson::encdocument Load(SaveType type, LoadStatus& status);
-			static void Save(SaveType type, const minibson::encdocument& inData);
+			static minibson::document Load(SaveType type, LoadStatus& status);
+			static void Save(SaveType type, const minibson::document& inData);
 		private:
 			static constexpr u32 SaveMagic = 0x56533743;
 			static const char* SaveNames[(u32)SaveType::MAX_TYPE];
@@ -434,6 +463,9 @@ namespace CTRPluginFramework {
 
 		static Task saveSettinsTask;
 		static s32 SaveSettingsTaskFunc(void* args);
+
+		static minibson::document SaveSettingsBackup(void);
+		static bool RestoreSettingsBackup(const minibson::document& doc);
 
 		static int lastAchievementCount;
 		static u32 lastSpecialAchievements;

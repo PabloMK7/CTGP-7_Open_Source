@@ -212,12 +212,12 @@ namespace CTRPluginFramework
 		MsbtHandler::ApplyCustomText();
     }
 
-    const std::string&  Language::GetName(const std::string &key)
+    const std::string&  Language::GetName(const std::string_view key)
     {
 		return currLanguage.getEntry(key, 0);
     }
 
-    const std::string&  Language::GetNote(const std::string &key)
+    const std::string&  Language::GetNote(const std::string_view key)
     {
 		return currLanguage.getEntry(key, 1);
     }

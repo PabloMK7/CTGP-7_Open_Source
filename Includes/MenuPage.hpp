@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.hpp
-Open source lines: 776/776 (100.00%)
+Open source lines: 778/778 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -287,11 +287,13 @@ namespace CTRPluginFramework {
                 GameSequenceSection* MenuSingleModePageCons(GameSequenceSection* own);
                 static int HandleCursor(CursorMove* move, CursorItem* item);
                 static void OnPageEnter(GameSequenceSection* own);
+                static void OnPageExit(GameSequenceSection* own);
                 static void OnSelect(GameSequenceSection* own, int selected);
                 static void OnOK(GameSequenceSection* own, int selected);
                 static void InitControl(GameSequenceSection* own);
                 void (*deallocatingBackup)(GameSequenceSection*);
                 void (*buttonOKBackup)(GameSequenceSection*, int);
+                void (*pageExitBackup)(GameSequenceSection*);
                 static bool IsButtonConstructing;
         };
 

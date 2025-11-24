@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.hpp
-Open source lines: 664/742 (89.49%)
+Open source lines: 879/880 (99.89%)
 *****************************************************/
 
 /*
@@ -34,11 +34,17 @@ SOFTWARE.
 #pragma once
 
 #include <string>
+#include "string.h"
 #include <map>
 #include <random>
 #include <cstring>
+#include "memory"
+#include "MiscUtils.hpp"
+#include "optional"
 
 namespace minibson {
+
+    using namespace CTRPluginFramework;
 
     // Basic types
 
@@ -46,6 +52,7 @@ namespace minibson {
         double_node = 0x01,
         string_node = 0x02,
         document_node = 0x03,
+        array_node = 0x04,
         binary_node = 0x05,
         boolean_node = 0x08,
         null_node = 0x0A,
@@ -63,15 +70,15 @@ namespace minibson {
             virtual void serialize(void* const buffer, const size_t count) const = 0;
             virtual size_t get_serialized_size() const = 0;
             virtual unsigned char get_node_code() const { return 0; }
-            virtual node* copy() const = 0;
-            static node* create(bson_node_type type, const void* const buffer, const size_t count);
+            virtual std::unique_ptr<node> copy() const = 0;
+            static std::unique_ptr<node> create(bson_node_type type, const void* const buffer, const size_t count);
     };
 
     // Value types
 
     class null : public node {
         public:
-            null() { }
+            null() = default;
 
             null(const void* const buffer, const size_t count) { }
 
@@ -85,23 +92,27 @@ namespace minibson {
                 return null_node;
             }
 
-            node* copy() const {
-                return new null();
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<null>();
             }
     };
 
     template<typename T, bson_node_type N>
         class scalar : public node {
             private:
-                T value;
+                T value{};
             public:
-                scalar(const T value) : value(value) { }
+                scalar() = default;
 
-                scalar(const void* const buffer, const size_t count) {
+                explicit scalar(const T value) : value(value) { }
+
+                explicit scalar(const void* const buffer, const size_t count) {
                     std::memcpy(reinterpret_cast<unsigned char*>(&value), reinterpret_cast<const unsigned char*>(buffer), sizeof(T));
                 };
 
                 void serialize(void* const buffer, const size_t count) const {
+                    if (count < sizeof(T)) return;
+                    
                     std::memcpy(reinterpret_cast<unsigned char*>(buffer), reinterpret_cast<const unsigned char*>(&value), sizeof(T));
                 }
 
@@ -113,8 +124,8 @@ namespace minibson {
                     return N;
                 }
 
-                node* copy() const {
-                    return new scalar<T, N>(value);
+                std::unique_ptr<node> copy() const {
+                    return std::make_unique<scalar<T, N>>(value);
                 }
 
                 const T& get_value() const { return value; }
@@ -122,36 +133,44 @@ namespace minibson {
 
     class int32 : public scalar<int, int32_node> {
         public:
-            int32(const int value) : scalar<int, int32_node>(value) { }
+            int32() = default;
 
-            int32(const void* const buffer, const size_t count) : scalar<int, int32_node>(buffer, count) { };
+            explicit int32(const int value) : scalar<int, int32_node>(value) { }
+
+            explicit int32(const void* const buffer, const size_t count) : scalar<int, int32_node>(buffer, count) { };
     };
     
     template<> struct type_converter<int> { enum { node_type_code = int32_node }; typedef int32 node_class; };
     
     class uint64 : public scalar<unsigned long long int, uint64_node> {
-    public:
-        uint64(const unsigned long long int value) : scalar<unsigned long long int, uint64_node>(value) { }
+        public:
+            uint64() = default;
+            
+            explicit uint64(const unsigned long long int value) : scalar<unsigned long long int, uint64_node>(value) { }
 
-        uint64(const void* const buffer, const size_t count) : scalar<unsigned long long int, uint64_node>(buffer, count) { };
+            explicit uint64(const void* const buffer, const size_t count) : scalar<unsigned long long int, uint64_node>(buffer, count) { };
     };
 
     template<> struct type_converter<unsigned long long int> { enum { node_type_code = uint64_node }; typedef uint64 node_class; };
 
     class int64 : public scalar<long long int, int64_node> {
         public:
-            int64(const long long int value) : scalar<long long int, int64_node>(value) { }
+            int64() = default;
 
-            int64(const void* const buffer, const size_t count) : scalar<long long int, int64_node>(buffer, count) { };
+            explicit int64(const long long int value) : scalar<long long int, int64_node>(value) { }
+
+            explicit int64(const void* const buffer, const size_t count) : scalar<long long int, int64_node>(buffer, count) { };
     };
     
     template<> struct type_converter<long long int> { enum { node_type_code = int64_node }; typedef int64 node_class; };
 
     class Double : public scalar<double, double_node> {
         public:
-            Double(const double value) : scalar<double, double_node>(value) { }
+            Double() = default;
 
-            Double(const void* const buffer, const size_t count) : scalar<double, double_node>(buffer, count) { };
+            explicit Double(const double value) : scalar<double, double_node>(value) { }
+
+            explicit Double(const void* const buffer, const size_t count) : scalar<double, double_node>(buffer, count) { };
     };
     
     template<> struct type_converter<double> { enum { node_type_code = double_node }; typedef Double node_class; };
@@ -160,14 +179,17 @@ namespace minibson {
         private:
             std::string value;
         public:
-            string(const std::string& value) : value(value) { }
+            string() = default;
 
-            string(const void* const buffer, const size_t count) {
+            explicit string(const std::string& value) : value(value) { }
+
+            explicit string(const void* const buffer, const size_t count) {
                 if ( count >= 5 ) {
                     const size_t max = count - sizeof(unsigned int);
                     const size_t actual = *reinterpret_cast<const unsigned int*>(
                         buffer
                     );
+                    if (actual == 0) return;
 
                     value.assign(
                         reinterpret_cast<const char*>(buffer) + sizeof(unsigned int),
@@ -176,11 +198,16 @@ namespace minibson {
                 }
             };
 
-            void serialize(void* const buffer, const size_t count) const {
-                unsigned int store_length = value.length() + 1;
-                std::memcpy(reinterpret_cast<char*>(buffer), reinterpret_cast<char*>(&store_length), sizeof(unsigned int));
-                std::memcpy(reinterpret_cast<char*>(buffer) + sizeof(unsigned int), value.c_str(), value.length());
-                *(reinterpret_cast<char*>(buffer) + count - 1) = '\0';
+            void serialize(void* const buffer, const size_t count) const override {
+                const uint32_t store_length = static_cast<uint32_t>(value.size() + 1);
+                const size_t needed = sizeof(store_length) + value.size() + 1;
+
+                if (count < needed) return;
+
+                char* out = static_cast<char*>(buffer);
+                std::memcpy(out, &store_length, sizeof(store_length));
+                std::memcpy(out + sizeof(store_length), value.data(), value.size());
+                out[sizeof(store_length) + value.size()] = '\0';
             }
 
             size_t get_serialized_size() const {
@@ -191,8 +218,8 @@ namespace minibson {
                 return string_node;
             }
 
-            node* copy() const {
-                return new string(value);
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<string>(value);
             }
             
             const std::string& get_value() const { return value; }
@@ -202,11 +229,13 @@ namespace minibson {
 
     class boolean : public node {
         private:
-            bool value;
+            bool value{};
         public:
-            boolean(const bool value) : value(value) { }
+            boolean() = default;
 
-            boolean(const void* const buffer, const size_t count) {
+            explicit boolean(const bool value) : value(value) { }
+
+            explicit boolean(const void* const buffer, const size_t count) {
                 switch (*reinterpret_cast<const unsigned char*>(buffer)) {
                     case 1: value = true; break;
                     default: value = false; break;
@@ -225,8 +254,8 @@ namespace minibson {
                 return boolean_node;
             }
 
-            node* copy() const {
-                return new boolean(value);
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<boolean>(value);
             }
 
             const bool& get_value() const { return value; }
@@ -235,113 +264,98 @@ namespace minibson {
     template<> struct type_converter<bool> { enum { node_type_code = boolean_node }; typedef boolean node_class; };
 
     class binary : public node {
-        public:
-            struct buffer {
-
-                buffer() : data(nullptr), length(0), owned(false) {}
-
-                buffer(const buffer& other) : owned(true) { 
-                    length = other.length;
-                    if (length) {
-                        data = new unsigned char[length];
-                        std::memcpy(data, other.data, length);
-                    } else
-                        data = nullptr;
-                }
-
-                buffer(void* data, size_t length) : data(data), length(length), owned(false) { }
-
-                ~buffer() {
-                    if (owned && data)
-                        delete[] reinterpret_cast<unsigned char*>(data);
-                }
-                
-                void* data;
-                size_t length;
-                bool owned;
-            };
-
         private:
-            buffer value;
-
+            MiscUtils::Buffer value;
+            u8 subtype = 0;
         public:
-            binary(const buffer& buffer) : value(buffer) { }
+            binary() = default;
 
-            binary(const void* const buffer, const size_t count, const bool create = false) : value(NULL, 0) {
-                const unsigned char* byte_buffer = reinterpret_cast<const unsigned char*>(buffer);
+            explicit binary(const MiscUtils::Buffer& other) : value(other.Copy()) {}
 
-                if (create) {
-                    value.length = count;
-                    value.data = new unsigned char[value.length];
-                    std::memcpy(value.data, byte_buffer, value.length);
-                }
-                else {
-                    value.length = *reinterpret_cast<const int*>(byte_buffer);
-                    value.data = new unsigned char[value.length];
-                    std::memcpy(value.data, byte_buffer + 5, value.length);
-                }
-                
-                value.owned = true;
+            explicit binary(MiscUtils::Buffer&& other) noexcept : value(std::move(other)) {}
+
+            explicit binary(const void* const buffer, const size_t count) {
+                if (count >= 5) {
+                    const unsigned char* byte_buffer = reinterpret_cast<const unsigned char*>(buffer);
+                    size_t length = *reinterpret_cast<const u32*>(byte_buffer);
+                    subtype = byte_buffer[4];
+
+                    if (length <= count - 5)
+                        value.Set(byte_buffer + 5, length);
+                }                
             };
 
-            void serialize(void* const buffer, const size_t count) const {
-                unsigned char* byte_buffer = reinterpret_cast<unsigned char*>(buffer);
+            void serialize(void* const buffer, const size_t count) const override {
+                const uint32_t data_len = static_cast<uint32_t>(value.Size());
+                const size_t needed = sizeof(data_len) + 1 + value.Size();
 
-                std::memcpy(byte_buffer, &(value.length), sizeof(int));
-                byte_buffer[4] = 0;
-                if (value.length)
-                    std::memcpy(byte_buffer + 5, value.data, value.length);
+                if (count < needed) return;
+
+                char* out = static_cast<char*>(buffer);
+
+                std::memcpy(out, &data_len, sizeof(data_len));
+                out[sizeof(data_len)] = subtype;
+                std::memcpy(out + sizeof(data_len) + 1, value.Data(), value.Size());
             }
 
             size_t get_serialized_size() const {
-                return 5 + value.length;
+                return 5 + value.Size();
             }
 
             unsigned char get_node_code() const {
                 return binary_node;
             }
 
-            node* copy() const {
-                return new binary(value.data, value.length, true);
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<binary>(value);
             }
 
-            const buffer& get_value() const { return value; }
+            const MiscUtils::Buffer& get_value() const { return value; }
     };
     
-    template<> struct type_converter< binary::buffer > { enum { node_type_code = binary_node }; typedef binary node_class; };
+    template<> struct type_converter< MiscUtils::Buffer > { enum { node_type_code = binary_node }; typedef binary node_class; };
     
     // Composite types
 
-    class element_list : protected std::map<std::string, node*>, public node {
-        public:
-            typedef std::map<std::string, node*>::const_iterator const_iterator;
-            typedef std::map<std::string, node*>::iterator iterator;
+    class document;
+    class element_list {
+        protected:
+            struct transparent_less {
+                using is_transparent = void;
 
-            element_list() { }
+                bool operator()(const std::string& a, const std::string& b) const { return a < b; }
+                bool operator()(std::string_view a, const std::string& b) const { return a < b; }
+                bool operator()(const std::string& a, std::string_view b) const { return a < b; }
+                bool operator()(std::string_view a, std::string_view b) const { return a < b; }
+            };
+            std::map<std::string, std::unique_ptr<node>, transparent_less> map;
+
+        public:
+            static constexpr size_t MAX_ENAME_SIZE = 0x100;
+
+            typedef decltype(map)::const_iterator const_iterator;
+            typedef decltype(map)::iterator iterator;
+
+            element_list() = default;
 
             element_list(const element_list& other) { // Copy constructor
                 for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    std::map<std::string, node*>::insert({i->first, i->second->copy()});
+                    map.insert({i->first, i->second->copy()});
             }
 
-            element_list(element_list&& other) noexcept { // Move constructor
-                for (const_iterator i = other.begin(); i != other.end(); i++)
-                    std::map<std::string, node*>::insert({i->first, i->second});
-                other.std::map<std::string, node*>::clear();
-            } 
+            element_list(element_list&& other) noexcept
+                : map(std::move(other.map))
+            {}
 
             element_list& operator=(const element_list& other) { // Copy assignment
-                element_list::clear();
-                for (const_iterator i = other.cbegin(); i != other.cend(); i++)
-                    std::map<std::string, node*>::insert({i->first, i->second->copy()});
+                clear();
+                for (const_iterator i = other.map.cbegin(); i != other.map.cend(); i++)
+                    map.insert({i->first, i->second->copy()});
                 return *this;
             }
 
             element_list& operator=(element_list&& other) noexcept { // Move assignment
-                element_list::clear();
-                for (iterator i = other.begin(); i != other.end(); i++)
-                    std::map<std::string, node*>::insert({i->first, i->second});
-                other.std::map<std::string, node*>::clear();
+                map.operator=(std::move(other.map));
                 return *this;
             }
 
@@ -351,15 +365,20 @@ namespace minibson {
 
                 while (position < count) {
                     bson_node_type type = static_cast<bson_node_type>(byte_buffer[position++]);
-                    std::string name(reinterpret_cast<const char*>(byte_buffer + position));
-                    node* node = NULL;
+                    if (position >= count) break;
+                    size_t name_len = strnlen(reinterpret_cast<const char*>(byte_buffer + position), count - position);
+                    if (name_len == count - position || name_len > MAX_ENAME_SIZE) break;
+
+                    std::string name(reinterpret_cast<const char*>(byte_buffer + position), name_len);
+                    std::unique_ptr<node> node;
 
                     position += name.length() + 1;
+                    if (position > count) break;
                     node = node::create(type, byte_buffer + position, count - position);
 
                     if (node != NULL) {
                         position += node->get_serialized_size();
-                        (*this)[name] = node;
+                        map[name] = std::move(node);
                     }
                     else
                         break;
@@ -368,18 +387,25 @@ namespace minibson {
 
             void serialize(void* const buffer, const size_t count) const {
                 unsigned char* byte_buffer = reinterpret_cast<unsigned char*>(buffer);
-                int position = 0;
+                size_t position = 0;
 
                 for (const_iterator i = cbegin(); i != cend(); i++) {
                     // Header
+                    if (position + 1 > count) return;
                     byte_buffer[position] = i->second->get_node_code();
                     position++;
+
                     // Key
-                    std::strcpy(reinterpret_cast<char*>(byte_buffer + position), i->first.c_str());
+                    const size_t key_len = i->first.length() + 1;
+                    if (position + key_len > count) return;
+                    std::memcpy(reinterpret_cast<char*>(byte_buffer + position), i->first.c_str(), key_len);
                     position += i->first.length() + 1;
+                    
                     // Value
+                    size_t serialized_size = i->second->get_serialized_size();
+                    if (position + serialized_size > count) return;
                     i->second->serialize(byte_buffer + position, count - position);
-                    position += i->second->get_serialized_size();
+                    position += serialized_size;
                 }
             }
 
@@ -392,72 +418,159 @@ namespace minibson {
                 return result;
             }
 
-            node* copy() const {
-                return new element_list(*this);
+            std::unique_ptr<element_list> copy() const {
+                return std::make_unique<element_list>(*this);
             }
 
             iterator begin() {
-                return std::map<std::string, node*>::begin();
+                return map.begin();
             }
 
             iterator end() {
-                return std::map<std::string, node*>::end();
+                return map.end();
             }
 
             const_iterator cbegin() const {
-                return std::map<std::string, node*>::cbegin();
+                return map.cbegin();
             }
 
             const_iterator cend() const {
-                return std::map<std::string, node*>::cend();
+                return map.cend();
             }
 
             bool empty() const {
-                return std::map<std::string, node*>::empty();
+                return map.empty();
             }
 
-            std::map<std::string, node*>::const_iterator find(const std::string& key) const {
-                return std::map<std::string, node*>::find(key);
+            const_iterator find(const std::string_view key) const {
+                return map.find(key);
             }
 
-            std::map<std::string, node*>::iterator find(const std::string& key) {
-                return std::map<std::string, node*>::find(key);
+            iterator find(const std::string_view key) {
+                return map.find(key);
             }
 
-            bool contains(const std::string& key) const {
-                return (std::map<std::string, node*>::find(key) != cend());
+            bool contains(const std::string_view key) const {
+                return (find(key) != cend());
             }
             
             template<typename T>
-            bool contains(const std::string& key) const {
-                const_iterator position = std::map<std::string, node*>::find(key);
+            bool contains(const std::string_view key) const {
+                const_iterator position = find(key);
                 return (position != cend()) && (position->second->get_node_code() == type_converter<T>::node_type_code);
             }
 
             element_list& clear() {
-                for (iterator i = begin(); i != end(); i++)
-                    delete i->second;
-                std::map<std::string, node*>::clear();
+                map.clear();
                 return (*this);
             }
             
-            int size() const {
-                return std::map<std::string, node*>::size();
+            size_t size() const {
+                return map.size();
             }
 
             iterator erase(const iterator& pos) {
-                return std::map<std::string, node*>::erase(pos);
+                return map.erase(pos);
             }
 
-            ~element_list() {
-                clear();
+            element_list& remove(const std::string_view key) {
+                auto it = find(key);
+                if (it != end()) {
+                    erase(it);
+                }
+                return (*this);
             }
 
+            template<typename result_type>
+            const result_type get(const std::string_view key, const result_type& _default = result_type()) const {
+                const bson_node_type node_type_code = static_cast<bson_node_type>(type_converter<result_type>::node_type_code);
+                typedef typename type_converter<result_type>::node_class node_class;
+
+                auto it = find(key);
+                if ((it != cend()) && ((it->second)->get_node_code() == node_type_code))
+                    return static_cast<const node_class*>(it->second.get())->get_value();
+                else
+                    return _default;
+            }
+
+            unsigned long long int get_numerical(const std::string_view key, const unsigned long long int& _default = 0) const {
+                auto it = find(key);
+                if (it == cend()) {
+                    return _default;
+                }
+
+                bson_node_type type = static_cast<bson_node_type>(it->second->get_node_code());
+                if (type == bson_node_type::int32_node) {
+                    typedef typename type_converter<int>::node_class node_class;
+                    return static_cast<unsigned long long int>(static_cast<const node_class*>(it->second.get())->get_value());
+                } else if (type == bson_node_type::int64_node) {
+                    typedef typename type_converter<long long int>::node_class node_class;
+                    return static_cast<unsigned long long int>(static_cast<const node_class*>(it->second.get())->get_value());
+                } else if (type == bson_node_type::uint64_node) {
+                    typedef typename type_converter<unsigned long long int>::node_class node_class;
+                    return static_cast<unsigned long long int>(static_cast<const node_class*>(it->second.get())->get_value());
+                }
+                
+                return _default;
+            }
+
+            const MiscUtils::Buffer& get_binary(const std::string_view key) const {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == binary_node)) 
+                    return static_cast<const binary*>(it->second.get())->get_value();
+                else
+                    return empty_buffer;
+            }
+
+            const document& get(const std::string_view key, const document& _default) const;
+            document& get_noconst(const std::string_view key, document& _default);
+
+            const std::string get(const std::string_view key, const char* _default = "") const {
+                auto it = find(key);
+                if ((it != cend()) && (it->second->get_node_code() == string_node))
+                    return static_cast<const string*>(it->second.get())->get_value();
+                else
+                    return std::string(_default);
+            }
+
+            template<typename value_type>
+            element_list& set(const std::string_view key, const value_type& value) {
+                typedef typename type_converter<value_type>::node_class node_class;
+                
+                map[std::string(key)] = std::make_unique<node_class>(value);
+                return (*this);
+            }
+            
+            element_list& set(const std::string_view key, const char* value) {
+                map[std::string(key)] = std::make_unique<string>(value ? value : "");
+                return (*this);
+            }
+
+            element_list& set(const std::string_view key, const MiscUtils::Buffer& value) {
+                map[std::string(key)] = std::make_unique<binary>(value.Copy());
+                return (*this);
+            }
+
+            element_list& set(const std::string_view key, MiscUtils::Buffer&& value) {
+                map[std::string(key)] = std::make_unique<binary>(std::move(value));
+                return (*this);
+            }
+            
+            element_list& set(const std::string_view key, const document& value);
+            element_list& set(const std::string_view key, document&& value);
+            
+            element_list& set(const std::string_view key) {
+                map[std::string(key)] = std::make_unique<null>();
+                return (*this);
+            }
+        
+        protected:
+            inline static const MiscUtils::Buffer empty_buffer{};
     };
    
-    class document : public element_list {
+    class document : public element_list, public node {
         public:
-            document() { }
+            document() = default;
 
             document(const document& other) : element_list(other) { }
 
@@ -473,18 +586,47 @@ namespace minibson {
                 return *this;
             }
 
-            document(const void* const buffer, const size_t count) : element_list(reinterpret_cast<const unsigned char*>(buffer) + 4, *reinterpret_cast<const int*>(buffer) - 4 - 1) { }
+            document& operator=(const element_list& other) {
+                element_list::operator=(other);
+                return *this;
+            }
+
+            document& operator=(element_list&& other) noexcept {
+                element_list::operator=(std::move(other));
+                return *this;
+            }
+
+            document(const void* const buffer, const size_t count) 
+                : element_list()
+                { 
+                    if (count >= 4) {
+                        u32 self_size = *reinterpret_cast<const u32*>(buffer);
+                        if (self_size >= (4 + 1) && count >= self_size) {
+                            *this = element_list(reinterpret_cast<const unsigned char*>(buffer) + 4, self_size - (4 + 1));
+                        }
+                    }                    
+                }
+
+            document(const MiscUtils::Buffer& buffer) 
+                : document(buffer.Data(), buffer.Size())
+                { }
 
             void serialize(void* const buffer, const size_t count) const {
-                size_t serialized_size = 4 + element_list::get_serialized_size() + 1;
+                size_t serialized_size = get_serialized_size();
 
                 if (count >= serialized_size) {
                     unsigned char* byte_buffer = reinterpret_cast<unsigned char*>(buffer);
 
                     *reinterpret_cast<int*>(buffer) = serialized_size;
-                    element_list::serialize(byte_buffer + 4, count - 4 - 1);
+                    element_list::serialize(byte_buffer + 4, count - (4 + 1));
                     byte_buffer[serialized_size - 1] = 0;
                 }
+            }
+
+            MiscUtils::Buffer serialize_to_buffer() const {
+                MiscUtils::Buffer res(get_serialized_size());
+                serialize(res.Data(), res.Size());
+                return res;
             }
 
             size_t get_serialized_size() const {
@@ -495,170 +637,243 @@ namespace minibson {
                 return document_node;
             }
 
-            node* copy() const {
-                return new document(*this);
-            }          
-
-            template<typename result_type>
-            const result_type get(const std::string& key, const result_type& _default = result_type()) const {
-                const bson_node_type node_type_code = static_cast<bson_node_type>(type_converter<result_type>::node_type_code);
-                typedef typename type_converter<result_type>::node_class node_class;
-
-                auto it = find(key);
-                if ((it != cend()) && ((it->second)->get_node_code() == node_type_code))
-                    return reinterpret_cast<const node_class*>(it->second)->get_value();
-                else
-                    return _default;
-            }
-
-            unsigned long long int get_numerical(const std::string& key, const unsigned long long int& _default = 0) const {
-                auto it = find(key);
-                if (it == cend()) {
-                    return _default;
-                }
-                bson_node_type type = static_cast<bson_node_type>(it->second->get_node_code());
-                if (type == bson_node_type::int32_node) {
-                    typedef typename type_converter<int>::node_class node_class;
-                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
-                } else if (type == bson_node_type::int64_node) {
-                    typedef typename type_converter<long long int>::node_class node_class;
-                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
-                } else if (type == bson_node_type::uint64_node) {
-                    typedef typename type_converter<unsigned long long int>::node_class node_class;
-                    return static_cast<unsigned long long int>(reinterpret_cast<const node_class*>(it->second)->get_value());
-                }
-                
-                return _default;
-            }
-
-            const binary::buffer& get_binary(const std::string& key, const binary::buffer& _default = binary::buffer()) const {
-                auto it = find(key);
-                if ((it != cend()) && (it->second->get_node_code() == binary_node)) 
-                    return reinterpret_cast<const binary*>(it->second)->get_value();
-                else
-                    return _default;
-            }
-            
-            const document& get(const std::string& key, const document& _default = document()) const {
-                auto it = find(key);
-                if ((it != cend()) && (it->second->get_node_code() == document_node))
-                    return *reinterpret_cast<const document*>(it->second);
-                else
-                    return _default;
-            }
-
-            document& get_noconst(const std::string& key, document& _default) {
-                auto it = find(key);
-                if ((it != cend()) && (it->second->get_node_code() == document_node))
-                    return *reinterpret_cast<document*>(it->second);
-                else
-                    return _default;
-            }
-
-            const std::string get(const std::string& key, const char* _default = "") const {
-                auto it = find(key);
-                if ((it != cend()) && (it->second->get_node_code() == string_node))
-                    return reinterpret_cast<const string*>(it->second)->get_value();
-                else
-                    return std::string(_default);
-            }
-
-            template<typename value_type>
-            document& set(const std::string& key, const value_type& value) {
-                typedef typename type_converter<value_type>::node_class node_class;
-                
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    it->second = new node_class(value);
-                } else {
-                    std::map<std::string, node*>::insert({key, new node_class(value)});
-                }
-
-                return (*this);
-            }
-            
-            document& set(const std::string& key, const char* value) {
-                
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    it->second = new string(value);
-                } else {
-                    std::map<std::string, node*>::insert({key, new string(value)});
-                }
-
-                return (*this);
-            }
-
-            document& set(const std::string& key, const void* buffer, size_t bufferSize) {
-                
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    it->second = new binary(buffer, bufferSize, true);
-                } else {
-                    std::map<std::string, node*>::insert({key, new binary(buffer, bufferSize, true)});
-                }
-
-                return (*this);
-            }
-            
-            document& set(const std::string& key, const document& value) {
-                
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    it->second = value.copy();
-                } else {
-                    std::map<std::string, node*>::insert({key, value.copy()});
-                }
-
-                return (*this);
-            }
-            
-            document& set(const std::string& key) {
-
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    it->second = new null();
-                } else {
-                    std::map<std::string, node*>::insert({key, new null()});
-                }
-
-                return (*this);
-            }
-
-            document& remove(const std::string& key) {
-                auto it = find(key);
-                if (it != end()) {
-                    delete it->second;
-                    std::map<std::string, node*>::erase(it);
-                }
-                return (*this);
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<document>(*this);
             }
 
             ~document() { }
     };
-    
-    class encdocument : public document
-    };
-
     template<> struct type_converter< document > { enum { node_type_code = document_node }; typedef document node_class; };
+
+    inline const document& element_list::get(const std::string_view key, const document& _default) const {
+        auto it = find(key);
+        if (it != cend() && it->second->get_node_code() == document_node)
+            return *static_cast<const document*>(it->second.get());
+        return _default;
+    }
+
+    inline document& element_list::get_noconst(const std::string_view key, document& _default) {
+        auto it = find(key);
+        if (it != cend() && it->second->get_node_code() == document_node)
+            return *static_cast<document*>(it->second.get());
+        return _default;
+    }
+
+    inline element_list& element_list::set(const std::string_view key, const document& value) {
+        map[std::string(key)] = value.copy();
+        return *this;
+    }
+
+    inline element_list& element_list::set(const std::string_view key, document&& value) {
+        map[std::string(key)] = std::make_unique<document>(std::move(value));
+        return *this;
+    }
+
+    class array : public document
+    {
+        private:
+            bool is_valid_index(ssize_t index) const {
+                return index >= 0 && index < document::size();
+            }
+            std::string to_key(ssize_t index) const {
+                return std::to_string(index);
+            }
+        public:
+            array() = default;
+
+            array(const array& other) : document(other) { }
+
+            array(array&& other) noexcept : document(std::move(other)) { }
+
+            array& operator=(const array& other) {
+                document::operator=(other);
+                return *this;
+            }
+
+            array& operator=(array&& other) noexcept {
+                document::operator=(std::move(other));
+                return *this;
+            }
+
+            array& operator=(const document& other) {
+                document::operator=(other);
+                return *this;
+            }
+
+            array& operator=(document&& other) noexcept {
+                document::operator=(std::move(other));
+                return *this;
+            }
+
+            array(const void* const buffer, const size_t count) 
+                : document(buffer, count) { }
+
+            array(const MiscUtils::Buffer& buffer) 
+                : array(buffer.Data(), buffer.Size()) { }
+            
+            void serialize(void* const buffer, const size_t count) const {
+                document::serialize(buffer, count);
+            }
+
+            size_t get_serialized_size() const {
+                return document::get_serialized_size();
+            }
+
+            unsigned char get_node_code() const {
+                return array_node;
+            }
+
+            std::unique_ptr<node> copy() const {
+                return std::make_unique<array>(*this);
+            }
+
+            template<typename result_type>
+            const result_type get(ssize_t index, const result_type& _default = result_type()) const {
+                if (is_valid_index(index))
+                    return document::get<result_type>(to_key(index), _default);
+                else
+                    return _default;
+            }
+
+            unsigned long long int get_numerical(ssize_t index, const unsigned long long int& _default = 0) const {
+                if (is_valid_index(index))
+                    return document::get_numerical(to_key(index), _default);
+                else
+                    return _default;
+            }
+
+            const MiscUtils::Buffer& get_binary(ssize_t index) const {
+                if (is_valid_index(index))
+                    return document::get_binary(to_key(index));
+                else
+                    return document::empty_buffer;
+            }
+            
+            const document& get(ssize_t index, const document& _default = document()) const {
+                if (is_valid_index(index))
+                    return document::get(to_key(index), _default);
+                else
+                    return _default;
+            }
+
+            document& get_noconst(ssize_t index, document& _default) {
+                if (is_valid_index(index))
+                    return document::get_noconst(to_key(index), _default);
+                else
+                    return _default;
+            }
+
+            const std::string get(ssize_t index, const char* _default = "") const {
+                if (is_valid_index(index))
+                    return document::get(to_key(index), _default);
+                else
+                    return _default;
+            }
+
+            template<typename value_type>
+            array& set(ssize_t index, const value_type& value) {
+                typedef typename type_converter<value_type>::node_class node_class;
+                
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set<value_type>(to_key(index), value);
+                return (*this);              
+            }
+            
+            array& set(ssize_t index, const char* value) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index), value);
+                return (*this);
+            }
+
+            array& set(ssize_t index, const MiscUtils::Buffer& value) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index), value);
+                return (*this);
+            }
+
+            array& set(ssize_t index, MiscUtils::Buffer&& value) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index), std::move(value));
+                return (*this);
+            }
+            
+            array& set(ssize_t index, const document& value) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index), value);
+                return (*this);
+            }
+
+            array& set(ssize_t index, document&& value) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index), std::move(value));
+                return (*this);
+            }
+            
+            array& set(ssize_t index) {
+                if (index == -1) {
+                    index = document::size();
+                } else {
+                    if (!is_valid_index(index)) return (*this);
+                }
+
+                document::set(to_key(index));
+                return (*this);
+            }
+    };
+    template<> struct type_converter< array > { enum { node_type_code = array_node }; typedef array node_class; };
     
-    inline node* node::create(bson_node_type type, const void * const buffer, const size_t count) {
+    
+    namespace crypto {
+        size_t get_serialized_size(const document& document);
+        std::optional<document> decrypt(const void* data, const size_t size);
+        std::optional<document> decrypt(const MiscUtils::Buffer& buffer);  
+        void encrypt(const document& document, void* outData, const size_t outSize);
+        MiscUtils::Buffer encrypt(const document& document);
+    }
+    
+    inline std::unique_ptr<node> node::create(bson_node_type type, const void * const buffer, const size_t count) {
         switch (type) {
-            case null_node: return new null();
-            case int32_node: return new int32(buffer, count);
-            case int64_node: return new int64(buffer, count);
-            case uint64_node: return new uint64(buffer, count);
-            case double_node: return new Double(buffer, count);
-            case document_node: return new document(buffer, count);
-            case string_node: return new string(buffer, count);
-            case binary_node: return new binary(buffer, count);
-            case boolean_node: return new boolean(buffer, count);
-            default: return NULL;
+            case null_node: return std::make_unique<null>();
+            case int32_node: return std::make_unique<int32>(buffer, count);
+            case int64_node: return std::make_unique<int64>(buffer, count);
+            case uint64_node: return std::make_unique<uint64>(buffer, count);
+            case double_node: return std::make_unique<Double>(buffer, count);
+            case document_node: return std::make_unique<document>(buffer, count);
+            case array_node: return std::make_unique<array>(buffer, count);
+            case string_node: return std::make_unique<string>(buffer, count);
+            case binary_node: return std::make_unique<binary>(buffer, count);
+            case boolean_node: return std::make_unique<boolean>(buffer, count);
+            default: return std::make_unique<null>();
         }
     }
 }

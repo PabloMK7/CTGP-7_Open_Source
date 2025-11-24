@@ -99,7 +99,7 @@ namespace CTRPluginFramework {
 				customItemsCustom = 0xFFFFFFFF;
 			}
 
-			CurrentSettings(minibson::document& doc) {
+			CurrentSettings(const minibson::document& doc) {
 				cpuOption = (u8)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VS_CPU_OPTION), (int)VSCPUDifficulty::STANDARD);
 				cpuAmount = (u8)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VS_CPU_AMOUNT), 7);
 				itemOption = (u8)doc.get(CTGP7SaveInfo::getSaveCode(CTGP7SaveInfo::VS_ITEM_OPTION), (int)EItemMode::ITEMMODE_ALL);

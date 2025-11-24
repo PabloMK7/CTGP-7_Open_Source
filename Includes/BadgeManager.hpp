@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BadgeManager.hpp
-Open source lines: 72/72 (100.00%)
+Open source lines: 73/73 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -47,6 +47,7 @@ namespace CTRPluginFramework {
 
             static bool CheckAndShowBadgePending();
 
+            static void ClearAll();
             static void CommitToFile();
             
             static void UpdateOnlineBadges();

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: PointsModeHandler.cpp
-Open source lines: 1745/1745 (100.00%)
+Open source lines: 1782/1782 (100.00%)
 *****************************************************/
 
 #include "PointsModeHandler.hpp"
@@ -28,6 +28,7 @@ Open source lines: 1745/1745 (100.00%)
 #include "AsyncRunner.hpp"
 #include "MenuPage.hpp"
 #include "StatsHandler.hpp"
+#include "SaveBackupHandler.hpp"
 
 namespace CTRPluginFramework {
     bool PointsModeHandler::isPointsMode = false;
@@ -208,7 +209,7 @@ namespace CTRPluginFramework {
     minibson::document PointsModeHandler::weeklyConfig;
     std::pair<std::vector<PointsModeHandler::RankInfo>, std::vector<PointsModeHandler::RankInfo>> PointsModeHandler::weeklyLeaderBoard;
     u64 PointsModeHandler::weeklyConfigFetchTime;
-    minibson::encdocument PointsModeHandler::SaveData::save;
+    minibson::document PointsModeHandler::SaveData::save;
 
     void PointsModeHandler::InitializeText()
     {
@@ -1087,7 +1088,6 @@ namespace CTRPluginFramework {
 
         auto elem = TextFileParser::Split(weeklyConfig.get(names[mode], ""));
         std::vector<u32> ret;
-        ret.reserve(elem.size());
         for (auto el = elem.begin(); el != elem.end(); el++) {
             u32 id = std::strtoul(el->c_str(), NULL, 10);
             ret.push_back(id);
@@ -1097,12 +1097,15 @@ namespace CTRPluginFramework {
 
     std::vector<u32> PointsModeHandler::GetBadgeLimits()
     {
-        auto elem = TextFileParser::Split(weeklyConfig.get("limits", ":"));
+        auto elem = TextFileParser::Split(weeklyConfig.get("limits", ""), ":");
         std::vector<u32> ret;
-        ret.reserve(elem.size());
         for (auto el = elem.begin(); el != elem.end(); el++) {
             u32 id = std::strtoul(el->c_str(), NULL, 10);
             ret.push_back(id);
+        }
+        if (ret.size() != 3) {
+            ret.resize(3);
+            memset(ret.data(), 0, ret.size() * sizeof(u32));
         }
         return ret;
     }
@@ -1206,9 +1209,8 @@ namespace CTRPluginFramework {
                     }
                     return ResetColor();
                 };
-
                 for (auto it = rankVec.begin(); it != rankVec.end(); it++) {
-                    ret += calcColor(badgeLimits, *it) + Utils::Format("%d. ", std::abs(it->rank)) + limitUtf8(it->name, 22) + SkipToPixel(240) + Utils::Format("%d\n", it->score);
+                    ret += calcColor(badgeLimits, *it) + Utils::Format("%d. ", std::abs(it->rank)) + limitUtf8(it->name, 22) + SkipToPixel(240) + Utils::Format("%d\n", it->score) + ResetColor();
                 }
             }
         }
@@ -1265,6 +1267,10 @@ namespace CTRPluginFramework {
     {
         Process::Pause();
         if (g_selectedCupID == POINTSWEEKLYCHALLENGECUPID) {
+            if (!SaveHandler::CheckAndShowServerCommunicationDisabled()) {
+                MenuPageHandler::MenuSingleCupGPPage::GetInstace()->cancelCupSelect = true;
+                goto exit;
+            }
             bool cfgvalid = IsWeeklyConfigValid();
             bool brdvalid = cfgvalid && IsWeeklyLdrBoardValid();
             if (!cfgvalid || !brdvalid) {
@@ -1676,9 +1682,13 @@ namespace CTRPluginFramework {
     }
 
     void PointsModeHandler::SaveData::Load() {
+        SaveBackupHandler::AddDoBackupHandler("point", SaveBackup);
+        SaveBackupHandler::AddRestoreBackupHandler("point", RestoreBackup);
+
         SaveHandler::SaveFile::LoadStatus status;
+        bool resetSave = false;
         save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::POINT, status);
-        u64 scID = save.get<u64>("cID", 0ULL);
+        u64 scID = save.get<u64>("_cID", 0); if (scID == 0) scID = save.get<u64>("cID", 0);
         if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
         #if CITRA_MODE == 1
         || scID == 0x5AFF5AFF5AFF5AFF
@@ -1687,17 +1697,44 @@ namespace CTRPluginFramework {
         || true
         #endif
         )) {
-            ;
+            s64 saveID[2];
+            saveID[0] = save.get<s64>("sID0", 0);
+            saveID[1] = save.get<s64>("sID1", 0);
+            save.remove("cID");
+            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+                resetSave = true;
         } else {
+            resetSave = true;
+        }
+
+        if (resetSave) {
             save.clear();
-            save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
+            save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
             save.set("pointsSave", minibson::document());
         }
+        
     }
 
 	void PointsModeHandler::SaveData::Save() {
-        save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
+        save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
+        save.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
+		save.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
         SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::POINT, save);
+    }
+
+    minibson::document PointsModeHandler::SaveData::SaveBackup() {
+        minibson::document copy = save;
+        copy.remove("_cID");
+        copy.remove("sID0");
+        copy.remove("sID1");
+        return copy;
+    }
+
+    bool PointsModeHandler::SaveData::RestoreBackup(const minibson::document &doc)
+    {
+        save = doc;
+        return true;
     }
 
     void PointsModeHandler::SaveData::SetTrackScore(u32 courseID, u32 score)

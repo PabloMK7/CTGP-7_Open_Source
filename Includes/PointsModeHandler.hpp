@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: PointsModeHandler.hpp
-Open source lines: 323/323 (100.00%)
+Open source lines: 325/325 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -310,12 +310,14 @@ namespace CTRPluginFramework {
 
 			static void Load();
 			static void Save();
+            static minibson::document SaveBackup();
+            static bool RestoreBackup(const minibson::document& doc);
 
             static void SetTrackScore(u32 courseID, u32 score);
             static u32 GetTrackScore(u32 courseID);
 
 		private:
-			static minibson::encdocument save;
+			static minibson::document save;
 		};
 
         friend class ItemHandler::AIItem;

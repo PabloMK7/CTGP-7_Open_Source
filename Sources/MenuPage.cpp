@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MenuPage.cpp
-Open source lines: 2496/2880 (86.67%)
+Open source lines: 2506/2890 (86.71%)
 *****************************************************/
 
 #include "MenuPage.hpp"
@@ -26,6 +26,7 @@ Open source lines: 2496/2880 (86.67%)
 #include "SequenceHandler.hpp"
 #include "PointsModeHandler.hpp"
 #include "Stresser.hpp"
+#include "SaveBackupHandler.hpp"
 
 extern "C" {
     void coursePageInitOmakaseTfunc();
@@ -181,6 +182,8 @@ namespace CTRPluginFramework {
         vtable._deallocating = OnMenuSingleModeDeallocate;
         vtable.initControl = InitControl;
         vtable.onPageEnter = OnPageEnter;
+        pageExitBackup = vtable.onPageExit;
+        vtable.onPageExit = OnPageExit;
         vtable.buttonHandler_SelectOn = OnSelect;
         buttonOKBackup = vtable.buttonHandler_OK;
         vtable.buttonHandler_OK = OnOK;
@@ -242,7 +245,6 @@ namespace CTRPluginFramework {
     
 
     void MenuPageHandler::MenuSingleModePage::OnPageEnter(GameSequenceSection* own) {
-
         MenuSingleModePage* page = (MenuSingleModePage*)own->vtable->userData;
         u32* ownU32 = (u32*)own;
         u32 selectedEntry = ((u32***)own)[0x88/4][0][0x100/4];
@@ -268,6 +270,14 @@ namespace CTRPluginFramework {
         GarageRequestChangeState(MarioKartFramework::getGarageDirector(), 3, ownU32[0x48/4] != 1 ? 1 : 0);
 
         VersusHandler::OnMenuSingleEnterCallback();
+        SaveBackupHandler::allowed = true;
+    }
+
+    void MenuPageHandler::MenuSingleModePage::OnPageExit(GameSequenceSection *own)
+    {
+        MenuSingleModePage* page = (MenuSingleModePage*)own->vtable->userData;
+        page->pageExitBackup(own);
+        SaveBackupHandler::allowed = false;
     }
 
     void MenuPageHandler::MenuSingleModePage::OnSelect(GameSequenceSection* own, int selected) {

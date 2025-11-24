@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandlerInfos.hpp
-Open source lines: 158/158 (100.00%)
+Open source lines: 163/163 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -39,7 +39,7 @@ namespace CTRPluginFramework {
 		"i",	// SCREENSHOT_ENABLED_LEGACY
 		"j",	// IMPROVEDROULETTE_ENABLED
 		"k",	// NUMBER_OF_ROUNDS
-		"l",	// SERVER_UPLOAD_STATS
+		"l",	// SERVER_COMMUNICATION
 		"m",    // SERVER_NAME_MODE
 		"n",    // SERVER_NAME_STR
 		"enye",	// IMPROVED_TRICKS
@@ -68,6 +68,8 @@ namespace CTRPluginFramework {
 		"_a",   // NEEDS_BADGE_OBTAINED_MSG
 		"_b",   // BLUE_SHELL_DODGE_AMOUNT
 		"_c",   // IMPROVED_HONK
+		"_d",	// SAVE_ID_0
+		"_e",	// SAVE_ID_1
 	};
 
 	class CTGP7SaveInfo
@@ -102,7 +104,7 @@ namespace CTRPluginFramework {
 			IMPROVEDROULETTE_ENABLED,
 			NUMBER_OF_ROUNDS,
 
-			SERVER_UPLOAD_STATS,
+			SERVER_COMMUNICATION,
 			SERVER_NAME_MODE,
 			SERVER_NAME_STR,
 
@@ -147,6 +149,9 @@ namespace CTRPluginFramework {
 
 			BLUE_SHELL_DODGE_AMOUNT,
 			IMPROVED_HONK,
+
+			SAVE_ID_0,
+			SAVE_ID_1,
 		};
 
 		static constexpr const char* getSaveCode(CTGP7SaveCode saveCode) {

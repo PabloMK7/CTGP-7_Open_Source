@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: mallocDebug.cpp
-Open source lines: 200/201 (99.50%)
+Open source lines: 201/202 (99.50%)
 *****************************************************/
 
 #include "mallocDebug.hpp"
@@ -30,7 +30,7 @@ namespace CTRPluginFramework {
 
     Mutex MallocDebug::allocateMutex;
 
-    MallocDebug::AllocationInfo MallocDebug::allocInfo[8192];
+    MallocDebug::AllocationInfo MallocDebug::allocInfo[8192 * 2];
     u32 MallocDebug::totalAllocationSize = 0;
 
     u32 MallocDebug::mallocThunk(u32 size)
@@ -80,10 +80,10 @@ namespace CTRPluginFramework {
         u32 callocAddr = (u32)calloc;
         u32 memalignAddr = (u32)memalign;
 
-        getreent = (void*(*)(void))decodeARMBranch((u32*)(mallocAddr + 0xC));
+        getreent = (void*(*)(void))decodeARMBranch((u32*)(mallocAddr + 0x14));
 
         // Very implementation dependent, please check the values are still right after compiling
-        malloc_r = (u32(*)(void*,u32))decodeARMBranch((u32*)(mallocAddr + 0x1C));
+        malloc_r = (u32(*)(void*,u32))decodeARMBranch((u32*)(mallocAddr + 0x3C));
         free_r = (void(*)(void*,u32))decodeARMBranch((u32*)(freeAddr + 0x1C));
         realloc_r = (u32(*)(void*,u32,u32))decodeARMBranch((u32*)(reallocAddr + 0x24));
         calloc_r = (u32(*)(void*,u32,u32))decodeARMBranch((u32*)(callocAddr + 0x24));
@@ -187,7 +187,8 @@ namespace CTRPluginFramework {
         u32 pluginTextEnd = (u32)&__text_end__;
 
         while (stackOffset < 0x2000 / 4 && stackAddrCnt < 0x26) {
-            u32 value = sp[stackOffset++];
+            u32 value;
+            if (!Process::Read32((u32)&sp[stackOffset++], value)) break;
             if ((value >= pluginTextStart && value <= pluginTextEnd)) {
                 stackAddr[stackAddrCnt++] = value;
             }

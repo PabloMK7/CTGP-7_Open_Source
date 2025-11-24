@@ -4,10 +4,12 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: lz.cpp
-Open source lines: 594/594 (100.00%)
+Open source lines: 655/655 (100.00%)
 *****************************************************/
 
 #include "lz.hpp"
+#include "cmath"
+
 /*************************************************************************
 * Name:        lz.c
 * Author:      Marcus Geelnard
@@ -96,7 +98,8 @@ Open source lines: 594/594 (100.00%)
    compression, while higher values gives better compression. The default
    value of 100000 is quite high. Experiment to see what works best for
    you. */
-#define LZ_MAX_OFFSET 100000
+#define LZ_MAX_OFFSET (1024 * 16)
+#define LZ_YIELD_AMOUNT (1024 * 1)
 
 /*************************************************************************
 *                           INTERNAL FUNCTIONS                           *
@@ -205,6 +208,8 @@ static int LZ_Compress( unsigned char *in, unsigned char *out,
     unsigned int  maxlength, length, bestlength;
     unsigned int  histogram[ 256 ];
     unsigned char *ptr1, *ptr2;
+
+    unsigned int lastyield = 0;
     
 
     /* Do we have anything to compress? */
@@ -245,7 +250,11 @@ static int LZ_Compress( unsigned char *in, unsigned char *out,
     bytesleft = insize;
     do
     {
-        
+        if (inpos - lastyield > LZ_YIELD_AMOUNT) {
+            lastyield = inpos;
+            /* Sleep 100us to allow other threads to run */
+            svcSleepThread(100000);
+        }
         
         /* Determine most distant position */
         if( inpos > LZ_MAX_OFFSET ) maxoffset = LZ_MAX_OFFSET;
@@ -498,8 +507,8 @@ static int LZ_CompressFast( unsigned char *in, unsigned char *out,
 *  insize  - Number of input bytes.
 *************************************************************************/
 
-static void LZ_Uncompress( unsigned char *in, unsigned char *out,
-    unsigned int insize )
+static int LZ_Uncompress( unsigned char *in, unsigned char *out,
+    unsigned int insize, unsigned int outsize )
 {
     unsigned char marker, symbol;
     unsigned int  i, inpos, outpos, length, offset;
@@ -507,7 +516,7 @@ static void LZ_Uncompress( unsigned char *in, unsigned char *out,
     /* Do we have anything to uncompress? */
     if( insize < 1 )
     {
-        return;
+        return 0;
     }
 
     /* Get marker symbol from input stream */
@@ -526,6 +535,7 @@ static void LZ_Uncompress( unsigned char *in, unsigned char *out,
             {
                 /* It was a single occurrence of the marker byte */
                 out[ outpos ++ ] = marker;
+                if (outpos >= outsize) return outpos;
                 ++ inpos;
             }
             else
@@ -539,6 +549,7 @@ static void LZ_Uncompress( unsigned char *in, unsigned char *out,
                 {
                     out[ outpos ] = out[ outpos - offset ];
                     ++ outpos;
+                    if (outpos >= outsize) return outpos;
                 }
             }
         }
@@ -546,49 +557,99 @@ static void LZ_Uncompress( unsigned char *in, unsigned char *out,
         {
             /* No marker, plain copy */
             out[ outpos ++ ] = symbol;
+            if (outpos >= outsize) return outpos;
         }
     }
     while( inpos < insize );
+
+    return outpos;
 }
 
 
 namespace CTRPluginFramework {
 
-    static LZCompressResult g_lzCompressResult = { 0 };
-    static LZCompressArg g_lzCompressArg = { 0 };
+    static LZResult g_lzResult = { 0 };
+    static LZArg g_lzArg = { 0 };
+    static Mutex g_lzmutex;
+    static constexpr u32 MAX_LZ_SIZE = 0x10000;
 
-    static s32 lzCompressFunc(void* args UNUSED) {
-        g_lzCompressResult.outputSize = LZ_Compress((u8*)g_lzCompressArg.inputAddr, ((u8*)g_lzCompressResult.outputAddr) + 4, g_lzCompressArg.inputSize) + 4;
-        ((u32*)g_lzCompressResult.outputAddr)[0] = g_lzCompressArg.inputSize;
-        if (g_lzCompressArg.onCompressFinish) {
-            g_lzCompressArg.onCompressFinish(g_lzCompressResult);
+    static s32 lzFunc(void* args UNUSED) {
+        s32 prio;
+        svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+        svcSetThreadPriority(CUR_THREAD_HANDLE, 0x3E);
+        if (g_lzArg.isCompress) {
+            g_lzResult.outputSize = LZ_Compress((u8*)g_lzArg.inputAddr, ((u8*)g_lzResult.outputBuffer.Data()) + 4, g_lzArg.inputSize) + 4;
+            ((u32*)g_lzResult.outputBuffer.Data())[0] = g_lzArg.inputSize;
+        } else {
+            g_lzResult.outputSize = LZ_Uncompress((u8*)g_lzArg.inputAddr + 4, (u8*)g_lzResult.outputBuffer.Data(), g_lzArg.inputSize - 4, g_lzResult.outputSize);
+        }
+        svcSetThreadPriority(CUR_THREAD_HANDLE, prio);
+        g_lzResult.good = true;
+        if (g_lzArg.onCompressFinish) {
+            g_lzArg.onCompressFinish(g_lzResult);
         }
         return 0;
     }
 
-    static Task g_lzCompressTask(lzCompressFunc);
+    static Task g_lzTask(lzFunc);
 
-    void LZ77Compress(const LZCompressArg& input) {
-        LZ77CompressWait();
+    void LZ77Lock()
+    {
+        g_lzmutex.Lock();
+    }
+
+    void LZ77Perform(const LZArg &input)
+    {
+        LZ77Wait();
         LZ77Cleanup();
-        g_lzCompressArg = input;
-        g_lzCompressResult.outputAddr = operator new(input.inputSize + input.inputSize * 0.004f + 1 + 4);
-        g_lzCompressTask.Start();
+        g_lzArg = input;
+
+        if (g_lzArg.inputSize >= MAX_LZ_SIZE) {
+            if (g_lzArg.onCompressFinish) {
+                g_lzArg.onCompressFinish(g_lzResult);
+            }
+            return;
+        }
+
+        if (g_lzArg.isCompress) {
+            g_lzResult.outputBuffer.Resize((input.inputSize + (size_t)(input.inputSize * 0.004f) + 1) + 4);
+        } else {
+            if (g_lzArg.inputSize < 4) {
+                if (g_lzArg.onCompressFinish) {
+                    g_lzArg.onCompressFinish(g_lzResult);
+                }
+                return;
+            }
+            u32 reportedOutSize = ((u32*)g_lzArg.inputAddr)[0];
+            if (reportedOutSize >= MAX_LZ_SIZE) {
+                if (g_lzArg.onCompressFinish) {
+                    g_lzArg.onCompressFinish(g_lzResult);
+                }
+                return;
+            }
+            g_lzResult.outputBuffer.Resize(reportedOutSize);
+            g_lzResult.outputSize = reportedOutSize;
+        }
+        
+        g_lzTask.Start();
     }
 
-    void LZ77CompressWait() {
-        g_lzCompressTask.Wait();
+    void LZ77Wait() {
+        g_lzTask.Wait();
     }
 
-    const LZCompressResult& LZ77CompressResult() {
-        return g_lzCompressResult;
+    const LZResult& LZ77Result() {
+        return g_lzResult;
     }
 
     void LZ77Cleanup() {
-        if (g_lzCompressResult.outputAddr) operator delete(g_lzCompressResult.outputAddr);
-        g_lzCompressResult.outputAddr = nullptr;
-        g_lzCompressResult.outputSize = 0;
+        g_lzResult.outputBuffer.Clear();
+        g_lzResult.outputSize = 0;
+        g_lzResult.good = false;
+    }
+    
+    void LZ77Unlock()
+    {
+        g_lzmutex.Unlock();
     }
 }
-
-

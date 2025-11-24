@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1564/1575 (99.30%)
+Open source lines: 1585/1596 (99.31%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -26,6 +26,7 @@ Open source lines: 1564/1575 (99.30%)
 #include "MenuPage.hpp"
 #include "Stresser.hpp"
 #include "AsyncRunner.hpp"
+#include "SaveBackupHandler.hpp"
 
 extern "C" u32 * g_altGameModeplayerStatPointer;
 
@@ -277,7 +278,6 @@ namespace CTRPluginFramework {
             if (!missionConditionFailed) {
                 saveEntry.hasData = true;
                 saveEntry.SetChecksumValid(true);
-                saveEntry.isDirty = true;
                 saveEntry.grade = lastMissionResult.points;
                 switch (missionParam->MissionFlags->calcType)
                 {
@@ -301,7 +301,6 @@ namespace CTRPluginFramework {
                 if (((slope > 0.f && finalTime > saveEntry.GetTime()) || (slope < 0.f && finalTime < saveEntry.GetTime())) && !missionConditionFailed) {
                     saveEntry.SetTime(finalTime);
                     saveEntry.grade = lastMissionResult.points;
-                    saveEntry.isDirty = true;
                     overridePrevChecksum = true;
                 }
                 lastMissionResult.bestScore = saveEntry.GetTime().GetFrames();
@@ -310,7 +309,6 @@ namespace CTRPluginFramework {
                 if (((slope > 0.f && finalPoints > saveEntry.GetScore()) || (slope < 0.f && finalPoints < saveEntry.GetScore())) && !missionConditionFailed) {
                     saveEntry.SetScore(finalPoints);
                     saveEntry.grade = lastMissionResult.points;
-                    saveEntry.isDirty = true;
                     overridePrevChecksum = true;
                 }
                 lastMissionResult.bestScore = saveEntry.GetScore();
@@ -327,11 +325,12 @@ namespace CTRPluginFramework {
         if (saveEntry.hasData) saveEntry.SetChecksumValid(checksumValid);
         SaveData::SetMissionSave(missionParam->InfoSection->uniqueMissionID, saveEntry);
         #if CITRA_MODE == 0
-        if (checksumValid && lastMissionResult.points == 10) SaveData::SetFullGradeFlag(currMissionWorld, currMissionLevel);
+        if (checksumValid && lastMissionResult.points == 10) {SaveData::SetFullGradeFlag(currMissionWorld, currMissionLevel);}
         #else
-        if (currMissionWorld <= 4 && lastMissionResult.points == 10) SaveData::SetFullGradeFlag(currMissionWorld, currMissionLevel);
+        if (currMissionWorld <= 4 && lastMissionResult.points == 10) {SaveData::SetFullGradeFlag(currMissionWorld, currMissionLevel);}
         #endif
         StatsHandler::OnMissionFinish(lastMissionResult.points, checksumValid, currMissionWorld);
+        SaveHandler::SaveSettingsAll();
     }
 
     void MissionHandler::resultBarAmountSetName(u32 baseresultbar, u32 message) {
@@ -1453,12 +1452,16 @@ namespace CTRPluginFramework {
         return false;
     }
     
-    minibson::encdocument MissionHandler::SaveData::save;
+    minibson::document MissionHandler::SaveData::save;
 
     void MissionHandler::SaveData::Load() {
+        SaveBackupHandler::AddDoBackupHandler("mission", SaveBackup);
+        SaveBackupHandler::AddRestoreBackupHandler("mission", RestoreBackup);
+
         SaveHandler::SaveFile::LoadStatus status;
+        bool resetSave = false;
         save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::MISSION, status);
-        u64 scID = save.get<u64>("cID", 0ULL);
+        u64 scID = save.get<u64>("_cID", 0); if (scID == 0) scID = save.get<u64>("cID", 0);
         if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
         #if CITRA_MODE == 1
         || scID == 0x5AFF5AFF5AFF5AFF
@@ -1467,24 +1470,49 @@ namespace CTRPluginFramework {
         || true
         #endif
         )) {
-            ;
+            s64 saveID[2];
+            saveID[0] = save.get<s64>("sID0", 0);
+            saveID[1] = save.get<s64>("sID1", 0);
+            save.remove("cID");
+            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+                resetSave = true;
+            
         } else {
+            resetSave = true;
+        }
+
+        if (resetSave) {
             save.clear();
-            save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
+            save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
             save.set("missionSave", minibson::document());
             save.set("missionFullGrade", minibson::document());
         }
+
         if (!save.contains("missionFullGrade"))
             save.set("missionFullGrade", minibson::document());
     }
 	void MissionHandler::SaveData::Save() {
-        save.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
+        save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
+		save.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
+		save.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
         SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::MISSION, save);
+    }
+    minibson::document MissionHandler::SaveData::SaveBackup() {
+        minibson::document copy = save;
+        copy.remove("_cID");
+        copy.remove("sID0");
+        copy.remove("sID1");
+        return copy;
+    }
+
+    bool MissionHandler::SaveData::RestoreBackup(const minibson::document& doc) {
+        save = doc;
+        return true;
     }
 
     void MissionHandler::SaveData::GetMissionSave(const char missionID[0xC], MissionHandler::SaveData::SaveEntry& entry) {
         entry.hasData = false;
-        entry.isDirty = false;
         minibson::document empty;
         const minibson::document& data = save.get("missionSave", empty).get(missionID, empty);
         if (data.empty())
@@ -1518,18 +1546,12 @@ namespace CTRPluginFramework {
         data.set("s", (int)entry.saveIteration);
 
         save.get_noconst("missionSave", empty).set(missionID, data);
-
-        if (entry.isDirty)
-        {
-            entry.isDirty = false;
-            SaveData::Save();
-        }
     }
 
     void MissionHandler::SaveData::ClearMissionSave(const char missionID[0xC]) {
         minibson::document empty;
         save.get_noconst("missionSave", empty).remove(missionID);
-        SaveData::Save();
+        SaveHandler::SaveSettingsAll();
     }
 
     void MissionHandler::SaveData::SetFullGradeFlag(u32 world, u32 level) {
@@ -1539,7 +1561,6 @@ namespace CTRPluginFramework {
         u32 data = save.get("missionFullGrade", empty).get(std::to_string(entry).c_str(), (int)0);
         data |= (1 << (((world - 1) & 7) * 4 + (level - 1)));
         save.get_noconst("missionFullGrade", empty).set(std::to_string(entry).c_str(), (int)data);
-        SaveData::Save();
     }
 
 	bool MissionHandler::SaveData::GetFullGradeFlag(u32 world, u32 level) {

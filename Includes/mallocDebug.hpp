@@ -57,7 +57,7 @@ namespace CTRPluginFramework {
 			u32 affectedAddr = 0;
 			u32 affectedSize = 0;
 		};
-		static AllocationInfo allocInfo[8192];
+		static AllocationInfo allocInfo[8192 * 2];
 		static constexpr u32 allocSize = sizeof(allocInfo) / sizeof(AllocationInfo);
 
 		static u32 totalAllocationSize;

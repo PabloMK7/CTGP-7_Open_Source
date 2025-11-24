@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 701/703 (99.72%)
+Open source lines: 726/728 (99.73%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -18,6 +18,7 @@ Open source lines: 701/703 (99.72%)
 #include "UserCTHandler.hpp"
 #include "set"
 #include "time.h"
+#include "SaveBackupHandler.hpp"
 
 namespace CTRPluginFramework {
 
@@ -49,7 +50,7 @@ namespace CTRPluginFramework {
 		"played_tracks",
 		"score_track_mean",
 	};
-	minibson::encdocument StatsHandler::statsDoc;
+	minibson::document StatsHandler::statsDoc;
 	minibson::document* StatsHandler::uploadDoc;
 	Mutex StatsHandler::statsDocMutex{};
 	#if CITRA_MODE == 0
@@ -57,23 +58,33 @@ namespace CTRPluginFramework {
 	#else
 	Task StatsHandler::uploadStatsTask(StatsHandler::UploadStatsFunc, nullptr, Task::Affinity::AppCore);
 	#endif
-	bool StatsHandler::firstReport = true;
 	s32 StatsHandler::racePointsPos = -1;
 
     void StatsHandler::Initialize()
     {
+		SaveBackupHandler::AddDoBackupHandler("stats", CreateBackup);
+		SaveBackupHandler::AddRestoreBackupHandler("stats", RestoreBackup);
+
 		{
 			SaveHandler::SaveFile::LoadStatus status;
 			minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::STATS, status);
-			u64 scID = doc.get<u64>("cID", 0);
+			u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
 			if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
 			#ifdef ALLOW_SAVES_FROM_OTHER_CID
 			|| true
 			#endif
 			)) {
-				statsDoc = doc;
+				doc.remove("cID");
+				statsDoc = std::move(doc);
 			}
 		}
+
+		s64 saveID[2];
+		saveID[0] = statsDoc.get<s64>("sID0", 0);
+		saveID[1] = statsDoc.get<s64>("sID1", 0);
+		if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+			(saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+			statsDoc.clear();
 
 		if (!statsDoc.contains<minibson::document>("Uploaded")) {
 			statsDoc.set("Uploaded", minibson::document());
@@ -107,39 +118,56 @@ namespace CTRPluginFramework {
 			IncreaseDocStat(uploadedStats, Stat::GRADECOUNT_MISSIONS, -1, gradecount_mission);
 		}
 		//
-    
-		BadgeManager::Initialize();
 	}
 
 	void StatsHandler::CommitToFile()
 	{
 		{
 			Lock lock(statsDocMutex);
-			statsDoc.set("cID", NetHandler::GetConsoleUniqueHash());
+			statsDoc.set("_cID", NetHandler::GetConsoleUniqueHash());
+        	statsDoc.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
+			statsDoc.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
 			SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::STATS, statsDoc);
 		}
 		BadgeManager::CommitToFile();
 	}
 
-	void StatsHandler::UploadStats()
+    minibson::document StatsHandler::CreateBackup()
+    {
+		Lock lock(statsDocMutex);
+		minibson::document copy = statsDoc;
+		copy.remove("_cID");
+		copy.remove("seqID");
+        copy.remove("sID0");
+        copy.remove("sID1");
+        return copy;
+    }
+
+    bool StatsHandler::RestoreBackup(const minibson::document &doc)
+    {
+		Lock lock(statsDocMutex);
+		statsDoc = doc;
+        return true;
+    }
+
+    void StatsHandler::UploadStats(bool async, bool forceUpload)
 	{
 		Lock lock(statsDocMutex);
-		if (uploadDoc != nullptr || !SaveHandler::saveData.flags1.uploadStats)
+		if (uploadDoc != nullptr || !SaveHandler::saveData.flags1.serverCommunication)
 			return;
 		int seqID = GetSequenceID();
 		if (seqID == 0) {
 			uploadDoc = new minibson::document();
 			uploadDoc->set<int>("seqID", seqID);
-			uploadStatsTask.Start();
+			if (async) uploadStatsTask.Start(); else UploadStatsFunc(nullptr);
 		}
 		else {
 			const minibson::document& pending = GetPendingStats();
-			if (!pending.empty()) {
+			if (!pending.empty() || forceUpload) {
 				uploadDoc = new minibson::document(pending);
 				uploadDoc->set<int>("seqID", seqID);
-				uploadDoc->set<bool>("firstReport", firstReport);
 				uploadDoc->set<minibson::document>("status", FetchSendStatus());
-				uploadStatsTask.Start();
+				if (async) uploadStatsTask.Start(); else UploadStatsFunc(nullptr);
 			}
 		}
 	}
@@ -188,51 +216,51 @@ namespace CTRPluginFramework {
 	{
 		for (auto it = doc1.cbegin(); it != doc1.cend(); it++) {
 			const std::string& key = (*it).first;
-			minibson::node* value = (*it).second;
+			minibson::node* value = (*it).second.get();
 			if (value->get_node_code() == minibson::bson_node_type::int32_node)
 			{
-				int doc1Val = reinterpret_cast<const minibson::int32*>(value)->get_value();
+				int doc1Val = static_cast<const minibson::int32*>(value)->get_value();
 				target.set<int>(key.c_str(), doc1Val);
 			} else if (value->get_node_code() == minibson::bson_node_type::double_node)
 			{
-				double doc1Val = reinterpret_cast<const minibson::Double*>(value)->get_value();
+				double doc1Val = static_cast<const minibson::Double*>(value)->get_value();
 				target.set<double>(key.c_str(), doc1Val);
 			} else if (value->get_node_code() == minibson::bson_node_type::binary_node)
 			{
-				auto& doc1Val = reinterpret_cast<const minibson::binary*>(value)->get_value();
-				target.set(key.c_str(), doc1Val.data, doc1Val.length);
+				auto& doc1Val = static_cast<const minibson::binary*>(value)->get_value();
+				target.set(key.c_str(), doc1Val);
 			}
 		}
 		for (auto it = doc2.cbegin(); it != doc2.cend(); it++) {
 			const std::string& key = (*it).first;
-			minibson::node* value = (*it).second;
+			minibson::node* value = (*it).second.get();
 			if (value->get_node_code() == minibson::bson_node_type::int32_node)
 			{
-				int doc2Val = reinterpret_cast<const minibson::int32*>(value)->get_value();
+				int doc2Val = static_cast<const minibson::int32*>(value)->get_value();
 				int targetVal = target.get<int>(key.c_str(), 0);
 				target.set<int>(key.c_str(), doc2Val + targetVal);
 			} else if (value->get_node_code() == minibson::bson_node_type::double_node)
 			{
-				double doc2Val = reinterpret_cast<const minibson::Double*>(value)->get_value();
+				double doc2Val = static_cast<const minibson::Double*>(value)->get_value();
 				double targetVal = target.get<double>(key.c_str(), 0.0);
 				target.set<double>(key.c_str(), doc2Val + targetVal);
 			} else if (value->get_node_code() == minibson::bson_node_type::binary_node)
 			{
-				auto& doc2Val = reinterpret_cast<const minibson::binary*>(value)->get_value();
-				if (doc2Val.length == 0xC) {
+				auto& doc2Val = static_cast<const minibson::binary*>(value)->get_value();
+				if (doc2Val.Size() == 0xC) {
 					const auto& targetVal = target.get_binary(key.c_str());
-					if (targetVal.length == 0xC) {
+					if (targetVal.Size() == 0xC) {
 						s64 score[2]; int count[2];
 						u8 buf[sizeof(s64) + sizeof(int)];
-						memcpy(&score[0], targetVal.data, sizeof(s64));
-						memcpy(&count[0], (u8*)targetVal.data + sizeof(s64), sizeof(int));
-						memcpy(&score[1], doc2Val.data, sizeof(s64));
-						memcpy(&count[1], (u8*)doc2Val.data + sizeof(s64), sizeof(int));
+						memcpy(&score[0], targetVal.Data(), sizeof(s64));
+						memcpy(&count[0], (u8*)targetVal.Data() + sizeof(s64), sizeof(int));
+						memcpy(&score[1], doc2Val.Data(), sizeof(s64));
+						memcpy(&count[1], (u8*)doc2Val.Data() + sizeof(s64), sizeof(int));
 						score[0] += score[1];
 						count[0] += count[1];
 						memcpy(buf, &score[0], sizeof(s64));
 						memcpy(buf + sizeof(s64), &count[0], sizeof(int));
-						target.set(key.c_str(), buf, sizeof(buf));
+						target.set(key.c_str(), MiscUtils::Buffer(buf, sizeof(buf)));
 					}
 				}
 			}
@@ -275,7 +303,6 @@ namespace CTRPluginFramework {
 		int resultCode = reqHandler.GetResult(NetHandler::RequestHandler::RequestType::GENERAL_STATS, &outdoc);
 		int sequenceID = outdoc.get_numerical("seqID", 0);
 		if (resultCode == 0) { // Sequence ID correct and stats stored
-			firstReport = false;
 			RemovePendingUploads();
 			s64 racePoints = outdoc.get_numerical("points", -1);
 			if (racePoints >= 0) {
@@ -287,11 +314,11 @@ namespace CTRPluginFramework {
 			CommitToFile();
 
 			auto& badges_bin = outdoc.get_binary("badges");
-			std::vector<u64> badges(badges_bin.length / sizeof(u64));
-			memcpy(badges.data(), badges_bin.data, badges_bin.length);
+			std::vector<u64> badges(badges_bin.Size() / sizeof(u64));
+			memcpy(badges.data(), badges_bin.Data(), badges_bin.Size());
 			auto& times_bin = outdoc.get_binary("badge_times");
-			std::vector<u64> times(times_bin.length / sizeof(u64));
-			memcpy(times.data(), times_bin.data, times_bin.length);
+			std::vector<u64> times(times_bin.Size() / sizeof(u64));
+			memcpy(times.data(), times_bin.Data(), times_bin.Size());
 			BadgeManager::ProcessMyBadges(badges, times);
 		}
 		else if (resultCode == 1) // Sequence ID request successful
@@ -334,12 +361,11 @@ namespace CTRPluginFramework {
 			minibson::document defDoc;
 			const char* courseName = globalNameData.entries[courseID].name;
 			const minibson::document& scores = doc.get(statStr[(int)stat], defDoc);
-			minibson::binary::buffer defBuffer;
-			const auto& buff = scores.get_binary(courseName, defBuffer);
-			if (buff.length == sizeof(s64) + sizeof(int)) {
+			const auto& buff = scores.get_binary(courseName);
+			if (buff.Size() == sizeof(s64) + sizeof(int)) {
 				s64 score_val; int count_val;
-				memcpy(&score_val, buff.data, sizeof(s64));
-				memcpy(&count_val, (u8*)buff.data + sizeof(s64), sizeof(int));
+				memcpy(&score_val, buff.Data(), sizeof(s64));
+				memcpy(&count_val, (u8*)buff.Data() + sizeof(s64), sizeof(int));
 				ret = std::make_pair(score_val, (s64)count_val);
 			}
 		}
@@ -376,7 +402,7 @@ namespace CTRPluginFramework {
 			int count_val = prevPair.second + 1;
 			memcpy(storeBuf, &score_val, sizeof(s64));
 			memcpy(storeBuf + sizeof(s64), &count_val, sizeof(int));
-			scores.set(courseName, storeBuf, sizeof(storeBuf));
+			scores.set(courseName, MiscUtils::Buffer(storeBuf, sizeof(storeBuf)));
 		}
 		else {
 			doc.set<int>(statStr[(int)stat], prevVal + amount);
@@ -509,7 +535,6 @@ namespace CTRPluginFramework {
 			}
 			if (missionGrade > 0) UpdateMissionMean(missionGrade);
 		}
-		SaveHandler::SaveSettingsAll();
 	}
 
     void StatsHandler::OnScoreAttackFinish(bool isWeekly, int score, int courseID)

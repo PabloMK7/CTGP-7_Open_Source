@@ -516,7 +516,7 @@ namespace CTRPluginFramework
 			else
 				topStr += "  " + NAME("cntdwn") + ": " + std::to_string(SaveHandler::saveData.cdVR) + " " + NAME("vr") + "\n";
 			topStr += NAME("serv_consID") + ":\n  " + NAME("serv_qrshow") + "\n\n";
-			topStr += "1. " + NAME("serv_statsupl") + ":\n  " + ((SaveHandler::saveData.flags1.uploadStats) ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
+			topStr += "1. " + NAME("serv_communic") + ":\n  " + ((SaveHandler::saveData.flags1.serverCommunication) ? (Color::LimeGreen << NAME("state_mode")) : (Color::Red << NOTE("state_mode"))) << ResetColor() + "\n";
 			topStr += "2. " + NAME("serv_displname") + ":\n  ";
 			switch (SaveHandler::saveData.serverDisplayNameMode)
 			{
@@ -533,21 +533,21 @@ namespace CTRPluginFramework
 				break;
 			}
 			kbd.GetMessage() = topStr;
-			kbd.Populate({ "1. " + ((SaveHandler::saveData.flags1.uploadStats) ? enSlid : disSlid), "2. " + NAME("chng"),
+			kbd.Populate({ "1. " + ((SaveHandler::saveData.flags1.serverCommunication) ? enSlid : disSlid), "2. " + NAME("chng"),
 			#if CITRA_MODE == 0
 			 	NAME("disc_info"),
 			#else
 				Color::Gray << NAME("disc_info") << ResetColor(),
 			#endif
 			NAME("exit") });
-			kbd.ChangeEntrySound(0, (SaveHandler::saveData.flags1.uploadStats) ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
+			kbd.ChangeEntrySound(0, (SaveHandler::saveData.flags1.serverCommunication) ? SoundEngine::Event::DESELECT : SoundEngine::Event::SELECT);
 			kbd.ChangeEntrySound(3, SoundEngine::Event::CANCEL);
 			opt = kbd.Open();
 			g_showingQR = false;
 			switch (opt)
 			{
 			case 0:
-				SaveHandler::saveData.flags1.uploadStats = !SaveHandler::saveData.flags1.uploadStats;
+				SaveHandler::saveData.flags1.serverCommunication = !SaveHandler::saveData.flags1.serverCommunication;
 				break;
 			case 1:
 				serverChangeDisplayName(miiName);

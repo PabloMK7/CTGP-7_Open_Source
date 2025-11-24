@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 579/582 (99.48%)
+Open source lines: 660/663 (99.55%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -23,10 +23,13 @@ Open source lines: 579/582 (99.48%)
 #include "CharacterHandler.hpp"
 #include "BlueCoinChallenge.hpp"
 #include "PointsModeHandler.hpp"
+#include "SaveBackupHandler.hpp"
+#include "BadgeManager.hpp"
 
 namespace CTRPluginFramework {
 	
-	SaveHandler::CTGP7Save SaveHandler::saveData;
+	bool SaveHandler::disableSaving = false;
+	SaveHandler::CTGP7Save SaveHandler::saveData{};
 	Task SaveHandler::saveSettinsTask(SaveHandler::SaveSettingsTaskFunc, nullptr, Task::Affinity::AppCore);
 	int SaveHandler::lastAchievementCount = 0;
 	u32 SaveHandler::lastSpecialAchievements = 0;
@@ -63,6 +66,8 @@ namespace CTRPluginFramework {
 
 	void SaveHandler::DefaultSettings() {
 		saveData = std::move(CTGP7Save());
+		saveData.GenerateNewSaveID();
+		saveData.newlyGeneratedID = true;
 	}
 
 	void SaveHandler::UpdateAchievementCryptoFiles() {
@@ -288,17 +293,34 @@ namespace CTRPluginFramework {
 		return false;
 	}
 
-	s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
-		SaveSettings();
+    bool SaveHandler::CheckAndShowServerCommunicationDisabled()
+    {
+        if (SaveHandler::saveData.flags1.serverCommunication)
+			return true;
+
+		Keyboard kbd(NOTE("serv_communic"));
+		kbd.Populate({NAME("exit")});
+		kbd.Open();
+		return false;
+    }
+
+    s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
+		if (disableSaving) return 0;
+		SaveOptions();
+		CupRankSave::Save();
 		StatsHandler::CommitToFile();
+		MissionHandler::SaveSaveData();
 		PointsModeHandler::SaveSaveData();
 		return 0;
 	}
 
 	void SaveHandler::LoadSettings() {
+		SaveBackupHandler::AddDoBackupHandler("options", SaveSettingsBackup);
+		SaveBackupHandler::AddRestoreBackupHandler("options", RestoreSettingsBackup);
+
 		SaveFile::LoadStatus status;
-		minibson::encdocument doc = SaveFile::Load(SaveFile::SaveType::OPTIONS, status);
-		u64 scID = doc.get<u64>("cID", 0);
+		minibson::document doc = SaveFile::Load(SaveFile::SaveType::OPTIONS, status);
+		u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
 		if (status == SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
 		#if CITRA_MODE == 1
 		|| scID == 0x5AFF5AFF5AFF5AFF
@@ -307,34 +329,59 @@ namespace CTRPluginFramework {
 		|| true
 		#endif
 		)) {
-			saveData = std::move(CTGP7Save(doc));
+			saveData = std::move(CTGP7Save(doc, true));
 		} else DefaultSettings();
 
 		CupRankSave::Load();
 		MissionHandler::SaveData::Load();
 		PointsModeHandler::LoadSaveData();
+		StatsHandler::Initialize();
+		BadgeManager::Initialize();
+
+		if (saveData.newlyGeneratedID) {
+			SaveOptions();
+			saveData.newlyGeneratedID = false;
+		}
 	}
 
-	void SaveHandler::SaveSettings() {
+	void SaveHandler::SaveOptions() {
 
 		saveData.cc_settings = ccsettings[0];
 
-		minibson::encdocument saveDoc;
-		saveDoc.set<u64>("cID", NetHandler::GetConsoleUniqueHash());
+		minibson::document saveDoc;
+		saveDoc.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
+		saveDoc.set("sID0", (s64)saveData.saveID[0]);
+		saveDoc.set("sID1", (s64)saveData.saveID[1]);
 		saveData.serialize(saveDoc);
 		
 		SaveFile::Save(SaveFile::SaveType::OPTIONS, saveDoc);
-
-		CupRankSave::Save();
 	}
-	
-	std::map<u32, u8> SaveHandler::CupRankSave::cupData; 
+
+	minibson::document SaveHandler::SaveSettingsBackup(void) {
+		saveData.cc_settings = ccsettings[0];
+
+		minibson::document saveDoc;
+		saveData.serialize(saveDoc);
+
+		return saveDoc;
+	}
+
+    bool SaveHandler::RestoreSettingsBackup(const minibson::document &doc)
+    {
+		saveData = std::move(CTGP7Save(doc, false));
+        return true;
+    }
+
+    std::map<u32, u8> SaveHandler::CupRankSave::cupData; 
 
 	void SaveHandler::CupRankSave::Load() {
+		SaveBackupHandler::AddDoBackupHandler("races", SaveBackup);
+		SaveBackupHandler::AddRestoreBackupHandler("races", RestoreBackup);
+
 		SaveFile::LoadStatus status;
-		minibson::encdocument doc = SaveFile::Load(SaveFile::SaveType::RACES, status);
+		minibson::document doc = SaveFile::Load(SaveFile::SaveType::RACES, status);
 		if (status == SaveFile::LoadStatus::SUCCESS) {
-			u64 scID = doc.get<u64>("cID", 0ULL);
+			u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
 			if (scID == NetHandler::GetConsoleUniqueHash()
 			#if CITRA_MODE == 1
 			|| scID == 0x5AFF5AFF5AFF5AFF
@@ -343,37 +390,66 @@ namespace CTRPluginFramework {
 			|| true
 			#endif
 			) {
-				const minibson::document& cuprankdoc = doc.get("cuprank", minibson::document());
-				for (auto it = cuprankdoc.cbegin(); it != cuprankdoc.cend(); it++) {
-					if (it->second->get_node_code() == minibson::bson_node_type::null_node)
-					{
-						u32 value = std::stoi(it->first);
-						u32 cupId = value >> 8;
-						u8 data = value & 0xFF;
-						cupData[cupId] = data;
-					}
-				}
+				s64 saveID[2];
+				saveID[0] = doc.get<s64>("sID0", 0);
+				saveID[1] = doc.get<s64>("sID1", 0);
+				if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+					(saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+					return;
+
+				FromDocument(doc.get("cuprank", minibson::document()));
 			}
 		}
 	}
 
-	void SaveHandler::CupRankSave::Save() {
-
+	minibson::document SaveHandler::CupRankSave::ToDocument() {
 		minibson::document data;
 		for (auto it = cupData.cbegin(); it != cupData.cend(); it++) {
 			if (it->second) {
-				data.set(std::to_string((it->first << 8) | it->second).c_str());
+				data.set(std::to_string((it->first << 8) | it->second));
 			}
 		}
+		return data;
+	}
 
-		minibson::encdocument saveDoc;
-		saveDoc.set("cID", NetHandler::GetConsoleUniqueHash());
-		saveDoc.set("cuprank", data);
+    void SaveHandler::CupRankSave::FromDocument(const minibson::document &doc)
+    {
+		for (auto it = doc.cbegin(); it != doc.cend(); it++) {
+			if (it->second->get_node_code() == minibson::bson_node_type::null_node)
+			{
+				u32 value = std::stoul(it->first);
+				u32 cupId = value >> 8;
+				u8 data = value & 0xFF;
+				cupData[cupId] = data;
+			}
+		}
+    }
+
+    void SaveHandler::CupRankSave::Save() {
+		minibson::document saveDoc;
+		saveDoc.set("_cID", NetHandler::GetConsoleUniqueHash());
+		saveDoc.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
+		saveDoc.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
+		saveDoc.set("cuprank", ToDocument());
 		
 		SaveFile::Save(SaveFile::SaveType::RACES, saveDoc);
 	}
 
-	bool SaveHandler::CupRankSave::CheckModAllSatisfy(SatisfyCondition condition) {
+    minibson::document SaveHandler::CupRankSave::SaveBackup()
+    {
+		minibson::document saveDoc;
+		saveDoc.set("cuprank", ToDocument());
+
+		return saveDoc;
+    }
+
+    bool SaveHandler::CupRankSave::RestoreBackup(const minibson::document &doc)
+    {
+		FromDocument(doc.get("cuprank", minibson::document()));
+        return true;
+    }
+
+    bool SaveHandler::CupRankSave::CheckModAllSatisfy(SatisfyCondition condition) {
 		bool satisfy;
 		u32 systemSaveData = MarioKartFramework::getSystemSaveData();
 		for (u32 i = 0; i < 4; i++) {
@@ -468,7 +544,7 @@ namespace CTRPluginFramework {
 	void SaveHandler::CupRankSave::setGrandPrixData(u32 saveData, GrandPrixData* in, u32* GPID, u32* engineLevel, bool isMirror) {
 		if (*GPID == USERCUPID || *GPID == POINTSRANDOMCUPID || *GPID == POINTSWEEKLYCHALLENGECUPID || VersusHandler::IsVersusMode) return;
 		u32 engineLvl = *engineLevel;
-		GrandPrixData current;
+		GrandPrixData current{};
 		if (engineLvl == 2 && isMirror) engineLvl++;
 		if (*GPID < 8) {
 			u8* packedSavedData = (u8*)(saveData + 1804 + *GPID * 4 + engineLvl);
@@ -522,26 +598,30 @@ namespace CTRPluginFramework {
 		"point",
 	};
 
-	minibson::encdocument SaveHandler::SaveFile::Load(SaveType type, LoadStatus& status) {
+	minibson::document SaveHandler::SaveFile::Load(SaveType type, LoadStatus& status) {
 		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s.sav", SaveNames[(u32)type]);
 		File savefile(path);
-		if (!savefile.IsOpen()) {status = LoadStatus::FILE_NOT_FOUND; return minibson::encdocument();}
+		if (!savefile.IsOpen()) {status = LoadStatus::FILE_NOT_FOUND; return minibson::document();}
 
 		u32 saveFileSize = savefile.GetSize();
-		if (saveFileSize < 0xC || saveFileSize > 0x40000) {status = LoadStatus::CORRUPTED_FILE; return minibson::encdocument();}
+		if (saveFileSize < 0xC || saveFileSize > 0x40000) {status = LoadStatus::CORRUPTED_FILE; return minibson::document();}
 
-		CTGP7SaveFile* filedata = (CTGP7SaveFile*)::memalign(0x1000, saveFileSize);
+		MiscUtils::Buffer buf(saveFileSize);
+
+		CTGP7SaveFile* filedata = (CTGP7SaveFile*)buf.Data();
 		savefile.Read(filedata, saveFileSize);
-		if (filedata->magic != SaveMagic) {free(filedata); status = LoadStatus::MAGIC_MISMATCH; return minibson::encdocument();}
-		if (filedata->type != type) {free(filedata); status = LoadStatus::TYPE_MISMATCH; return minibson::encdocument();}
 
-		minibson::encdocument bsonDoc(filedata->bsondata, saveFileSize - offsetof(CTGP7SaveFile, bsondata));
-		if (!bsonDoc.valid) { free(filedata); status = LoadStatus::CORRUPTED_FILE; return minibson::encdocument();}
-		free(filedata);
+		if (filedata->magic != SaveMagic) {status = LoadStatus::MAGIC_MISMATCH; return minibson::document();}
+		if (filedata->type != type) {status = LoadStatus::TYPE_MISMATCH; return minibson::document();}
+
+		auto ret = minibson::crypto::decrypt(filedata->bsondata, saveFileSize - offsetof(CTGP7SaveFile, bsondata));
+
+		if (!ret.has_value()) {status = LoadStatus::CORRUPTED_FILE; return minibson::document();}
+
 		status = LoadStatus::SUCCESS;
-		return bsonDoc;
+		return ret.value();
 	}
-	void SaveHandler::SaveFile::Save(SaveType type, const minibson::encdocument& inData) {
+	void SaveHandler::SaveFile::Save(SaveType type, const minibson::document& inData) {
 	#if STRESS_MODE == 1
 		return;
 	#endif
@@ -553,7 +633,7 @@ namespace CTRPluginFramework {
 		File savefile(path, File::RWC);
 		if (!savefile.IsOpen()) return;
 		
-		u32 docSize = inData.get_serialized_size();
+		u32 docSize = minibson::crypto::get_serialized_size(inData);
 		u32 serializedSize = (docSize + offsetof(CTGP7SaveFile, bsondata) + 0xFFF) & ~0xFFF;
 		if (serializedSize < savefile.GetSize()) {
 			savefile.Close();
@@ -561,18 +641,19 @@ namespace CTRPluginFramework {
 			if (!savefile.IsOpen()) return;
 		}
 			
-		CTGP7SaveFile* fileData = (CTGP7SaveFile*)::memalign(0x1000, serializedSize);
+		MiscUtils::Buffer buf(serializedSize);
+		CTGP7SaveFile* fileData = (CTGP7SaveFile*)buf.Data();
+
 		memset(fileData, 0, serializedSize);
 		fileData->magic = SaveMagic;
 		fileData->type = type;
 	#ifdef SAVE_DATA_UNENCRYPTED
-		inData.minibson::document::serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata));
-	#else
 		inData.serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata));
+	#else
+		minibson::crypto::encrypt(inData, fileData->bsondata, docSize);
 	#endif
 		
 		savefile.Write(fileData, serializedSize);
-		free((u8*)fileData);
 
 		return;
 	}

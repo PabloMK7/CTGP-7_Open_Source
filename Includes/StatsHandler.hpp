@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.hpp
-Open source lines: 100/100 (100.00%)
+Open source lines: 101/101 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -58,7 +58,9 @@ namespace CTRPluginFramework {
 
 		static void Initialize();
 		static void CommitToFile();
-		static void UploadStats();
+		static minibson::document CreateBackup();
+		static bool RestoreBackup(const minibson::document& doc);
+		static void UploadStats(bool async = true, bool forceUpload = false);
 
 		static minibson::document FetchSendStatus();
 
@@ -72,19 +74,18 @@ namespace CTRPluginFramework {
 		static void OnMissionFinish(int missionGrade, bool checksumValid, int world);
 		static void OnScoreAttackFinish(bool isweekly, int score, int courseID);
 		static void StatsMenu(MenuEntry* entry);
+		static int GetSequenceID();
 	private:
 		static const char* statStr[];
-		static minibson::encdocument statsDoc;
+		static minibson::document statsDoc;
 		static minibson::document* uploadDoc;
 		static Mutex statsDocMutex;
 		static Task uploadStatsTask;
-		static bool firstReport;
 
 		static s32 racePointsPos;
 
 		static minibson::document& GetUploadedStats();
 		static minibson::document& GetPendingStats();
-		static int GetSequenceID();
 		static void SetSequenceID(int seqID);
 		static void RemovePendingUploads();
 		static s32 UploadStatsFunc(void* args);

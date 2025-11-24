@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: TextFileParser.hpp
-Open source lines: 59/59 (100.00%)
+Open source lines: 68/68 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -18,8 +18,17 @@ Open source lines: 59/59 (100.00%)
 namespace CTRPluginFramework {
 	class TextFileParser
 	{
+	private:
+		struct transparent_less {
+			using is_transparent = void;
+
+			bool operator()(const std::string& a, const std::string& b) const { return a < b; }
+			bool operator()(std::string_view a, const std::string& b) const { return a < b; }
+			bool operator()(const std::string& a, std::string_view b) const { return a < b; }
+			bool operator()(std::string_view a, std::string_view b) const { return a < b; }
+		};
 	public:
-		using TextMap = std::map<std::string, std::vector<std::string>>;
+		using TextMap = std::map<std::string, std::vector<std::string>, transparent_less>;
 		using TextMapIter = TextMap::iterator;
 		using TextMapConstIter = TextMap::const_iterator;
 
@@ -27,9 +36,9 @@ namespace CTRPluginFramework {
 		bool Parse(const std::string& filename, const std::string& separator = "::");
 		bool ParseLine(const std::string& line, const std::string& separator = "::");
 		bool ParseLines(const std::string& lines, const std::string& separator = "::");
-		const std::vector<std::string>& getEntries(const std::string& key);
-		const std::string& getEntry(const std::string& key, u32 element = 0);
-		const void removeEntry(const std::string& key);
+		const std::vector<std::string>& getEntries(const std::string_view key);
+		const std::string& getEntry(const std::string_view key, u32 element = 0);
+		const void removeEntry(const std::string_view key);
 		TextMapIter begin();
 		TextMapIter end();
 		TextMapConstIter cbegin();
@@ -53,7 +62,7 @@ namespace CTRPluginFramework {
 
 	private:
 		TextMap dataMap;
-		const std::vector<std::string>& _FindKey(const std::string& key);
+		const std::vector<std::string>& _FindKey(const std::string_view key);
 		void ParseLineImpl(std::string& key, std::vector<std::string>& args, std::string& line, const std::string& separator = "::", bool firstLine = false);
 	};
 }

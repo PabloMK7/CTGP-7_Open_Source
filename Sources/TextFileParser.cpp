@@ -223,7 +223,7 @@ namespace CTRPluginFramework {
 	}
 
 	static std::vector<std::string> g_empty = { "" };
-	const std::vector<std::string>& TextFileParser::_FindKey(const std::string& key)
+	const std::vector<std::string>& TextFileParser::_FindKey(const std::string_view key)
 	{
 		// Search for the requested string in the current map
 		TextMapIter it = dataMap.find(key);
@@ -236,21 +236,21 @@ namespace CTRPluginFramework {
 		return (g_empty);
 	}
 
-	const std::vector<std::string>& TextFileParser::getEntries(const std::string& key)
+	const std::vector<std::string>& TextFileParser::getEntries(const std::string_view key)
 	{
 		return _FindKey(key);
 	}
 
-	const std::string& TextFileParser::getEntry(const std::string& key, u32 element)
+	const std::string& TextFileParser::getEntry(const std::string_view key, u32 element)
 	{
 		const std::vector<std::string>& vec = getEntries(key);
 		if (element >= vec.size()) return g_empty[0];
 		return vec[element];
 	}
 
-    const void TextFileParser::removeEntry(const std::string &key)
+    const void TextFileParser::removeEntry(const std::string_view key)
     {
-        dataMap.erase(key);
+        dataMap.erase(std::string(key));
     }
 
     TextFileParser::TextMapIter TextFileParser::begin()

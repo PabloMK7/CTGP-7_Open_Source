@@ -18,7 +18,7 @@ Open source lines: 75/75 (100.00%)
 namespace CTRPluginFramework {
 
     extern "C" {
-        void __gcov_indirect_call_profiler_v4_atomic ();
+        void __gcov_indirect_call_profiler_v4_atomic (long long int, void*);
         void* __getThreadLocalStorage(void);
     }
 

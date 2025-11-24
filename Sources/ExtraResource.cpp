@@ -47,7 +47,7 @@ namespace CTRPluginFramework {
 		if (!extraSarc.IsOpen()) panic("ghosts.bin missing or corrupted.");
 		u32 fileSize = extraSarc.GetSize() - sizeof(ExtraResourceFormat);
 		if (fileSize < 0x100 || fileSize > 1000000) panic("ghosts.bin missing or corrupted.");
-		u8* extraResource = (u8*)memalign(0x100, fileSize);
+		u8* extraResource = (u8*)GameAlloc::MemAlloc(fileSize, 0x80);
 		if (!extraResource) panic("ghosts.bin missing or corrupted.");
 		ExtraResourceFormat info;
 		extraSarc.Read(&info, sizeof(ExtraResourceFormat));
@@ -313,8 +313,8 @@ namespace CTRPluginFramework {
 			fileData = (u8*)GameAlloc::MemAlloc(dataSize, 0x80);
 			if (!fileData) return;
 			memcpy(fileData, data + header.dataOffset, dataSize);
-			svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)fileData & ~0xFFF), (dataSize & ~0xFFF) + 0x1000);
 		} else fileData = data + header.dataOffset;
+		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, ((u32)fileData & ~0xFFF), (dataSize & ~0xFFF) + 0x1000);
 		processed = true;
 	}
 

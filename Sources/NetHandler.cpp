@@ -4,11 +4,13 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 448/537 (83.43%)
+Open source lines: 459/562 (81.67%)
 *****************************************************/
 
 #include "NetHandler.hpp"
 #include "main.hpp"
+#include "SaveHandler.hpp"
+#include "httpcPatch.h"
 
 namespace CTRPluginFramework {
 	u64 NetHandler::ConsoleSecureHash[2] = {0, 0};
@@ -19,11 +21,11 @@ namespace CTRPluginFramework {
 	LightEvent NetHandler::Session::threadFinishEvent;
 	bool NetHandler::Session::runThread = false;
 
-	const minibson::document NetHandler::Session::defaultDoc;
 
 	u64 NetHandler::ConsoleUniqueHash = 0;
 	std::string NetHandler::ConsoleUniquePassword = "";
 	std::string NetHandler::UserUniqueName = "";
+	std::pair<void*, size_t> NetHandler::httpcStolenMemory;
 
 	const char* NetHandler::RequestHandler::reqStr[] = {
 		"req_betaver",
@@ -48,6 +50,8 @@ namespace CTRPluginFramework {
 		"req_ptsweekcfg",
 		"req_ptsweekbrd",
 		"put_ptsweekscore",
+		"put_savebackup",
+		"req_savebackup",
 	};
 
 	NetHandler::Session::Session(const std::string& url) : remoteUrl(url)
@@ -57,7 +61,7 @@ namespace CTRPluginFramework {
 		finishedCallback = nullptr;
 		finishedCallbackData = nullptr;
 		isFinished = true;
-		Init();
+		Initialize(false);
 	}
 
 	void NetHandler::Session::Initialize()
@@ -80,34 +84,24 @@ namespace CTRPluginFramework {
 		LightEvent_WaitTimeout(&threadFinishEvent, 10LL * 1000LL * 1000LL * 1000LL);
 	}
 
-	void NetHandler::Session::Init()
+	void NetHandler::Session::Initialize(bool wait)
 	{
+		if (wait && status == Status::PROCESSING)
+			Wait();
 		status = Status::IDLE;
-		rawbsondata = nullptr;
-		rawbsonsize = 0;
+		ClearInputData();
 		lastRes = 0;
-		outputData = nullptr;
+		outDocument.clear();
 	}
 
 	NetHandler::Session::~Session()
 	{
-		Reset();
+		Initialize(true);
 	}
 
-	void NetHandler::Session::Reset()
+	void NetHandler::Session::SetData(minibson::document&& data)
 	{
-		if (status == Status::PROCESSING)
-			Wait();
-		status = Status::IDLE;
-		ClearInputData();
-		if (outputData)
-			delete outputData;
-		outputData = nullptr;
-	}
-
-	void NetHandler::Session::SetData(const minibson::document& data)
-	{
-		bsontopayload(data);
+		bsontopayload(std::move(data));
 	}
 
 	void NetHandler::Session::setFinishedCallback(bool(*callback)(void*), void* arg)
@@ -118,24 +112,22 @@ namespace CTRPluginFramework {
 
 	void NetHandler::Session::ClearInputData()
 	{
-		if (rawbsondata)
-			::operator delete(rawbsondata);
-		rawbsondata = nullptr;
-		rawbsonsize = 0;
+		rawencbson.Clear();
 	}
 
 	void NetHandler::Session::Cleanup()
 	{
-		Reset();
-		Init();
+		Initialize(true);
 	}	
 
-	const minibson::document& NetHandler::Session::GetData()
+	minibson::document& NetHandler::Session::GetData()
 	{
-		if (GetStatus() == Status::SUCCESS && outputData)
-			return *outputData;
-		else
-			return defaultDoc;
+		if (GetStatus() == Status::SUCCESS)
+			return outDocument;
+		else {
+			outDocument.clear();
+			return outDocument;
+		}
 	}
 
 	void NetHandler::Session::PrepareStart()
@@ -166,32 +158,30 @@ namespace CTRPluginFramework {
 		return isFinished;
 	}
 
-	void NetHandler::Session::bsontopayload(const minibson::document& data)
+	void NetHandler::Session::bsontopayload(minibson::document&& data)
 	{
-		if (rawbsondata)
-			::operator delete(rawbsondata);
-
-		minibson::encdocument encData(data);
+		minibson::document encData(std::move(data));
 
 
-		rawbsonsize = encData.get_serialized_size();
-		rawbsondata = (u8*)::operator new(rawbsonsize);
-		
-		encData.serialize(rawbsondata, rawbsonsize);
+		rawencbson = minibson::crypto::encrypt(encData);
 	}
 
 	s32 NetHandler::Session::payloadtobson(u8* data, u32 size)
 	{
-		if (outputData)
-			delete outputData;
-		outputData = new minibson::encdocument(data, size);
-		if (
-			!outputData->valid || outputData->get<int>("res", -1) < 0
-		) {
-			delete outputData;
-			outputData = nullptr;
-			return -1;
+		outDocument.clear();
+		auto outDocOpt = minibson::crypto::decrypt(data, size);
+		if (!outDocOpt.has_value()) {
+			return ErrInvalidServerResponse;
 		}
+		outDocument = std::move(outDocOpt.value());
+		if (
+			outDocument.get<int>("res", -1) < 0
+		) {
+			outDocument.clear();
+			return ErrInvalidServerResponse;
+		}
+
+
 		return 0;
 	}
 
@@ -204,7 +194,6 @@ namespace CTRPluginFramework {
 		Result          res = 0, initres = 0;
 		httpcContext    context;
 		char            userAgent[128];
-		u8* buf = NULL;
 		bool repeatSession = false;
 
 		while (true) {
@@ -214,11 +203,13 @@ namespace CTRPluginFramework {
 			if (!runThread)
 				break;
 
-			initres = httpcInit(0x2000);
+			const auto& mem = GetHttpcStolenMemory();
+			initres = httpcPatchInit((u32)mem.first, mem.second);
 
 			while (true)
 			{
-				buf = NULL; downSize = 0; responseCode = 0; totalSize = 0; bytesRead = 0;
+				MiscUtils::Buffer buf;
+				downSize = 0; responseCode = 0; totalSize = 0; bytesRead = 0;
 				if (!repeatSession)
 				{
 					Lock lock(pendingSessionsMutex);
@@ -228,10 +219,15 @@ namespace CTRPluginFramework {
 					pendingSessions.pop_back();
 				}
 
-				if (R_FAILED(initres) || currS->rawbsondata == nullptr || currS->rawbsonsize == 0) {
+				if (R_FAILED(initres) || !currS->rawencbson || !SaveHandler::saveData.flags1.serverCommunication) {
 					repeatSession = false;
 					currS->status = Status::FAILURE;
-					currS->lastRes = -1;
+					if (R_FAILED(initres))
+						currS->lastRes = initres;
+					else if (!SaveHandler::saveData.flags1.serverCommunication)
+						currS->lastRes = ErrComDis;
+					else
+						currS->lastRes = ErrNoInput;
 					if (currS->finishedCallback)
 						repeatSession = currS->finishedCallback(currS->finishedCallbackData);
 					if (!repeatSession) currS->isFinished = true;
@@ -249,24 +245,26 @@ namespace CTRPluginFramework {
 						#if CITRA_MODE == 1
 						&& R_SUCCEEDED(res = httpcAddRequestHeaderField(&context, "Citra", "1"))
 						#endif
-						&& R_SUCCEEDED(res = httpcAddPostDataRaw(&context, (u32*)currS->rawbsondata, currS->rawbsonsize))
+						&& R_SUCCEEDED(res = httpcPatchSetPostDataType(&context, HTTPC_PostDataType::HTTP_POSTDATATYPE_RAW))
 						&& R_SUCCEEDED(res = httpcBeginRequest(&context))
+						&& R_SUCCEEDED(res = httpcPatchSendPostDataRawTimeout(&context, (u32*)currS->rawencbson.Data(), currS->rawencbson.Size(), 10ULL * 1000ULL * 1000ULL * 1000ULL))
+						&& R_SUCCEEDED(res = httpcPatchNotifyFinishSendPostData(&context))
 						&& R_SUCCEEDED(res = httpcGetResponseStatusCodeTimeout(&context, &responseCode, 10ULL * 1000ULL * 1000ULL * 1000ULL))
 						&& R_SUCCEEDED(res = httpcGetDownloadSizeState(&context, NULL, &totalSize)))
 					{
 						if (responseCode == 200)
 						{
-							if (totalSize == 0 || totalSize > 0x4000) {
-								res = -4;
+							if (totalSize == 0 || totalSize > 0x8000) {
+								res = ErrInvalidSize;
 							}
 							else {
-								buf = (u8*)::operator new(totalSize);
-								res = httpcDownloadData(&context, buf, totalSize, &bytesRead);
+								buf.Resize(totalSize);
+								res = httpcDownloadData(&context, buf.Data(), totalSize, &bytesRead);
 								if (bytesRead != totalSize)
-									res = -5;
+									res = ErrInvalidDownload;
 							}
 						}
-						else res = (Result)(0x80000000 | (u32)responseCode);
+						else res = NET_ERROR_CODE(responseCode);
 					}
 					httpcCloseContext(&context);
 				}
@@ -274,10 +272,9 @@ namespace CTRPluginFramework {
 				currS->ClearInputData();
 
 				if (R_SUCCEEDED(res))
-					res = currS->payloadtobson(buf, totalSize);
+					res = currS->payloadtobson(buf.Data(), buf.Size());
 
-				if (buf)
-					::operator delete(buf);
+				buf.Clear();
 
 				currS->lastRes = res;
 
@@ -293,7 +290,7 @@ namespace CTRPluginFramework {
 				if (!repeatSession) currS->isFinished = true;
 				if (!repeatSession) LightEvent_Signal(&currS->waitEvent);
 			}
-			if (R_SUCCEEDED(initres)) httpcExit();
+			if (R_SUCCEEDED(initres)) httpcPatchExit();
 			currS.reset();
 		}
 
@@ -344,11 +341,21 @@ namespace CTRPluginFramework {
 		minibson::document reqDoc;
 		reqDoc.set("value", value);
 
-		doc.set(reqStr[(int)type], reqDoc);
+		doc.set(reqStr[(int)type], std::move(reqDoc));
 		addedRequests.push_back(type);
 	}
 
-	void NetHandler::RequestHandler::Cleanup()
+    void NetHandler::RequestHandler::AddRequest(RequestType type, minibson::document &&value)
+    {
+		Lock l(requestMutex);
+		minibson::document reqDoc;
+		reqDoc.set("value", std::move(value));
+
+		doc.set(reqStr[(int)type], std::move(reqDoc));
+		addedRequests.push_back(type);
+    }
+
+    void NetHandler::RequestHandler::Cleanup()
 	{
 		Lock l(requestMutex);
 		session->Cleanup();
@@ -359,8 +366,7 @@ namespace CTRPluginFramework {
 	void NetHandler::RequestHandler::Start()
 	{
 		Lock l(requestMutex);
-		session->SetData(doc);
-		doc.clear();
+		session->SetData(std::move(doc));
 			
 		session->PrepareStart();
 		{
@@ -404,18 +410,19 @@ namespace CTRPluginFramework {
 	template<class Tout>
 	int NetHandler::RequestHandler::GetResult(RequestType type, Tout* value)
 	{
-		int res = -1;
+		int res = ErrResultNotPresent;
 		if (session->GetStatus() != Session::Status::SUCCESS)
-			return res;
+			return session->lastRes;
 
-		const minibson::document& out = session->GetData();
+		minibson::document& out = session->GetData();
 
-		if (out.contains<minibson::document>(reqStr[(int)type])) {
-			minibson::document defDoc;
-			const minibson::document& reply = out.get(reqStr[(int)type], defDoc);
-			res = reply.get<int>("res", -1);
+		auto it = out.find(reqStr[(int)type]);
+		if (it != out.end() && it->second->get_node_code() == minibson::bson_node_type::document_node) {
+			minibson::document* replyDoc = static_cast<minibson::document*>(it->second.get());
+			res = replyDoc->get<int>("res", ErrResultNotPresent);
 			if (res >= 0)
-				*value = reply.get<Tout>("value", *value);
+				*value = replyDoc->get<Tout>("value", *value);
+			out.erase(it);
 		}
 
 		return res;
@@ -424,18 +431,22 @@ namespace CTRPluginFramework {
 
 	int NetHandler::RequestHandler::GetResult(RequestType type, minibson::document* value)
 	{
-		int res = -1;
+		int res = ErrResultNotPresent;
 		if (session->GetStatus() != Session::Status::SUCCESS)
-			return res;
+			return session->lastRes;
 
-		const minibson::document& out = session->GetData();
+		minibson::document& out = session->GetData();
 
-		if (out.contains<minibson::document>(reqStr[(int)type])) {
-			minibson::document defDoc;
-			const minibson::document& reply = out.get(reqStr[(int)type], defDoc);
-			res = reply.get<int>("res", -1);
-			if (res >= 0)
-				*value = reply.get("value", *value);
+		auto it = out.find(reqStr[(int)type]);
+		if (it != out.end() && it->second->get_node_code() == minibson::bson_node_type::document_node) {
+			minibson::document* replyDoc = static_cast<minibson::document*>(it->second.get());
+			res = replyDoc->get<int>("res", ErrResultNotPresent);
+			if (res >= 0) {
+				auto it2 = replyDoc->find("value");
+				if (it2 != replyDoc->end() && it2->second->get_node_code() == minibson::bson_node_type::document_node)
+					*value = std::move(*static_cast<minibson::document*>(it2->second.get()));
+			}
+			out.erase(it);
 		}
 
 		return res;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.hpp
-Open source lines: 448/448 (100.00%)
+Open source lines: 452/452 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -290,7 +290,6 @@ namespace CTRPluginFramework {
 				calcType(calcTypeV), saveIteration(saveIterationV) {}
 
 				bool hasData = false;
-				bool isDirty = false;
 
 				u8 grade = 0;
 				inline u32 GetScore() {return score;}
@@ -303,6 +302,8 @@ namespace CTRPluginFramework {
 
 			static void Load();
 			static void Save();
+			static minibson::document SaveBackup();
+			static bool RestoreBackup(const minibson::document& doc);
 
 			static void GetMissionSave(const char missionID[0xC], SaveEntry& entry);
 			static void SetMissionSave(const char missionID[0xC], SaveEntry& entry);
@@ -313,7 +314,7 @@ namespace CTRPluginFramework {
 			static std::pair<int, int> GetAllFullGradeFlag();
 
 		private:
-			static minibson::encdocument save;
+			static minibson::document save;
 			union PackedSavedInfo {
 				struct {
 					u32 grade : 4;
@@ -416,6 +417,9 @@ namespace CTRPluginFramework {
 		static MarioKartTimer finalTime;
 		static u32 finalPoints;
 		static std::string& GetPtsString(u32 num);
+		static void SaveSaveData() {
+			SaveData::Save();
+		}
 
 
 		static u32 calculatedChecksum;

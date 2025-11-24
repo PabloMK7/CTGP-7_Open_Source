@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BadgeManager.cpp
-Open source lines: 468/468 (100.00%)
+Open source lines: 485/485 (100.00%)
 *****************************************************/
 
 #include "BadgeManager.hpp"
@@ -30,13 +30,21 @@ namespace CTRPluginFramework {
 		saved_badges.clear();
 		SaveHandler::SaveFile::LoadStatus status;
 		minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::BADGES, status);
-		u64 scID = doc.get<u64>("cID", 0);
+		u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
 		if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
 		#ifdef ALLOW_SAVES_FROM_OTHER_CID
 		|| true
 		#endif
 		)) {
-			saved_badges = doc;
+			s64 saveID[2];
+            saveID[0] = doc.get<s64>("sID0", 0);
+            saveID[1] = doc.get<s64>("sID1", 0);
+			doc.remove("cID");
+            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+                ;
+			else
+				saved_badges = std::move(doc);
 		}
 	}
 
@@ -44,11 +52,11 @@ namespace CTRPluginFramework {
     {
         std::vector<std::pair<u64, u64>> temp;
 		for (auto it = saved_badges.begin(); it != saved_badges.end(); it++) {
-			if (it->first == "cID") continue;
+			if (it->first == "_cID" || it->first == "sID0" || it->first == "sID1") continue;
 			u64 key = std::strtoll(it->first.c_str(), NULL, 10);
 			u64 time = 0;
 			if (it->second->get_node_code() == minibson::bson_node_type::document_node) {
-				time = reinterpret_cast<const minibson::document*>(it->second)->get<s64>("time", 0);
+				time = static_cast<const minibson::document*>(it->second.get())->get<s64>("time", 0);
 			}
 			temp.push_back({key, time});
 		}
@@ -76,8 +84,8 @@ namespace CTRPluginFramework {
 		ret.name = doc.get("name", "");
 		ret.desc = doc.get("desc", "");
 		auto& bin = doc.get_binary("icon");
-		if (bin.length != 0) {
-			ret.icon = BCLIM(bin.data, bin.length);
+		if (bin.Size() != 0) {
+			ret.icon = BCLIM((void*)bin.Data(), bin.Size());
 		}
 
 		return ret;
@@ -101,7 +109,7 @@ namespace CTRPluginFramework {
 		}
 
 		for (auto it = saved_badges.begin(); it != saved_badges.end(); it++) {
-			if (it->first == "cID") continue;
+			if (it->first == "_cID" || it->first == "sID0" || it->first == "sID1") continue;
 			u64 key = std::strtoll(it->first.c_str(), NULL, 10);
 			my_badges.insert(key);
 		}
@@ -295,6 +303,8 @@ namespace CTRPluginFramework {
     }
     void BadgeManager::BadgesMenu(MenuEntry *entry)
     {
+		if (!SaveHandler::CheckAndShowServerCommunicationDisabled()) return;
+
 		Lock lock(badges_mutex);
 		SaveHandler::saveData.flags1.needsBadgeObtainedMsg = false;
 
@@ -324,9 +334,16 @@ namespace CTRPluginFramework {
 		return false;
     }
 
+    void BadgeManager::ClearAll()
+    {
+		saved_badges.clear();
+    }
+
     void BadgeManager::CommitToFile()
     {
-		saved_badges.set("cID", NetHandler::GetConsoleUniqueHash());
+		saved_badges.set("_cID", NetHandler::GetConsoleUniqueHash());
+		saved_badges.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
+		saved_badges.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
 		SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::BADGES, saved_badges);
     }
 
@@ -365,7 +382,7 @@ namespace CTRPluginFramework {
 		}
 		for (auto it = cached_badges.begin(); it != cached_badges.end();) {
 			if (it->second->get_node_code() == minibson::bson_node_type::document_node) {
-				auto& doc = *reinterpret_cast<minibson::document*>(it->second);
+				auto& doc = *static_cast<minibson::document*>(it->second.get());
 				u64 time = doc.get<s64>("time", 0);
 				if (cache_badge_time - time > 10) {
 					it = cached_badges.erase(it);
@@ -412,7 +429,7 @@ namespace CTRPluginFramework {
 		if ((mode & GetBadgeMode::SAVED) != 0) {
 			auto it = saved_badges.find(key);
 			if (it != saved_badges.end() && it->second->get_node_code() == minibson::bson_node_type::document_node) {
-				auto& doc = *reinterpret_cast<minibson::document*>(it->second);
+				auto& doc = *static_cast<minibson::document*>(it->second.get());
 				if (!doc.empty()) {
 					return doc;
 				}
@@ -423,7 +440,7 @@ namespace CTRPluginFramework {
 		if ((mode & GetBadgeMode::CACHED) != 0) {
 			auto it = cached_badges.find(key);
 			if (it != cached_badges.end() && it->second->get_node_code() == minibson::bson_node_type::document_node) {
-				auto& doc = *reinterpret_cast<minibson::document*>(it->second);
+				auto& doc = *static_cast<minibson::document*>(it->second.get());
 				if (!doc.empty()) {
 					return doc;
 				}
@@ -442,7 +459,7 @@ namespace CTRPluginFramework {
 			size_t end = std::min(badges.size(), start + 4);
 
 			minibson::document reqDoc;
-			reqDoc.set("badges", badges.data() + start, (end-start) * sizeof(u64));
+			reqDoc.set("badges", MiscUtils::Buffer(badges.data() + start, (end-start) * sizeof(u64)));
 			reqHandler.AddRequest(NetHandler::RequestHandler::RequestType::BADGES, reqDoc);
 
 			reqHandler.Start();
@@ -456,7 +473,7 @@ namespace CTRPluginFramework {
 						std::string key = it->first.substr(6);
 						if (it->second->get_node_code() == minibson::bson_node_type::document_node) {
 						 	ret.push_back(std::strtoll(key.c_str(), NULL, 10));
-							out_document.set(key, *reinterpret_cast<const minibson::document*>(it->second));
+							out_document.set(key, *static_cast<const minibson::document*>(it->second.get()));
 						}
 					}					
 				}

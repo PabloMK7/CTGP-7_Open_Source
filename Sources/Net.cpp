@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Net.cpp
-Open source lines: 936/957 (97.81%)
+Open source lines: 942/963 (97.82%)
 *****************************************************/
 
 #include "main.hpp"
@@ -229,7 +229,6 @@ namespace CTRPluginFramework {
 			}
 			else {
 #ifndef DISABLE_ONLINE_ACCESS
-				res = req->GetResult(NetHandler::RequestHandler::RequestType::ONLINE_SEARCH, &reqDoc);
 				if (res < 0)
 					MarioKartFramework::dialogBlackOut();
 				if (g_getCTModeVal != CTMode::ONLINE_NOCTWW) {
@@ -710,22 +709,27 @@ namespace CTRPluginFramework {
 
     void Net::UploadMii()
     {
-		LZCompressArg arg;
+		LZArg arg;
+		arg.isCompress = true;
 		arg.inputAddr = MarioKartFramework::GetSelfMiiIcon();
 		if (!arg.inputAddr) {
 			return;
 		}
 		arg.inputSize = 64 * 64 * 2;
-		arg.onCompressFinish = [](const LZCompressResult& result) {
-			NetHandler::RequestHandler req;
-			minibson::document newDoc;
-			newDoc.set("miiIcon", result.outputAddr, result.outputSize);
-			newDoc.set<int>("miiIconChecksum", MarioKartFramework::GetSelfMiiIconChecksum() & 0x7FFFFFFF);
+		arg.onCompressFinish = [](const LZResult& result) {
+			if (result.good) {
+				NetHandler::RequestHandler req;
+				minibson::document newDoc;
+				newDoc.set("miiIcon", MiscUtils::Buffer(result.outputBuffer.Data(), result.outputSize));
+				newDoc.set<int>("miiIconChecksum", MarioKartFramework::GetSelfMiiIconChecksum() & 0x7FFFFFFF);
+				req.AddRequest(NetHandler::RequestHandler::RequestType::UPLOAD_MII, newDoc);
+				req.Start();
+			}
 			LZ77Cleanup();
-			req.AddRequest(NetHandler::RequestHandler::RequestType::UPLOAD_MII, newDoc);
-			req.Start();
+			LZ77Unlock();
 		};
-		LZ77Compress(arg);
+		LZ77Lock();
+		LZ77Perform(arg);
     }
 
     Net::DiscordInfo Net::GetDiscordInfo(bool requestLink)
@@ -788,6 +792,8 @@ namespace CTRPluginFramework {
 	void Net::DiscordLinkMenu()
 	{
 		#if CITRA_MODE == 0
+		if (!SaveHandler::CheckAndShowServerCommunicationDisabled())
+			return;
 		DiscordInfo info;
 		g_keyboarddata = &info;
 		Keyboard kbd("dummy");

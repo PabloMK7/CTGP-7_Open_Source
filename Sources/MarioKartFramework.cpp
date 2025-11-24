@@ -1479,9 +1479,9 @@ namespace CTRPluginFramework {
 		Net::privateRoomID = 0;
 		Process::Pause();
 
+		if (SaveHandler::CheckAndShowServerCommunicationDisabled())
 		{
 			Keyboard keyboard(g_build_lobby_message());
-			keyboard.CanAbort(false);
 			keyboard.Populate({NAME("lobby_type"), std::string(NOTE("lobby_type"))});
 			keyboard.OnKeyboardEvent([](Keyboard& k, KeyboardEvent& event) {
 				if (event.type == KeyboardEvent::EventType::KeyPressed) {

@@ -4,17 +4,29 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.hpp
-Open source lines: 147/148 (99.32%)
+Open source lines: 167/168 (99.40%)
 *****************************************************/
 
 #pragma once
 #include "CTRPluginFramework.hpp"
 #include "Minibson.hpp"
+#include "MiscUtils.hpp"
+
+#define NET_ERROR_CODE(x) (INT32_MIN + x)
 
 namespace CTRPluginFramework {
 	class NetHandler
 	{
 	public:
+		inline static constexpr int ErrInitHTTP = NET_ERROR_CODE(1);
+		inline static constexpr int ErrComDis = NET_ERROR_CODE(2);
+		inline static constexpr int ErrNoInput = NET_ERROR_CODE(3);
+		inline static constexpr int ErrInvalidSize = NET_ERROR_CODE(4);
+		inline static constexpr int ErrInvalidDownload = NET_ERROR_CODE(5);
+		inline static constexpr int ErrResultNotPresent = NET_ERROR_CODE(6);
+		inline static constexpr int ErrInvalidServerResponse = NET_ERROR_CODE(7);
+
+
 		class RequestHandler;
 		class Session
 		{
@@ -29,18 +41,17 @@ namespace CTRPluginFramework {
 
 			Session(const std::string& url);
 			~Session();
-			void SetData(const minibson::document& data);
+			void SetData(minibson::document&& data);
 			void setFinishedCallback(bool(*callback)(void*), void* arg = nullptr);
 			void ClearInputData();
 			void Cleanup();
-			const minibson::document& GetData();
+			minibson::document& GetData();
 			void PrepareStart();
 			void Wait();
 			void WaitTimeout(const Time& time);
 			Status GetStatus();
 			bool HasFinished();
 			Result lastRes;
-			static const minibson::document defaultDoc;
 			LightEvent waitEvent;
 			static std::vector<std::shared_ptr<Session>> pendingSessions;
 
@@ -50,18 +61,16 @@ namespace CTRPluginFramework {
 		private:
 			friend class RequestHandler;
 			
-			void Init();
-			void Reset();
+			void Initialize(bool wait);
 			const std::string& remoteUrl;
-			u8* rawbsondata;
-			u32 rawbsonsize;
+			MiscUtils::Buffer rawencbson;
 			Status status;
 			bool isFinished;
-			minibson::encdocument* outputData;
+			minibson::document outDocument;
 			bool(*finishedCallback)(void*);
 			void* finishedCallbackData;
 			
-			void bsontopayload(const minibson::document& data);
+			void bsontopayload(minibson::document&& data);
 			s32 payloadtobson(u8* data, u32 size);
 			static void sessionFunc(void* arg);
 			
@@ -99,12 +108,15 @@ namespace CTRPluginFramework {
 				POINTS_WEEKLY_CONFIG,
 				POINTS_LEADER_BOARD,
 				POINTS_WEEKLY_SCORE,
+				SAVE_BACKUP_PUT,
+				SAVE_BACKUP_GET,
 			};
 			RequestHandler();
 
 			template <class Tin>
 			void AddRequest(RequestType type, const Tin& value);
 			void AddRequest(RequestType type, const minibson::document& value);
+			void AddRequest(RequestType type, minibson::document&& value);
 
 			void Cleanup();
 			void Start();
@@ -138,10 +150,18 @@ namespace CTRPluginFramework {
 		static std::string GetUserUniqueName();
 		static void InitColsoleUniqueHash();
 
+		static void SetHttpcStolenMemory(void* addr, size_t size) {
+			httpcStolenMemory = {addr, size};
+		}
+		static const std::pair<void*, size_t>& GetHttpcStolenMemory() {
+			return httpcStolenMemory;
+		}
+
 	private:
 		static u64 ConsoleUniqueHash;
 		static u64 ConsoleSecureHash[2];
 		static std::string ConsoleUniquePassword;
 		static std::string UserUniqueName;
+		static std::pair<void*, size_t> httpcStolenMemory;
 	};
 }
