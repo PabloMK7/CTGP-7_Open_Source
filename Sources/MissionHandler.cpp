@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1585/1596 (99.31%)
+Open source lines: 1566/1577 (99.30%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -1460,31 +1460,12 @@ namespace CTRPluginFramework {
 
         SaveHandler::SaveFile::LoadStatus status;
         bool resetSave = false;
-        save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::MISSION, status);
-        u64 scID = save.get<u64>("_cID", 0); if (scID == 0) scID = save.get<u64>("cID", 0);
-        if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
-        #if CITRA_MODE == 1
-        || scID == 0x5AFF5AFF5AFF5AFF
-        #endif
-        #ifdef ALLOW_SAVES_FROM_OTHER_CID
-        || true
-        #endif
-        )) {
-            s64 saveID[2];
-            saveID[0] = save.get<s64>("sID0", 0);
-            saveID[1] = save.get<s64>("sID1", 0);
-            save.remove("cID");
-            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
-                resetSave = true;
-            
+        minibson::document savedoc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::MISSION, status);
+       
+        if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
+            save = std::move(savedoc);
         } else {
-            resetSave = true;
-        }
-
-        if (resetSave) {
-            save.clear();
-            save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
+            SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::MISSION, status);
             save.set("missionSave", minibson::document());
             save.set("missionFullGrade", minibson::document());
         }

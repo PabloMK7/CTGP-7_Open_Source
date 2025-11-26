@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 726/728 (99.73%)
+Open source lines: 715/715 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -68,23 +68,12 @@ namespace CTRPluginFramework {
 		{
 			SaveHandler::SaveFile::LoadStatus status;
 			minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::STATS, status);
-			u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
-			if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
-			#ifdef ALLOW_SAVES_FROM_OTHER_CID
-			|| true
-			#endif
-			)) {
-				doc.remove("cID");
+			if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
 				statsDoc = std::move(doc);
+			} else {
+				SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::STATS, status);
 			}
 		}
-
-		s64 saveID[2];
-		saveID[0] = statsDoc.get<s64>("sID0", 0);
-		saveID[1] = statsDoc.get<s64>("sID1", 0);
-		if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-			(saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
-			statsDoc.clear();
 
 		if (!statsDoc.contains<minibson::document>("Uploaded")) {
 			statsDoc.set("Uploaded", minibson::document());

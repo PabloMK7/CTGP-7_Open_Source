@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 660/663 (99.55%)
+Open source lines: 689/692 (99.57%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -25,6 +25,7 @@ Open source lines: 660/663 (99.55%)
 #include "PointsModeHandler.hpp"
 #include "SaveBackupHandler.hpp"
 #include "BadgeManager.hpp"
+#include "plgldr.h"
 
 namespace CTRPluginFramework {
 	
@@ -33,6 +34,7 @@ namespace CTRPluginFramework {
 	Task SaveHandler::saveSettinsTask(SaveHandler::SaveSettingsTaskFunc, nullptr, Task::Affinity::AppCore);
 	int SaveHandler::lastAchievementCount = 0;
 	u32 SaveHandler::lastSpecialAchievements = 0;
+	Mutex SaveHandler::saveSettingsMutex;
 
 	void SaveHandler::ApplySettings() {
 		//
@@ -305,6 +307,7 @@ namespace CTRPluginFramework {
     }
 
     s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
+		Lock lock(saveSettingsMutex);
 		if (disableSaving) return 0;
 		SaveOptions();
 		CupRankSave::Save();
@@ -321,16 +324,12 @@ namespace CTRPluginFramework {
 		SaveFile::LoadStatus status;
 		minibson::document doc = SaveFile::Load(SaveFile::SaveType::OPTIONS, status);
 		u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
-		if (status == SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
-		#if CITRA_MODE == 1
-		|| scID == 0x5AFF5AFF5AFF5AFF
-		#endif
-		#ifdef ALLOW_SAVES_FROM_OTHER_CID
-		|| true
-		#endif
-		)) {
+		if (status == SaveFile::LoadStatus::SUCCESS) {
 			saveData = std::move(CTGP7Save(doc, true));
-		} else DefaultSettings();
+		} else {
+			SaveFile::HandleError(SaveFile::SaveType::OPTIONS, status);
+			DefaultSettings();
+		}
 
 		CupRankSave::Load();
 		MissionHandler::SaveData::Load();
@@ -381,24 +380,9 @@ namespace CTRPluginFramework {
 		SaveFile::LoadStatus status;
 		minibson::document doc = SaveFile::Load(SaveFile::SaveType::RACES, status);
 		if (status == SaveFile::LoadStatus::SUCCESS) {
-			u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
-			if (scID == NetHandler::GetConsoleUniqueHash()
-			#if CITRA_MODE == 1
-			|| scID == 0x5AFF5AFF5AFF5AFF
-			#endif
-			#ifdef ALLOW_SAVES_FROM_OTHER_CID
-			|| true
-			#endif
-			) {
-				s64 saveID[2];
-				saveID[0] = doc.get<s64>("sID0", 0);
-				saveID[1] = doc.get<s64>("sID1", 0);
-				if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-					(saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
-					return;
-
-				FromDocument(doc.get("cuprank", minibson::document()));
-			}
+			FromDocument(doc.get("cuprank", minibson::document()));	
+		} else {
+			SaveFile::HandleError(SaveFile::SaveType::RACES, status);
 		}
 	}
 
@@ -618,6 +602,34 @@ namespace CTRPluginFramework {
 
 		if (!ret.has_value()) {status = LoadStatus::CORRUPTED_FILE; return minibson::document();}
 
+		minibson::document& doc = ret.value();
+
+		u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
+		if (scID != NetHandler::GetConsoleUniqueHash()
+			#ifdef ALLOW_SAVES_FROM_OTHER_CID
+			&& false
+			#endif
+		) {
+			status = LoadStatus::INCORRECT_CID;
+			return minibson::document();
+		}
+		doc.remove("cID");
+
+		if (type != SaveType::OPTIONS) {
+			s64 saveID[2];
+            saveID[0] = doc.get<s64>("sID0", 0);
+            saveID[1] = doc.get<s64>("sID1", 0);
+            if ((saveID[0] != 0 && SaveHandler::saveData.saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+                (saveID[1] != 0 && SaveHandler::saveData.saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1])
+			     #ifdef ALLOW_SAVES_FROM_OTHER_CID
+				&& false
+				#endif
+				) {
+					status = LoadStatus::INCORRECT_SID;
+					return minibson::document();
+				}
+		}
+
 		status = LoadStatus::SUCCESS;
 		return ret.value();
 	}
@@ -657,4 +669,21 @@ namespace CTRPluginFramework {
 
 		return;
 	}
+
+    void SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType type, SaveHandler::SaveFile::LoadStatus status)
+    {
+		if (status == SaveHandler::SaveFile::LoadStatus::FILE_NOT_FOUND)
+			return;
+
+		disableSaving = true;
+
+		u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
+		if (R_SUCCEEDED(plgLdrInit())) {
+			PLGLDR__DisplayErrMessage("CTGP-7", "Failed to load CTGP-7 save data.\n\nCopy the error code below and ask\nfor support or reset your save data.", error);
+			plgLdrExit();
+		}
+
+		Process::ReturnToHomeMenu();
+		for (;;);
+    }
 }

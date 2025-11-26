@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: PointsModeHandler.cpp
-Open source lines: 1782/1782 (100.00%)
+Open source lines: 1762/1762 (100.00%)
 *****************************************************/
 
 #include "PointsModeHandler.hpp"
@@ -1687,33 +1687,13 @@ namespace CTRPluginFramework {
 
         SaveHandler::SaveFile::LoadStatus status;
         bool resetSave = false;
-        save = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::POINT, status);
-        u64 scID = save.get<u64>("_cID", 0); if (scID == 0) scID = save.get<u64>("cID", 0);
-        if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
-        #if CITRA_MODE == 1
-        || scID == 0x5AFF5AFF5AFF5AFF
-        #endif
-        #ifdef ALLOW_SAVES_FROM_OTHER_CID
-        || true
-        #endif
-        )) {
-            s64 saveID[2];
-            saveID[0] = save.get<s64>("sID0", 0);
-            saveID[1] = save.get<s64>("sID1", 0);
-            save.remove("cID");
-            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
-                resetSave = true;
+        minibson::document savedoc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::POINT, status);
+        if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
+            save = std::move(savedoc);
         } else {
-            resetSave = true;
-        }
-
-        if (resetSave) {
-            save.clear();
-            save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
+            SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::POINT, status);
             save.set("pointsSave", minibson::document());
-        }
-        
+        }        
     }
 
 	void PointsModeHandler::SaveData::Save() {

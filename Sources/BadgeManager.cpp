@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BadgeManager.cpp
-Open source lines: 485/485 (100.00%)
+Open source lines: 473/473 (100.00%)
 *****************************************************/
 
 #include "BadgeManager.hpp"
@@ -27,24 +27,12 @@ namespace CTRPluginFramework {
 
 	void BadgeManager::Initialize()
 	{
-		saved_badges.clear();
 		SaveHandler::SaveFile::LoadStatus status;
 		minibson::document doc = SaveHandler::SaveFile::Load(SaveHandler::SaveFile::SaveType::BADGES, status);
-		u64 scID = doc.get<u64>("_cID", 0); if (scID == 0) scID = doc.get<u64>("cID", 0);
-		if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS && (scID == NetHandler::GetConsoleUniqueHash()
-		#ifdef ALLOW_SAVES_FROM_OTHER_CID
-		|| true
-		#endif
-		)) {
-			s64 saveID[2];
-            saveID[0] = doc.get<s64>("sID0", 0);
-            saveID[1] = doc.get<s64>("sID1", 0);
-			doc.remove("cID");
-            if ((saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-                (saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
-                ;
-			else
-				saved_badges = std::move(doc);
+		if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS ) {
+			saved_badges = std::move(doc);
+		} else {
+			SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::BADGES, status);
 		}
 	}
 

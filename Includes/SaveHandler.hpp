@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 473/500 (94.60%)
+Open source lines: 479/506 (94.66%)
 *****************************************************/
 
 #pragma once
@@ -411,6 +411,8 @@ namespace CTRPluginFramework {
 		static void UpdateCharacterIterator();
 		static bool CheckAndShowAchievementMessages();
 		static bool CheckAndShowServerCommunicationDisabled();
+
+		static Mutex saveSettingsMutex;
 		
 		static void SaveSettingsAll(bool async = true) {
 			if (async) {
@@ -428,20 +430,22 @@ namespace CTRPluginFramework {
 		{
 		public:
 			enum class LoadStatus {
-				SUCCESS,
-				FILE_NOT_FOUND,
-				MAGIC_MISMATCH,
-				TYPE_MISMATCH,
-				CORRUPTED_FILE
+				SUCCESS = 0,
+				FILE_NOT_FOUND = 1,
+				MAGIC_MISMATCH = 2,
+				TYPE_MISMATCH = 3,
+				CORRUPTED_FILE = 4,
+				INCORRECT_CID = 5,
+				INCORRECT_SID = 6,
 			};
 
 			enum class SaveType : u32 {
-				OPTIONS,
-				STATS,
-				RACES,
-				MISSION,
-				BADGES,
-				POINT,
+				OPTIONS = 0,
+				STATS = 1,
+				RACES = 2,
+				MISSION = 3,
+				BADGES = 4,
+				POINT = 5,
 
 				MAX_TYPE
 			};
@@ -455,6 +459,8 @@ namespace CTRPluginFramework {
 
 			static minibson::document Load(SaveType type, LoadStatus& status);
 			static void Save(SaveType type, const minibson::document& inData);
+
+			static void HandleError(SaveType type, LoadStatus status);
 		private:
 			static constexpr u32 SaveMagic = 0x56533743;
 			static const char* SaveNames[(u32)SaveType::MAX_TYPE];

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveBackupHandler.cpp
-Open source lines: 636/636 (100.00%)
+Open source lines: 640/640 (100.00%)
 *****************************************************/
 
 #include "SaveBackupHandler.hpp"
@@ -248,6 +248,8 @@ namespace CTRPluginFramework {
 
     int SaveBackupHandler::DoBackup()
     {
+        Lock lock(SaveHandler::saveSettingsMutex);
+
         int totOps = doBackupCallbacks.size() * 2 + 2;
         int currOps = 0;
         int resultCode = 0;
@@ -392,6 +394,8 @@ namespace CTRPluginFramework {
 
     int SaveBackupHandler::RestoreBackup()
     {
+        Lock lock(SaveHandler::saveSettingsMutex);
+
         int totOps = restoreBackupCallbacks.size() * 2 + 7;
         int currOps = 0;
         int resultCode = 0;
