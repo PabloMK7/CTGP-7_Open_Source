@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CrashReport.cpp
-Open source lines: 266/267 (99.63%)
+Open source lines: 268/269 (99.63%)
 *****************************************************/
 
 #include "CrashReport.hpp"
@@ -15,6 +15,7 @@ Open source lines: 266/267 (99.63%)
 #include "csvc.h"
 #include "ExtraResource.hpp"
 #include "CharacterHandler.hpp"
+#include "SaveHandler.hpp"
 
 extern "C" char* __text_end__;
 
@@ -174,6 +175,7 @@ namespace CTRPluginFramework {
         static bool first = true;
         if (first) {
             first = false;
+            SaveHandler::disableSaving = true;
             CrashTaskData taskData;
             if (fromAbort) {
                 fromAbort = false;

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MiscUtils.hpp
-Open source lines: 115/115 (100.00%)
+Open source lines: 122/122 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -92,10 +92,17 @@ namespace CTRPluginFramework {
         private:
             class Storage {
             public:
+                Storage() = delete;
+
                 explicit Storage(size_t s)
                     : size(s),
                     data(std::make_unique_for_overwrite<u8[]>(s))
                 {}
+
+                Storage(const Storage&)            = delete;
+                Storage& operator=(const Storage&) = delete;
+                Storage(Storage&&)                 = delete;
+                Storage& operator=(Storage&&)      = delete;
 
                 u8* Data() {
                     return data.get();

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 479/506 (94.66%)
+Open source lines: 489/516 (94.77%)
 *****************************************************/
 
 #pragma once
@@ -439,6 +439,15 @@ namespace CTRPluginFramework {
 				INCORRECT_SID = 6,
 			};
 
+			enum class SaveStatus {
+				SUCCESS = 0,
+				BACKUP_FAILED = 1,
+				OPEN_DST_FILE = 2,
+				OPEN_DST_FILE_TRUNC = 3,
+				SERIALIZE_DOCUMENT = 4,
+				WRITE_FILE = 5,
+			};
+
 			enum class SaveType : u32 {
 				OPTIONS = 0,
 				STATS = 1,
@@ -458,9 +467,10 @@ namespace CTRPluginFramework {
 			};
 
 			static minibson::document Load(SaveType type, LoadStatus& status);
-			static void Save(SaveType type, const minibson::document& inData);
+			static SaveStatus Save(SaveType type, const minibson::document& inData);
 
-			static void HandleError(SaveType type, LoadStatus status);
+			static void HandleLoadError(SaveType type, LoadStatus status);
+			static void HandleSaveError(SaveType type, SaveStatus status);
 		private:
 			static constexpr u32 SaveMagic = 0x56533743;
 			static const char* SaveNames[(u32)SaveType::MAX_TYPE];

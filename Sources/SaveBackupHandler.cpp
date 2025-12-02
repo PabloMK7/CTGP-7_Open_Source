@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveBackupHandler.cpp
-Open source lines: 640/640 (100.00%)
+Open source lines: 641/641 (100.00%)
 *****************************************************/
 
 #include "SaveBackupHandler.hpp"
@@ -189,6 +189,7 @@ namespace CTRPluginFramework {
                     kbd2.OnKeyboardEvent(nullptr);
                     kbd2.Open();
                     Sleep(Seconds(1));
+                    SaveHandler::disableSaving = true;
                     Process::ReturnToHomeMenu();
                 }
             } else if (res == 2 && lastBackupInfo.daysAgo >= 0) {

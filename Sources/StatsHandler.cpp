@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 715/715 (100.00%)
+Open source lines: 716/716 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -71,7 +71,7 @@ namespace CTRPluginFramework {
 			if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
 				statsDoc = std::move(doc);
 			} else {
-				SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::STATS, status);
+				SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType::STATS, status);
 			}
 		}
 
@@ -116,7 +116,8 @@ namespace CTRPluginFramework {
 			statsDoc.set("_cID", NetHandler::GetConsoleUniqueHash());
         	statsDoc.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
 			statsDoc.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
-			SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::STATS, statsDoc);
+			auto res = SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::STATS, statsDoc);
+			if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::STATS, res);
 		}
 		BadgeManager::CommitToFile();
 	}

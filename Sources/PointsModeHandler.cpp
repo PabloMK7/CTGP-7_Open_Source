@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: PointsModeHandler.cpp
-Open source lines: 1762/1762 (100.00%)
+Open source lines: 1763/1763 (100.00%)
 *****************************************************/
 
 #include "PointsModeHandler.hpp"
@@ -1691,7 +1691,7 @@ namespace CTRPluginFramework {
         if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
             save = std::move(savedoc);
         } else {
-            SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::POINT, status);
+            SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType::POINT, status);
             save.set("pointsSave", minibson::document());
         }        
     }
@@ -1700,7 +1700,8 @@ namespace CTRPluginFramework {
         save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
         save.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
 		save.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
-        SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::POINT, save);
+        auto res = SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::POINT, save);
+        if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::POINT, res);
     }
 
     minibson::document PointsModeHandler::SaveData::SaveBackup() {

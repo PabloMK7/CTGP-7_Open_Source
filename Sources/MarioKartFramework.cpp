@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 4122/4270 (96.53%)
+Open source lines: 4123/4271 (96.53%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -1420,6 +1420,7 @@ namespace CTRPluginFramework {
 		MenuPageHandler::MenuEndingPage::loadCTGPCredits = false;
 		thankYouDisableNintendoLogo = false;
 		if (UserCTHandler::skipConfig.enabled) {
+			SaveHandler::disableSaving = true;
 			Process::ReturnToHomeMenu();
 		}
 		DoOnlineCleanup();

@@ -3,7 +3,7 @@
 <table align="center">
 <tr>
 <td>Total open source lines:</td>
-<td>44351 / 57684 (76.89%)</td>
+<td>44533 / 57867 (76.96%)</td>
 </tr>
 <tr>
 <td>Total open source files:</td>
@@ -11,13 +11,13 @@
 </tr>
 <tr>
 <td>Total open source lines, excluding<br/>closed source files from total:</td>
-<td>44351 / 48742 (90.99%)</td>
+<td>44533 / 48925 (91.02%)</td>
 </tr>
 </table>
 
 This repository contains most of the CTGP-7 source code. Some sections have been removed to reduce the chances of the anticheat being defeated, as well as all the hooks and interfaces to the game's code. Therefore, compiling this source code is not possible, due to the removed sections (compiling will either fail, or the plugin won't do anything).
 
-The purpose of this repository is to allow people who are curious seeing the inner workings of the plugin, as well as help preserving as much code as possible. The code in this repository is not meant to be compiled, please don't ask for compilation instructions.
+The purpose of this repository is to allow people who are curious to see the inner workings of the mod, as well as to help preserve as much of the code as possible. The code in this repository is not meant to be compiled, therefore compilation instructions are not provided.
 
 CTGP-7 depends on the [MK7-Memory project](https://github.com/Anto726/MK7-Memory).
 

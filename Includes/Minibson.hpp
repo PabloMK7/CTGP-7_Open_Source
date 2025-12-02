@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.hpp
-Open source lines: 879/880 (99.89%)
+Open source lines: 995/996 (99.90%)
 *****************************************************/
 
 /*
@@ -42,9 +42,76 @@ SOFTWARE.
 #include "MiscUtils.hpp"
 #include "optional"
 
+//#define MINIBSON_DEBUG
+
 namespace minibson {
 
     using namespace CTRPluginFramework;
+
+    #ifdef MINIBSON_DEBUG
+        enum class ReportType {
+            START,
+            END,
+            SERIALIZE,
+            GETSIZE,
+            BEGINSIZE,
+            ENDSIZE,
+            COUNT,
+            COUNTREM,
+            ITEM,
+            SERIALIZE_ERROR,
+        };
+
+        inline thread_local bool reportEnable = false;
+        inline thread_local size_t reportIndent = 0;
+        inline thread_local std::string reportFile;
+        inline thread_local std::string reportString;
+
+        inline void DoReportImpl(ReportType type, const std::string& msg, size_t arg = 0, const std::string& file = "") {
+            if (!reportEnable) return;
+
+            static const char* types[] = {
+                "START",
+                "END",
+                "SERIALIZE",
+                "GETSIZE",
+                "BEGINSIZE",
+                "ENDSIZE",
+                "COUNT",
+                "COUNTREM",
+                "ITEM",
+                "SERIALIZE_ERROR",
+            };
+
+            if (type == ReportType::START) {
+                reportIndent = 0;
+            }
+            std::string indentStr(reportIndent * 4, ' ');
+
+            if (type == ReportType::START) {
+                reportFile = file;
+                reportString.clear();
+                reportString += (Utils::Format("%s[%s]: %s: %u", indentStr.c_str(), types[(int)type],  msg.c_str(), arg)) + "\n";
+            } else if (type == ReportType::END) {
+                File f(reportFile, File::RWC | File::TRUNCATE);
+                reportString += (Utils::Format("%s[%s]: %s: %u", indentStr.c_str(), types[(int)type],  msg.c_str(), arg)) + "\n";
+                f.Write(reportString.data(), reportString.length());
+                reportString.clear();
+            } else {
+                reportString += (Utils::Format("%s[%s]: %s: %u", indentStr.c_str(), types[(int)type],  msg.c_str(), arg)) + "\n";
+            }
+        }
+
+        #define DoReport(...) DoReportImpl(__VA_ARGS__)
+        #define ReportError do {DoReport(ReportType::SERIALIZE_ERROR, "line", __LINE__);} while (0)
+        #define ReportIncIndent ++reportIndent
+        #define ReportDecIndent --reportIndent
+    #else
+        #define DoReport(...)
+        #define ReportError
+        #define ReportIncIndent
+        #define ReportDecIndent
+    #endif
 
     // Basic types
 
@@ -67,7 +134,7 @@ namespace minibson {
     class node {
         public:
             virtual ~node() { }
-            virtual void serialize(void* const buffer, const size_t count) const = 0;
+            virtual bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const = 0;
             virtual size_t get_serialized_size() const = 0;
             virtual unsigned char get_node_code() const { return 0; }
             virtual std::unique_ptr<node> copy() const = 0;
@@ -82,17 +149,22 @@ namespace minibson {
 
             null(const void* const buffer, const size_t count) { }
 
-            void serialize(void* const buffer, const size_t count) const { }
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                DoReport(ReportType::COUNT, "null", count);
+                DoReport(ReportType::COUNTREM, "null", count);
+                return true;
+            }
 
-            size_t get_serialized_size() const { 
+            size_t get_serialized_size() const override {
+                DoReport(ReportType::GETSIZE, "null", 0);
                 return 0; 
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return null_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<null>();
             }
     };
@@ -110,21 +182,25 @@ namespace minibson {
                     std::memcpy(reinterpret_cast<unsigned char*>(&value), reinterpret_cast<const unsigned char*>(buffer), sizeof(T));
                 };
 
-                void serialize(void* const buffer, const size_t count) const {
-                    if (count < sizeof(T)) return;
+                bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                    DoReport(ReportType::COUNT, "scalar", count);
+                    if (count < sizeof(T)){ReportError; return false;}
                     
                     std::memcpy(reinterpret_cast<unsigned char*>(buffer), reinterpret_cast<const unsigned char*>(&value), sizeof(T));
+                    DoReport(ReportType::COUNTREM, "scalar", count - sizeof(T));
+                    return true;
                 }
 
-                size_t get_serialized_size() const {
+                size_t get_serialized_size() const override {
+                    DoReport(ReportType::GETSIZE, "scalar", sizeof(T));
                     return sizeof(T);
                 }
 
-                unsigned char get_node_code() const {
+                unsigned char get_node_code() const override {
                     return N;
                 }
 
-                std::unique_ptr<node> copy() const {
+                std::unique_ptr<node> copy() const override {
                     return std::make_unique<scalar<T, N>>(value);
                 }
 
@@ -198,27 +274,32 @@ namespace minibson {
                 }
             };
 
-            void serialize(void* const buffer, const size_t count) const override {
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                DoReport(ReportType::COUNT, "string", count);
                 const uint32_t store_length = static_cast<uint32_t>(value.size() + 1);
                 const size_t needed = sizeof(store_length) + value.size() + 1;
 
-                if (count < needed) return;
+                if (count < needed){ReportError; return false;}
 
                 char* out = static_cast<char*>(buffer);
                 std::memcpy(out, &store_length, sizeof(store_length));
                 std::memcpy(out + sizeof(store_length), value.data(), value.size());
                 out[sizeof(store_length) + value.size()] = '\0';
+                DoReport(ReportType::COUNTREM, "string", count - needed);
+                return true;
             }
 
-            size_t get_serialized_size() const {
-                return sizeof(unsigned int) + value.length() + 1;
+            size_t get_serialized_size() const override {
+                size_t ret = sizeof(unsigned int) + value.length() + 1;
+                DoReport(ReportType::GETSIZE, "string", ret);
+                return ret;
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return string_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<string>(value);
             }
             
@@ -242,19 +323,24 @@ namespace minibson {
                 }
             };
 
-            void serialize(void* const buffer, const size_t count) const {
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                DoReport(ReportType::COUNT, "boolean", count);
+                if (count < 1) {ReportError; return false;}
                 *reinterpret_cast<unsigned char*>(buffer) = value ? true : false;
+                DoReport(ReportType::COUNTREM, "boolean", count - 1);
+                return true;
             }
 
-            size_t get_serialized_size() const {
+            size_t get_serialized_size() const override {
+                DoReport(ReportType::GETSIZE, "boolean", 1);
                 return 1;
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return boolean_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<boolean>(value);
             }
 
@@ -285,28 +371,33 @@ namespace minibson {
                 }                
             };
 
-            void serialize(void* const buffer, const size_t count) const override {
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                DoReport(ReportType::COUNT, "binary", count);
                 const uint32_t data_len = static_cast<uint32_t>(value.Size());
-                const size_t needed = sizeof(data_len) + 1 + value.Size();
+                const size_t needed = sizeof(data_len) + 1 + data_len;
 
-                if (count < needed) return;
+                if (count < needed) {ReportError; return false;}
 
                 char* out = static_cast<char*>(buffer);
 
                 std::memcpy(out, &data_len, sizeof(data_len));
                 out[sizeof(data_len)] = subtype;
-                std::memcpy(out + sizeof(data_len) + 1, value.Data(), value.Size());
+                std::memcpy(out + sizeof(data_len) + 1, value.Data(), data_len);
+                DoReport(ReportType::COUNTREM, "binary", count - needed);
+                return true;
             }
 
-            size_t get_serialized_size() const {
-                return 5 + value.Size();
+            size_t get_serialized_size() const override {
+                size_t ret = 5 + value.Size();
+                DoReport(ReportType::GETSIZE, "binary", ret);
+                return ret;
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return binary_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<binary>(value);
             }
 
@@ -385,35 +476,53 @@ namespace minibson {
                 }
             }
 
-            void serialize(void* const buffer, const size_t count) const {
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const {
+                DoReport(ReportType::COUNT, "element_list", count);
                 unsigned char* byte_buffer = reinterpret_cast<unsigned char*>(buffer);
                 size_t position = 0;
 
                 for (const_iterator i = cbegin(); i != cend(); i++) {
                     // Header
-                    if (position + 1 > count) return;
-                    byte_buffer[position] = i->second->get_node_code();
+                    if (position + 1 > count) {ReportError; return false;}
+                    u8 node_code = i->second->get_node_code();
+                    byte_buffer[position] = node_code;
                     position++;
 
                     // Key
                     const size_t key_len = i->first.length() + 1;
-                    if (position + key_len > count) return;
+                    if (position + key_len > count) {ReportError; return false;}
                     std::memcpy(reinterpret_cast<char*>(byte_buffer + position), i->first.c_str(), key_len);
                     position += i->first.length() + 1;
                     
                     // Value
+                    DoReport(ReportType::ITEM, Utils::Format("{w} node: %d, key: %s, size", node_code, i->first.c_str()), 1 + i->first.length() + 1);
+                    ReportIncIndent;
+
                     size_t serialized_size = i->second->get_serialized_size();
-                    if (position + serialized_size > count) return;
-                    i->second->serialize(byte_buffer + position, count - position);
+                    if (position + serialized_size > count) {ReportError; return false;}
+                    if (!i->second->serialize(byte_buffer + position, count - position, serialized_size)) {ReportError; return false;}
                     position += serialized_size;
+
+                    ReportDecIndent;
+                    DoReport(ReportType::COUNTREM, "element_list", count - position);
                 }
+
+                return true;
             }
 
             size_t get_serialized_size() const {
                 size_t result = 0;
 
-                for (const_iterator i = cbegin(); i != cend(); i++)
+                DoReport(ReportType::BEGINSIZE, "element_list", result);
+                ReportIncIndent;
+
+                for (const_iterator i = cbegin(); i != cend(); i++) {
+                    DoReport(ReportType::ITEM, Utils::Format("{sz} node %d, key: %s, size", i->second->get_node_code(), i->first.c_str()), 1 + i->first.length() + 1);
                     result += 1 + i->first.length() + 1 + i->second->get_serialized_size();
+                }
+                    
+                ReportDecIndent;
+                DoReport(ReportType::ENDSIZE, "element_list", result);
 
                 return result;
             }
@@ -611,16 +720,20 @@ namespace minibson {
                 : document(buffer.Data(), buffer.Size())
                 { }
 
-            void serialize(void* const buffer, const size_t count) const {
-                size_t serialized_size = get_serialized_size();
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                DoReport(ReportType::COUNT, "document", count);
+                
+                size_t serialized_size = precalculated_serial_size == SIZE_MAX ? get_serialized_size() : precalculated_serial_size;
 
-                if (count >= serialized_size) {
+                if (count >= (4 + 1)) {
                     unsigned char* byte_buffer = reinterpret_cast<unsigned char*>(buffer);
 
                     *reinterpret_cast<int*>(buffer) = serialized_size;
-                    element_list::serialize(byte_buffer + 4, count - (4 + 1));
+                    if (!element_list::serialize(byte_buffer + 4, count - (4 + 1), serialized_size - (4 + 1))) {ReportError; return false;}
                     byte_buffer[serialized_size - 1] = 0;
                 }
+                DoReport(ReportType::COUNTREM, "document", count - serialized_size);
+                return true;
             }
 
             MiscUtils::Buffer serialize_to_buffer() const {
@@ -629,15 +742,18 @@ namespace minibson {
                 return res;
             }
 
-            size_t get_serialized_size() const {
-                return 4 + element_list::get_serialized_size() + 1;
+            size_t get_serialized_size() const override {
+                DoReport(ReportType::BEGINSIZE, "document", 0);
+                size_t ret = 4 + element_list::get_serialized_size() + 1;
+                DoReport(ReportType::ENDSIZE, "document", ret);
+                return ret;
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return document_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<document>(*this);
             }
 
@@ -711,19 +827,19 @@ namespace minibson {
             array(const MiscUtils::Buffer& buffer) 
                 : array(buffer.Data(), buffer.Size()) { }
             
-            void serialize(void* const buffer, const size_t count) const {
-                document::serialize(buffer, count);
+            bool serialize(void* const buffer, const size_t count, size_t precalculated_serial_size = SIZE_MAX) const override {
+                return document::serialize(buffer, count);
             }
 
-            size_t get_serialized_size() const {
+            size_t get_serialized_size() const override {
                 return document::get_serialized_size();
             }
 
-            unsigned char get_node_code() const {
+            unsigned char get_node_code() const override {
                 return array_node;
             }
 
-            std::unique_ptr<node> copy() const {
+            std::unique_ptr<node> copy() const override {
                 return std::make_unique<array>(*this);
             }
 
@@ -857,8 +973,8 @@ namespace minibson {
         size_t get_serialized_size(const document& document);
         std::optional<document> decrypt(const void* data, const size_t size);
         std::optional<document> decrypt(const MiscUtils::Buffer& buffer);  
-        void encrypt(const document& document, void* outData, const size_t outSize);
-        MiscUtils::Buffer encrypt(const document& document);
+        bool encrypt(const document& document, void* outData, const size_t outSize);
+        std::optional<MiscUtils::Buffer> encrypt(const document& document);
     }
     
     inline std::unique_ptr<node> node::create(bson_node_type type, const void * const buffer, const size_t count) {

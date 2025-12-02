@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MissionHandler.cpp
-Open source lines: 1566/1577 (99.30%)
+Open source lines: 1567/1578 (99.30%)
 *****************************************************/
 
 #include "MissionHandler.hpp"
@@ -1465,7 +1465,7 @@ namespace CTRPluginFramework {
         if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS) {
             save = std::move(savedoc);
         } else {
-            SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::MISSION, status);
+            SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType::MISSION, status);
             save.set("missionSave", minibson::document());
             save.set("missionFullGrade", minibson::document());
         }
@@ -1477,7 +1477,8 @@ namespace CTRPluginFramework {
         save.set<u64>("_cID", NetHandler::GetConsoleUniqueHash());
 		save.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
 		save.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
-        SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::MISSION, save);
+        auto res = SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::MISSION, save);
+        if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::MISSION, res);
     }
     minibson::document MissionHandler::SaveData::SaveBackup() {
         minibson::document copy = save;

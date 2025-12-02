@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 689/692 (99.57%)
+Open source lines: 727/730 (99.59%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -307,8 +307,8 @@ namespace CTRPluginFramework {
     }
 
     s32 SaveHandler::SaveSettingsTaskFunc(void* args) {
-		Lock lock(saveSettingsMutex);
 		if (disableSaving) return 0;
+		Lock lock(saveSettingsMutex);
 		SaveOptions();
 		CupRankSave::Save();
 		StatsHandler::CommitToFile();
@@ -327,7 +327,7 @@ namespace CTRPluginFramework {
 		if (status == SaveFile::LoadStatus::SUCCESS) {
 			saveData = std::move(CTGP7Save(doc, true));
 		} else {
-			SaveFile::HandleError(SaveFile::SaveType::OPTIONS, status);
+			SaveFile::HandleLoadError(SaveFile::SaveType::OPTIONS, status);
 			DefaultSettings();
 		}
 
@@ -353,7 +353,8 @@ namespace CTRPluginFramework {
 		saveDoc.set("sID1", (s64)saveData.saveID[1]);
 		saveData.serialize(saveDoc);
 		
-		SaveFile::Save(SaveFile::SaveType::OPTIONS, saveDoc);
+		auto res = SaveFile::Save(SaveFile::SaveType::OPTIONS, saveDoc);
+		if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::OPTIONS, res);
 	}
 
 	minibson::document SaveHandler::SaveSettingsBackup(void) {
@@ -382,7 +383,7 @@ namespace CTRPluginFramework {
 		if (status == SaveFile::LoadStatus::SUCCESS) {
 			FromDocument(doc.get("cuprank", minibson::document()));	
 		} else {
-			SaveFile::HandleError(SaveFile::SaveType::RACES, status);
+			SaveFile::HandleLoadError(SaveFile::SaveType::RACES, status);
 		}
 	}
 
@@ -416,7 +417,8 @@ namespace CTRPluginFramework {
 		saveDoc.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
 		saveDoc.set("cuprank", ToDocument());
 		
-		SaveFile::Save(SaveFile::SaveType::RACES, saveDoc);
+		auto res = SaveFile::Save(SaveFile::SaveType::RACES, saveDoc);
+		if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::RACES, res);
 	}
 
     minibson::document SaveHandler::CupRankSave::SaveBackup()
@@ -633,7 +635,7 @@ namespace CTRPluginFramework {
 		status = LoadStatus::SUCCESS;
 		return ret.value();
 	}
-	void SaveHandler::SaveFile::Save(SaveType type, const minibson::document& inData) {
+	SaveHandler::SaveFile::SaveStatus SaveHandler::SaveFile::Save(SaveType type, const minibson::document& inData) {
 	#if STRESS_MODE == 1
 		return;
 	#endif
@@ -641,16 +643,26 @@ namespace CTRPluginFramework {
 		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s_dec.sav", SaveNames[(u32)type]);
 	#else
 		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s.sav", SaveNames[(u32)type]);
+		std::string pathBackup = Utils::Format("/CTGP-7/savefs/mod/%s1.sav", SaveNames[(u32)type]);
+
+		static bool didBackup[(u32)SaveHandler::SaveFile::SaveType::MAX_TYPE] = {0};
+		if (!didBackup[(u32)type] && File::Exists(path)) {
+			didBackup[(u32)type] = true;
+			if (!MiscUtils::CopyFile(pathBackup, path)) {
+				return SaveStatus::BACKUP_FAILED;
+			}
+		}
 	#endif
+
 		File savefile(path, File::RWC);
-		if (!savefile.IsOpen()) return;
+		if (!savefile.IsOpen()) return SaveStatus::OPEN_DST_FILE;
 		
 		u32 docSize = minibson::crypto::get_serialized_size(inData);
 		u32 serializedSize = (docSize + offsetof(CTGP7SaveFile, bsondata) + 0xFFF) & ~0xFFF;
 		if (serializedSize < savefile.GetSize()) {
 			savefile.Close();
 			File::Open(savefile, path, File::RWC | File::TRUNCATE);
-			if (!savefile.IsOpen()) return;
+			if (!savefile.IsOpen()) return SaveStatus::OPEN_DST_FILE_TRUNC;
 		}
 			
 		MiscUtils::Buffer buf(serializedSize);
@@ -659,18 +671,30 @@ namespace CTRPluginFramework {
 		memset(fileData, 0, serializedSize);
 		fileData->magic = SaveMagic;
 		fileData->type = type;
-	#ifdef SAVE_DATA_UNENCRYPTED
-		inData.serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata));
-	#else
-		minibson::crypto::encrypt(inData, fileData->bsondata, docSize);
+	#ifdef MINIBSON_DEBUG
+		minibson::reportEnable = true;
+		minibson::DoReport(minibson::ReportType::START, "save", docSize, Utils::Format("/CTGP-7/savefs/mod/%s.log", SaveNames[(u32)type]));
 	#endif
+		bool res;
+	#ifdef SAVE_DATA_UNENCRYPTED
+		res = inData.serialize(fileData->bsondata, serializedSize - offsetof(CTGP7SaveFile, bsondata)):
+	#else
+		res = minibson::crypto::encrypt(inData, fileData->bsondata, docSize);
+	#endif
+	#ifdef MINIBSON_DEBUG
+		minibson::DoReport(minibson::ReportType::END, "save", (int)res);
+		minibson::reportEnable = false;
+	#endif
+		if (!res) {
+			return SaveStatus::SERIALIZE_DOCUMENT;
+		}
 		
-		savefile.Write(fileData, serializedSize);
+		if (savefile.Write(fileData, serializedSize) < 0) return SaveStatus::WRITE_FILE;
 
-		return;
+		return SaveStatus::SUCCESS;
 	}
 
-    void SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType type, SaveHandler::SaveFile::LoadStatus status)
+    void SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType type, SaveHandler::SaveFile::LoadStatus status)
     {
 		if (status == SaveHandler::SaveFile::LoadStatus::FILE_NOT_FOUND)
 			return;
@@ -679,7 +703,21 @@ namespace CTRPluginFramework {
 
 		u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
 		if (R_SUCCEEDED(plgLdrInit())) {
-			PLGLDR__DisplayErrMessage("CTGP-7", "Failed to load CTGP-7 save data.\n\nCopy the error code below and ask\nfor support or reset your save data.", error);
+			PLGLDR__DisplayErrMessage(Utils::Format("CTGP-7 %d.%d.%d", GET_VERSION_MAJOR(MarioKartFramework::ctgp7ver), GET_VERSION_MINOR(MarioKartFramework::ctgp7ver), GET_VERSION_REVISION(MarioKartFramework::ctgp7ver)).c_str(), "Failed to load CTGP-7 save data.\n\nCopy the error code below and ask\nfor support or restore a backup.", error);
+			plgLdrExit();
+		}
+
+		Process::ReturnToHomeMenu();
+		for (;;);
+    }
+
+    void SaveHandler::SaveFile::HandleSaveError(SaveType type, SaveStatus status)
+    {
+		disableSaving = true;
+
+		u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
+		if (R_SUCCEEDED(plgLdrInit())) {
+			PLGLDR__DisplayErrMessage(Utils::Format("CTGP-7 %d.%d.%d", GET_VERSION_MAJOR(MarioKartFramework::ctgp7ver), GET_VERSION_MINOR(MarioKartFramework::ctgp7ver), GET_VERSION_REVISION(MarioKartFramework::ctgp7ver)).c_str(), "Failed to save CTGP-7 save data.\n\nCopy the error code below and ask\nfor support. The game will close.", error);
 			plgLdrExit();
 		}
 

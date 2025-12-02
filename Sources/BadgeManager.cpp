@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BadgeManager.cpp
-Open source lines: 473/473 (100.00%)
+Open source lines: 474/474 (100.00%)
 *****************************************************/
 
 #include "BadgeManager.hpp"
@@ -32,7 +32,7 @@ namespace CTRPluginFramework {
 		if (status == SaveHandler::SaveFile::LoadStatus::SUCCESS ) {
 			saved_badges = std::move(doc);
 		} else {
-			SaveHandler::SaveFile::HandleError(SaveHandler::SaveFile::SaveType::BADGES, status);
+			SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType::BADGES, status);
 		}
 	}
 
@@ -332,7 +332,8 @@ namespace CTRPluginFramework {
 		saved_badges.set("_cID", NetHandler::GetConsoleUniqueHash());
 		saved_badges.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
 		saved_badges.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
-		SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::BADGES, saved_badges);
+		auto res = SaveHandler::SaveFile::Save(SaveHandler::SaveFile::SaveType::BADGES, saved_badges);
+		if (res != SaveHandler::SaveFile::SaveStatus::SUCCESS) SaveHandler::SaveFile::HandleSaveError(SaveHandler::SaveFile::SaveType::BADGES, res);
     }
 
     void BadgeManager::UpdateOnlineBadges()

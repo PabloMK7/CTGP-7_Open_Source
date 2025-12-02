@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 431/444 (97.07%)
+Open source lines: 432/445 (97.08%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -412,7 +412,8 @@ namespace CTRPluginFramework
 
 	void HandleProcessEvent(Process::Event event) {
 		if (event == Process::Event::EXIT) {
-			SaveHandler::SaveSettingsAll(false);
+			SaveHandler::SaveSettingsAll(true);
+			SaveHandler::WaitSaveSettingsAll();
 			Net::WaitOnlineStateMachine();
 			Net::UpdateOnlineStateMahine(Net::OnlineStateMachine::OFFLINE);
 			Net::WaitOnlineStateMachine();

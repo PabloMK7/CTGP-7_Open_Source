@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 459/562 (81.67%)
+Open source lines: 461/564 (81.74%)
 *****************************************************/
 
 #include "NetHandler.hpp"
@@ -163,7 +163,9 @@ namespace CTRPluginFramework {
 		minibson::document encData(std::move(data));
 
 
-		rawencbson = minibson::crypto::encrypt(encData);
+		auto res = minibson::crypto::encrypt(encData);
+		if (res.has_value())
+			rawencbson = std::move(res.value());
 	}
 
 	s32 NetHandler::Session::payloadtobson(u8* data, u32 size)
