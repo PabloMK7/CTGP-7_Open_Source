@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveBackupHandler.cpp
-Open source lines: 641/641 (100.00%)
+Open source lines: 671/671 (100.00%)
 *****************************************************/
 
 #include "SaveBackupHandler.hpp"
@@ -266,6 +266,11 @@ namespace CTRPluginFramework {
         if (resultCode != 0)
             return resultCode;
 
+        #ifdef MANAGE_CONSOLE_CLOUD_CID
+        doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+        doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+        #endif
+
         doc.set("op", "start");
         doc.set<s64>("sID0", SaveHandler::saveData.saveID[0]);
         doc.set<s64>("sID1", SaveHandler::saveData.saveID[1]);
@@ -314,6 +319,11 @@ namespace CTRPluginFramework {
             }
             buffer.Clear();
 
+            #ifdef MANAGE_CONSOLE_CLOUD_CID
+            doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+            doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+            #endif
+
             doc.set("op", "item");
             doc.set("tok", tok);
             doc.set("name", it->first);
@@ -335,6 +345,11 @@ namespace CTRPluginFramework {
             outdoc.clear();
             increaseOp();
         }
+
+        #ifdef MANAGE_CONSOLE_CLOUD_CID
+        doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+        doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+        #endif
 
         doc.set("op", "commit");
         doc.set("tok", tok);
@@ -359,6 +374,11 @@ namespace CTRPluginFramework {
         BackupInfo res = {0};
         NetHandler::RequestHandler req;
         minibson::document doc;
+
+        #ifdef MANAGE_CONSOLE_CLOUD_CID
+        doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+        doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+        #endif
 
         doc.set("op", "info");
         req.AddRequest(NetHandler::RequestHandler::RequestType::SAVE_BACKUP_GET, doc);
@@ -433,6 +453,11 @@ namespace CTRPluginFramework {
                 if (!it->second(minibson::document()))
                     return 302;
             }
+
+            #ifdef MANAGE_CONSOLE_CLOUD_CID
+            doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+            doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+            #endif
 
             doc.set("op", "item");
             doc.set("name", it->first);
@@ -527,6 +552,11 @@ namespace CTRPluginFramework {
         NetHandler::RequestHandler req;
         minibson::document doc;
         minibson::document outdoc;
+
+        #ifdef MANAGE_CONSOLE_CLOUD_CID
+        doc.set<s64>("manage_cID", MANAGE_CONSOLE_CLOUD_CID);
+        doc.set<bool>("manage_isCitra", MANAGE_CONSOLE_CLOUD_CITRA);
+        #endif
 
         doc.set("op", "delete");
         req.AddRequest(NetHandler::RequestHandler::RequestType::SAVE_BACKUP_PUT, doc);

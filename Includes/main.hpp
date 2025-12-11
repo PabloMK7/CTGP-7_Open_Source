@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.hpp
-Open source lines: 141/150 (94.00%)
+Open source lines: 143/152 (94.08%)
 *****************************************************/
 
 #pragma once
@@ -36,6 +36,8 @@ Open source lines: 141/150 (94.00%)
 //#define NO_CPUS_IN_CTWW
 //#define FORCE_ENGLIGH_LANG
 //#define SAVE_DATA_UNENCRYPTED
+//#define MANAGE_CONSOLE_CLOUD_CID 0 
+//#define MANAGE_CONSOLE_CLOUD_CITRA false
 
 #include "CTRPluginFramework.hpp"
 #include "Lang.hpp"

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: Minibson.cpp
-Open source lines: 15/90 (16.67%)
+Open source lines: 15/93 (16.13%)
 *****************************************************/
 
 #include "Minibson.hpp"

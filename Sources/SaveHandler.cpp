@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 727/730 (99.59%)
+Open source lines: 742/745 (99.60%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -612,7 +612,7 @@ namespace CTRPluginFramework {
 			&& false
 			#endif
 		) {
-			status = LoadStatus::INCORRECT_CID;
+			status = scID == 0 ? LoadStatus::INCORRECT_CID : LoadStatus::DIFFERENT_CID;
 			return minibson::document();
 		}
 		doc.remove("cID");
@@ -621,9 +621,9 @@ namespace CTRPluginFramework {
 			s64 saveID[2];
             saveID[0] = doc.get<s64>("sID0", 0);
             saveID[1] = doc.get<s64>("sID1", 0);
-            if ((saveID[0] != 0 && SaveHandler::saveData.saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
-                (saveID[1] != 0 && SaveHandler::saveData.saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1])
-			     #ifdef ALLOW_SAVES_FROM_OTHER_CID
+            if (((saveID[0] != 0 && SaveHandler::saveData.saveID[0] != 0 && saveID[0] != SaveHandler::saveData.saveID[0]) ||
+                (saveID[1] != 0 && SaveHandler::saveData.saveID[1] != 0 && saveID[1] != SaveHandler::saveData.saveID[1]))
+			    #ifdef ALLOW_SAVES_FROM_OTHER_CID
 				&& false
 				#endif
 				) {
@@ -694,12 +694,27 @@ namespace CTRPluginFramework {
 		return SaveStatus::SUCCESS;
 	}
 
+	static bool g_acceptedDifferentCID = false;
     void SaveHandler::SaveFile::HandleLoadError(SaveHandler::SaveFile::SaveType type, SaveHandler::SaveFile::LoadStatus status)
     {
 		if (status == SaveHandler::SaveFile::LoadStatus::FILE_NOT_FOUND)
 			return;
 
+		if ((status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID || status == SaveHandler::SaveFile::LoadStatus::INCORRECT_SID) && g_acceptedDifferentCID) 
+			return;
+
 		disableSaving = true;
+
+		if (status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID) {
+			u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
+			if (R_SUCCEEDED(plgLdrInit())) {
+				PLGLDR__DisplayErrMessage(Utils::Format("CTGP-7 %d.%d.%d", GET_VERSION_MAJOR(MarioKartFramework::ctgp7ver), GET_VERSION_MINOR(MarioKartFramework::ctgp7ver), GET_VERSION_REVISION(MarioKartFramework::ctgp7ver)).c_str(), "Failed to load CTGP-7 save data.\n\nThe save data was (partially) created\non a different console and it will be\n(partially) deleted. Press B to accept\nor force power off to cancel.", error);
+				plgLdrExit();
+				g_acceptedDifferentCID = true;
+				disableSaving = false;
+				return;
+			}
+		}		
 
 		u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
 		if (R_SUCCEEDED(plgLdrInit())) {

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 489/516 (94.77%)
+Open source lines: 490/517 (94.78%)
 *****************************************************/
 
 #pragma once
@@ -437,6 +437,7 @@ namespace CTRPluginFramework {
 				CORRUPTED_FILE = 4,
 				INCORRECT_CID = 5,
 				INCORRECT_SID = 6,
+				DIFFERENT_CID = 7,
 			};
 
 			enum class SaveStatus {
