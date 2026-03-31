@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CharacterHandler.cpp
-Open source lines: 2233/2236 (99.87%)
+Open source lines: 2237/2240 (99.87%)
 *****************************************************/
 
 #include "CharacterHandler.hpp"
@@ -1175,6 +1175,8 @@ namespace CTRPluginFramework {
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, true);
 			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL] = CryptoResource::GetKnownFileIDAllowed(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE);
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, true);
+			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::MIKU_SING] = CryptoResource::GetKnownFileIDAllowed(CryptoResource::KnownFileID::ACHIEVEMENT_MIKU_SING);
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_MIKU_SING, true);
 		} else if (!enabled && g_watchAchievCharsPopulated) {
 			g_watchAchievCharsPopulated = false;
 			for (int i = 0; i < SaveHandler::TOTAL_ACHIEVEMENTS; i++) {
@@ -1186,6 +1188,8 @@ namespace CTRPluginFramework {
 			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::ALL_BLUE_COINS] = false;
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL]);
 			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL] = false;
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_MIKU_SING, g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::MIKU_SING]);
+			g_watchSpecialAchievCharsBackup[(int)SaveHandler::SpecialAchievements::MIKU_SING] = false;
 		}
 	}
 

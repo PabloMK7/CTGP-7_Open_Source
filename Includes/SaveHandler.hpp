@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.hpp
-Open source lines: 490/517 (94.78%)
+Open source lines: 491/518 (94.79%)
 *****************************************************/
 
 #pragma once
@@ -34,9 +34,10 @@ namespace CTRPluginFramework {
 			NONE = -1,
 			ALL_BLUE_COINS = 0,
 			DODGED_BLUE_SHELL = 1,
+			MIKU_SING = 2, // Not displayed in stats
 		};
 		static constexpr u32 TOTAL_ACHIEVEMENTS = 6;
-		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 2;
+		static constexpr u32 TOTAL_SPECIAL_ACHIEVEMENTS = 3;
 		static constexpr u32 BLUE_SHELL_DODGE_COUNT_ACHIEVEMENT = 3;
 		class CupRankSave {
 			public:

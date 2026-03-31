@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: main.cpp
-Open source lines: 431/444 (97.07%)
+Open source lines: 430/443 (97.07%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -362,9 +362,8 @@ namespace CTRPluginFramework
 		warnitementry->Hide();
 		#endif
 
-		#ifdef RELEASE_BUILD
-			menu.OnOpening = MarioKartFramework::allowOpenCTRPFMenu;
-		#endif
+		
+		menu.OnOpening = MarioKartFramework::allowOpenCTRPFMenu;
 		menu.OnClosing = []() {
 			SaveHandler::SaveSettingsAll();
 		};

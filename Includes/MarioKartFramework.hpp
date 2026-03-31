@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.hpp
-Open source lines: 782/782 (100.00%)
+Open source lines: 798/798 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -18,6 +18,7 @@ Open source lines: 782/782 (100.00%)
 #include "MK7NetworkBuffer.hpp"
 #include "MK7Memory.hpp"
 #include "rt.hpp"
+#include "MicActivity.hpp"
 
 extern "C" u32 g_lapVal;
 extern "C" float g_speedValsqrt;
@@ -348,6 +349,7 @@ namespace CTRPluginFramework {
 			static bool areKeysBlocked;
 			static bool isPauseBlocked;
 			static bool isPauseAllowForced;
+			static u32 ctrpfMenuAllowedModeRace; // 0 -> allow, 1 -> disallow sound, 2 -> disallow silent
 			//
 			static bool isLoadingAward;
 
@@ -763,6 +765,20 @@ namespace CTRPluginFramework {
 			//
 			static bool hasOOBAreas;
 			static void CalcOOBArea(u32 vehicle);
+			//
+			static u32 inRaceDialogFrames;
+			static void closeInRaceDialog();
+			static void OpenInRaceDialog(const std::string& str, u32 frames);
+			static void OpenInRaceDialog(const std::u16string& str, u32 frames);
+			//
+			static u8 mikuSingAreaID;
+			static MarioKartTimer mikuSingTimer;
+			static MarioKartTimer mikuSingTimerBiggest;
+			static MicActivityDetector* mikuSingDetector;
+			static void CalcMikuSingArea(u32 vehicle);
+			//
+			static std::array<u8, 8> lakituDisableAreas;			
+        	
     };
     bool checkCompTID(u64 tid);
     u32 SafeRead32(u32 addr);

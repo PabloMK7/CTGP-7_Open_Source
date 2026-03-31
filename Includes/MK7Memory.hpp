@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MK7Memory.hpp
-Open source lines: 24/24 (100.00%)
+Open source lines: 25/25 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -22,3 +22,4 @@ Open source lines: 24/24 (100.00%)
 #include "../MK7-Memory/include/RaceSys/LapRankChecker.hpp"
 #include "../MK7-Memory/include/Sound/SndLoader.hpp"
 #include "../MK7-Memory/include/System/ResourceLoader.hpp"
+#include "../MK7-Memory/include/Kart/Driver.hpp"

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 4123/4271 (96.53%)
+Open source lines: 4313/4461 (96.68%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -108,6 +108,7 @@ namespace CTRPluginFramework {
 	bool MarioKartFramework::areKeysBlocked = false;
 	bool MarioKartFramework::isPauseBlocked = false;
 	bool MarioKartFramework::isPauseAllowForced = false;
+	u32 MarioKartFramework::ctrpfMenuAllowedModeRace = 0;
 	std::tuple<u32, u32*> MarioKartFramework::soundThreadsInfo[2] = { std::tuple<u32, u32*>(0xFFFFFFFF, nullptr), std::tuple<u32, u32*>(0xFFFFFFFF, nullptr) };
 	bool MarioKartFramework::forceDisableSndOnPause = false;
 	void (*MarioKartFramework::BaseMenuPageApplySetting_CPU)(int cpuAmount, int startingCPUIndex, int* playerChar) = nullptr;
@@ -234,6 +235,12 @@ namespace CTRPluginFramework {
 	RT_HOOK MarioKartFramework::networkSelectMenuReceivedCoreHook = {0};
 	bool MarioKartFramework::disableLensFlare = false;
 	bool MarioKartFramework::hasOOBAreas = false;
+	u32 MarioKartFramework::inRaceDialogFrames = 0;
+	u8 MarioKartFramework::mikuSingAreaID = UINT8_MAX;
+	MarioKartTimer MarioKartFramework::mikuSingTimer = 0;
+	MarioKartTimer MarioKartFramework::mikuSingTimerBiggest = 0;
+	MicActivityDetector* MarioKartFramework::mikuSingDetector = nullptr;
+	std::array<u8, 8> MarioKartFramework::lakituDisableAreas{};
 
 	extern "C" u32 myPlayerIDValue;
 
@@ -396,12 +403,11 @@ namespace CTRPluginFramework {
 			startedRaceScene = false;
 		}
 		if (raceEventID == 4 && userCanControlKart()) {
-			if (userCanControlKart()) {
-				isRaceGoal = true;
-				MissionHandler::OnRaceFinish();
-				if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
-				g_StresserUpdateMode(StressMode::MOVE_PRESS_A);
-			}
+			isRaceGoal = true;
+			MissionHandler::OnRaceFinish();
+			if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
+			g_StresserUpdateMode(StressMode::MOVE_PRESS_A);
+			
 			if (BlueCoinChallenge::coinSpawned) BlueCoinChallenge::DespawnCoin();
 			if (g_isFoolActive) {
 				playMemEraseJoke();
@@ -612,9 +618,21 @@ namespace CTRPluginFramework {
 	
 	bool MarioKartFramework::allowOpenCTRPFMenu()
 	{
-		if (!g_hasGameReachedTitle)
+		if (!g_hasGameReachedTitle) {
 			return false;
-		if (isGameInRace() || (ISGAMEONLINE && lastLoadedMenu != 0x1A) || (ISGAMEONLINE && !g_isUserInControlWW) || MenuPageHandler::MenuEndingPage::IsLoaded()) {
+		}
+		if (ctrpfMenuAllowedModeRace == 2) {
+			return false;
+		}
+		if ((isGameInRace() || 
+		    (ISGAMEONLINE && lastLoadedMenu != 0x1A) || 
+			(ISGAMEONLINE && !g_isUserInControlWW) || 
+			MenuPageHandler::MenuEndingPage::IsLoaded() ||
+		    ctrpfMenuAllowedModeRace == 1)
+#ifndef RELEASE_BUILD
+			&& false
+#endif
+		) {
 			if (g_InvalidSoundTimer.HasTimePassed(Seconds(0.5))) {
 				Snd::PlayMenu(Snd::BUTTON_INVALID);
 				g_InvalidSoundTimer.Restart();
@@ -998,10 +1016,31 @@ namespace CTRPluginFramework {
 		applyGOBJPatches(getGeoObjAccessor());
 
 		hasOOBAreas = false;
+		mikuSingAreaID = UINT8_MAX;
+		mikuSingTimer = 0;
+		mikuSingTimerBiggest = 0;
+		if (mikuSingDetector) {
+			delete mikuSingDetector;
+			mikuSingDetector = nullptr;
+		}
+		for (auto it = lakituDisableAreas.begin(); it != lakituDisableAreas.end(); it++) *it = UINT8_MAX;
 		auto* areaAccessor = MK7::Field::GetAreaAccessor();
-		for (auto it = areaAccessor->m_entries.begin(); it != areaAccessor->m_entries.end(); ++it) {
+		u8 areaId = 0;
+		u8 lakituAreaID = 0;
+		for (auto it = areaAccessor->m_entries.begin(); it != areaAccessor->m_entries.end(); ++it, areaId++) {
 			if (it->m_area_calc->m_area_type == 10) {
 				hasOOBAreas = true;
+			}
+			if (it->m_area_calc->m_area_type == 20 && currentRaceMode.type == 0 && userCanControlKart() && 
+			    !SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::MIKU_SING) &&
+				!SaveHandler::saveData.IsSpecialAchievementPending(SaveHandler::SpecialAchievements::MIKU_SING)) {
+				mikuSingAreaID = areaId;
+				if (!mikuSingDetector) {
+					mikuSingDetector = new MicActivityDetector();
+				}
+			}
+			if (it->m_area_calc->m_area_type == 21 && lakituAreaID < lakituDisableAreas.size()) {
+				lakituDisableAreas[lakituAreaID++] = areaId;
 			}
 		}
 
@@ -1028,6 +1067,12 @@ namespace CTRPluginFramework {
 			VersusHandler::OnNextTrackLoad();
 		}
 		UserCTHandler::CleanTextureSarc();
+		mikuSingAreaID = UINT8_MAX;
+		if (mikuSingDetector) {
+			delete mikuSingDetector;
+			mikuSingDetector = nullptr;
+		}
+		ctrpfMenuAllowedModeRace = 0;
 	}
 
 	void MarioKartFramework::applyGOBJPatches(GOBJAccessor* access)
@@ -1040,10 +1085,17 @@ namespace CTRPluginFramework {
 				dokanWarps.push_back(&currEntry);
 				break;
 			case 0xCB: // Thwomp
-				if ((currEntry.settings[2] == 1 && currentRaceMode.mode != 1) || currEntry.settings[2] == 2) { //If not in time trials and settings3 = 1
+				if ((currEntry.settings[2] == 1 && currentRaceMode.mode != 1) || currEntry.settings[2] == 2 || currEntry.settings[2] == 3) { //If not in time trials and settings3 = 1
 					currEntry.settings[0] = 65535;
 					currEntry.settings[1] = 65535;
 					currEntry.position.y -= 100.f;
+					if (currEntry.settings[2] == 3 && (
+							SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::MIKU_SING) ||
+							SaveHandler::saveData.IsSpecialAchievementPending(SaveHandler::SpecialAchievements::MIKU_SING)
+						)
+					) {
+						currEntry.visibility = 0;
+					}
 				}
 				break;
 			case 0x143: // Alternate itembox
@@ -3105,6 +3157,10 @@ namespace CTRPluginFramework {
 						playcoineffect(effectDirector, playerID, &kartPos);
 						void(*playjumpeffect)(u32 effectDirector, int playerID) = (decltype(playjumpeffect))playjumpeffectAddr;
 						playjumpeffect(effectDirector, playerID);
+						if (resizeInfos[playerID].animationStep == resizeInfos[playerID].totalAnimationStep) {
+							u32 sndActorKart = vehicleMove[0x37];
+							SndActorKArt_PlayDriverVoice((u32*)sndActorKart, EVoiceType::STAR_START);
+						}
 					} else {
 						ItemHandler::MegaMushHandler::PlayChangeSizeSound(vehicleMove, false);
 					}
@@ -3150,6 +3206,10 @@ namespace CTRPluginFramework {
 
 		if (hasOOBAreas) {
 			CalcOOBArea((u32)vehicleMove);
+		}
+
+		if (mikuSingAreaID != UINT8_MAX) {
+			CalcMikuSingArea((u32)vehicleMove);
 		}
 
 		// Check position differences on replay
@@ -3474,6 +3534,23 @@ namespace CTRPluginFramework {
 		u32 vehicle = ((u32***)switchreverse)[0x4/4][0x78/4][0];
 		if (!MissionHandler::isLakituVisible() || vehicleIsInLoopKCL(vehicle))
 			return;
+		if(lakituDisableAreas[0] != UINT8_MAX) {
+			MK7::Kart::VehicleMove* vehicleMove = (MK7::Kart::VehicleMove*)vehicle;
+			auto* areaAccessor = MK7::Field::GetAreaAccessor();
+			for (auto it = lakituDisableAreas.begin(); it != lakituDisableAreas.end(); it++) {
+				if (*it == UINT8_MAX) break;
+				if (areaAccessor->m_entries[*it]->m_area_calc->isInside(*vehicleMove->m_position)) {
+					u8 type = areaAccessor->m_entries[*it]->m_data->m_setting1;
+					if (type == 1) {
+						((u32*)switchreverse)[0xC/4] = 0;
+					} else if (type == 2) {
+						((u32*)switchreverse)[0xC/4] = 1;
+					}
+					return;
+				}
+			}
+		}
+
 		((void(*)(u32))jugemSwitchReverseUpdateHook.callCode)(switchreverse);
 	}
 
@@ -3751,7 +3828,7 @@ namespace CTRPluginFramework {
 		auto* net_engine = (MK7::Net::NetworkEngine*)getNetworkEngine();
 
 		MK7::Net::NetworkBuffer* sendBuf = net_engine->m_network_station_buffer_manager->getWriteBuffer(type);
-		sendBuf->Set(selectMenuFormat, selectMenuFormatSize);
+		sendBuf->set(selectMenuFormat, selectMenuFormatSize);
 
 		CustomCTGP7MenuData data = {0};
 		data.netVersion = Net::lastOnlineVersion;
@@ -3760,7 +3837,7 @@ namespace CTRPluginFramework {
 		}
 		data.selectedCustomCharacter = CharacterHandler::GetSelectedMenuCharacter();
 		data.MakeValid();
-		sendBuf->Add(&data, sizeof(data));
+		sendBuf->add(&data, sizeof(data));
     }
 
 	bool MarioKartFramework::OnNetworkSelectMenuReceivedCore(u32 NetworkSelectMenuReceived, MK7::Net::NetworkReceivedInfo *receiveInfo)
@@ -3820,6 +3897,119 @@ namespace CTRPluginFramework {
 			}
 		}
     }
+
+	void MarioKartFramework::OpenInRaceDialog(const std::string &str, u32 frames)
+    {
+		std::u16string str16;
+		Utils::ConvertUTF8ToUTF16(str16, str);
+		OpenInRaceDialog(str16, frames);
+    }
+
+	static std::u16string g_inRaceDialogText;
+	void MarioKartFramework::OpenInRaceDialog(const std::u16string& str, u32 frames)
+    {
+		g_inRaceDialogText = str;
+		Language::MsbtHandler::SetString(CustomTextEntries::dialog, g_inRaceDialogText);
+		MarioKartFramework::isPauseBlocked = true;
+		MarioKartFramework::openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "", nullptr, true);
+		AsyncRunner::StartAsync(closeInRaceDialog);
+		inRaceDialogFrames = frames;
+    }
+
+    void MarioKartFramework::closeInRaceDialog() {
+        if (MarioKartFramework::inRaceDialogFrames) {
+            if (MarioKartFramework::inRaceDialogFrames < 180 && MarioKartFramework::inRaceDialogFrames > 65 && Controller::IsKeyDown(Key::Start))
+                MarioKartFramework::inRaceDialogFrames = 65;
+            if (MarioKartFramework::inRaceDialogFrames == 60) {
+                MarioKartFramework::closeDialog();
+            }
+            MarioKartFramework::inRaceDialogFrames--;
+            if (!MarioKartFramework::inRaceDialogFrames) {
+                MarioKartFramework::isPauseBlocked = false;
+                AsyncRunner::StopAsync(closeInRaceDialog);
+                g_inRaceDialogText.clear();
+            }
+        }
+    }
+
+    void MarioKartFramework::CalcMikuSingArea(u32 vehicle)
+    {
+		MK7::Kart::VehicleMove* vehicleMove = (MK7::Kart::VehicleMove*)vehicle;
+		int playerID = vehicleMove->m_player_id;
+		if (playerID != MarioKartFramework::masterPlayerID)
+			return;
+
+		auto area = MK7::Field::GetAreaAccessor()->m_entries[mikuSingAreaID];
+		bool inside = area->m_area_calc->isInside(*vehicleMove->m_position);
+		bool triggered = false;
+
+		if (inside && !isRacePaused && !isRaceGoal) {
+			if (!mikuSingDetector->IsRunning()) {
+				mikuSingDetector->Start();
+				ctrpfMenuAllowedModeRace = 2;
+				isPauseBlocked = true;
+			}				
+
+			mikuSingDetector->Tick();
+
+			bool selectPressed = Controller::IsKeyDown(Key::Select);
+			u32 level = mikuSingDetector->GetLevel();
+
+			if (level >= 2 || selectPressed) {
+				mikuSingTimer+=2;
+				mikuSingTimerBiggest = mikuSingTimer;
+				vehicleMove->m_driver->m_goal_motion_state = 0;
+				if (mikuSingTimer >= (MarioKartTimer(0, 4, 0) * 2)) {
+					triggered = true;
+				}
+			} else {
+				if (mikuSingTimer != 0) mikuSingTimer--;
+			}
+		} else {
+			if (mikuSingDetector->IsRunning()) {
+				mikuSingDetector->End();
+				ctrpfMenuAllowedModeRace = 0;
+				isPauseBlocked = false;
+			}				
+
+			mikuSingTimer = 0;
+		}
+
+		if ((mikuSingTimerBiggest - mikuSingTimer) > (MarioKartTimer(0, 0, 250) * 2) || mikuSingTimer == 0) {
+			vehicleMove->m_driver->m_goal_motion_state = 2;
+		}
+
+		if (triggered) {
+			mikuSingAreaID = UINT8_MAX;
+			delete mikuSingDetector;
+			mikuSingDetector = nullptr;
+
+			vehicleMove->m_driver->m_goal_motion_state = 2;
+			ctrpfMenuAllowedModeRace = 0;
+
+			u32* sndActorKart = ((u32**)vehicle)[0x37];
+			SndActorKArt_PlayDriverVoice(sndActorKart, EVoiceType::ITEM_HIT_SUCCESS);
+			Snd::PlayMenu(Snd::SoundID::FLAG_OPEN);
+
+			SaveHandler::saveData.SetSpecialAchievementPending(SaveHandler::SpecialAchievements::MIKU_SING, true);
+			SaveHandler::SaveSettingsAll();
+			for (auto it = CharacterHandler::GetCharEntries().begin(); it != CharacterHandler::GetCharEntries().end(); it++) {
+				if (it->second.specialAchievement == SaveHandler::SpecialAchievements::MIKU_SING) {
+					std::u16string text;
+					Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
+					text.append(
+						Language::MsbtHandler::ControlString::GenColorControlString(Language::MsbtHandler::ControlString::DashColor::CUSTOM,
+							Color(255, 180, 0)
+						)
+					);
+					Utils::ConvertUTF8ToUTF16(text, it->second.longName);
+					OpenInRaceDialog(text, 270);
+					break;
+				}
+			}
+		}
+    }
+	
 
     float MarioKartFramework::adjustRubberBandingSpeed(float initialAmount) {
 		initialAmount += rubberBandingOffset;

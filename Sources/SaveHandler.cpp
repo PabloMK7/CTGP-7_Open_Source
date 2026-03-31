@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: SaveHandler.cpp
-Open source lines: 742/745 (99.60%)
+Open source lines: 719/722 (99.58%)
 *****************************************************/
 
 #include "CTRPluginFramework.hpp"
@@ -80,6 +80,8 @@ namespace CTRPluginFramework {
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_BLUE_COIN, true);
 		if (saveData.IsSpecialAchievementCompleted(SpecialAchievements::DODGED_BLUE_SHELL))
 			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_DODGED_BLUE, true);
+		if (saveData.IsSpecialAchievementCompleted(SpecialAchievements::MIKU_SING))
+			CryptoResource::AllowKnownFileID(CryptoResource::KnownFileID::ACHIEVEMENT_MIKU_SING, true);
 	}
 
 	void SaveHandler::UpdateAchievementsConditions() {
@@ -147,87 +149,52 @@ namespace CTRPluginFramework {
 		g_lastCharShown = CharacterHandler::GetCharEntries().begin();
 	}
 	bool SaveHandler::CheckAndShowAchievementMessages() {
-		if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_GOLD)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_gold"));
+		auto process_achievement = [](bool isSpecial, u32 achievementID, const std::string& dialogText) {
+			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return;
+			if (!dialogText.empty())
+				MarioKartFramework::openDialog(DialogFlags::Mode::OK, dialogText);
 			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_GOLD, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_GOLD, true);
+			if (isSpecial) {
+				SaveHandler::saveData.SetSpecialAchievementPending((SpecialAchievements)achievementID, false);
+				SaveHandler::saveData.SetSpecialAchievementCompleted((SpecialAchievements)achievementID, true);
+			} else {
+				SaveHandler::saveData.SetAchievementPending((Achievements)achievementID, false);
+				SaveHandler::saveData.SetAchievementCompleted((Achievements)achievementID, true);
+			}
+			
 			UpdateAchievementCryptoFiles();
 			CharacterHandler::PopulateAvailableCharacters();
 			SaveHandler::SaveSettingsAll();
+		};
+
+		if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_GOLD)) {
+			process_achievement(false, (u32)Achievements::ALL_GOLD, NAME("achiev_all_gold"));
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_ONE_STAR)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_1star"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_ONE_STAR, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_ONE_STAR, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(false, (u32)Achievements::ALL_ONE_STAR, NAME("achiev_all_1star"));
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_THREE_STAR)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_3star"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_THREE_STAR, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_THREE_STAR, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(false, (u32)Achievements::ALL_THREE_STAR, NAME("achiev_all_3star"));
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_MISSION_TEN)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_mission"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_MISSION_TEN, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_MISSION_TEN, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(false, (u32)Achievements::ALL_MISSION_TEN, NAME("achiev_all_mission"));
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::VR_5000)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_5000_vr"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::VR_5000, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::VR_5000, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(false, (u32)Achievements::VR_5000, NAME("achiev_5000_vr"));
 			return true;
 		} else if (SaveHandler::saveData.IsAchievementPending(Achievements::ALL_SCORE_COMPLETED)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_all_score_completed"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetAchievementPending(Achievements::ALL_SCORE_COMPLETED, false);
-			SaveHandler::saveData.SetAchievementCompleted(Achievements::ALL_SCORE_COMPLETED, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(false, (u32)Achievements::ALL_SCORE_COMPLETED, NAME("achiev_all_score_completed"));
 			return true;
 		}
 		
 		else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_blue_coin"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::ALL_BLUE_COINS, false);
-			SaveHandler::saveData.SetSpecialAchievementCompleted(SpecialAchievements::ALL_BLUE_COINS, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(true, (u32)SpecialAchievements::ALL_BLUE_COINS, NAME("achiev_blue_coin"));
 			return true;
 		} else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL)) {
-			if (MarioKartFramework::isDialogOpened() && g_processing_achievements) return true;
-			MarioKartFramework::openDialog(DialogFlags::Mode::OK, NAME("achiev_dodged_blue"));
-			g_processing_achievements = true;
-			SaveHandler::saveData.SetSpecialAchievementPending(SpecialAchievements::DODGED_BLUE_SHELL, false);
-			SaveHandler::saveData.SetSpecialAchievementCompleted(SpecialAchievements::DODGED_BLUE_SHELL, true);
-			UpdateAchievementCryptoFiles();
-			CharacterHandler::PopulateAvailableCharacters();
-			SaveHandler::SaveSettingsAll();
+			process_achievement(true, (u32)SpecialAchievements::DODGED_BLUE_SHELL, NAME("achiev_dodged_blue"));
+			return true;
+		} else if (SaveHandler::saveData.IsSpecialAchievementPending(SpecialAchievements::MIKU_SING)) {
+			process_achievement(true, (u32)SpecialAchievements::MIKU_SING, ""); // No text for miku
 			return true;
 		}
 
@@ -268,6 +235,11 @@ namespace CTRPluginFramework {
 				}
 				for (auto it = g_lastCharShown; it != CharacterHandler::GetCharEntries().end(); it++) {
 					if (it->second.specialAchievement != SpecialAchievements::NONE && it->second.specialAchievement == next) {
+						if (next == SpecialAchievements::MIKU_SING) {
+							// Do not show the miku character again
+							continue;
+						}
+							
 						std::u16string text;
 						Utils::ConvertUTF8ToUTF16(text, NAME("unlocked_item"));
 						text.append(
@@ -637,7 +609,7 @@ namespace CTRPluginFramework {
 	}
 	SaveHandler::SaveFile::SaveStatus SaveHandler::SaveFile::Save(SaveType type, const minibson::document& inData) {
 	#if STRESS_MODE == 1
-		return;
+		return SaveStatus::SUCCESS;
 	#endif
 	#ifdef SAVE_DATA_UNENCRYPTED
 		std::string path = Utils::Format("/CTGP-7/savefs/mod/%s_dec.sav", SaveNames[(u32)type]);
@@ -700,15 +672,20 @@ namespace CTRPluginFramework {
 		if (status == SaveHandler::SaveFile::LoadStatus::FILE_NOT_FOUND)
 			return;
 
-		if ((status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID || status == SaveHandler::SaveFile::LoadStatus::INCORRECT_SID) && g_acceptedDifferentCID) 
+		if ((status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID || status == SaveHandler::SaveFile::LoadStatus::INCORRECT_SID ||
+		    (type == SaveHandler::SaveFile::SaveType::STATS && status == SaveHandler::SaveFile::LoadStatus::INCORRECT_CID) ||
+		    (type == SaveHandler::SaveFile::SaveType::BADGES && status == SaveHandler::SaveFile::LoadStatus::INCORRECT_CID)) && 
+			g_acceptedDifferentCID) 
 			return;
 
 		disableSaving = true;
 
-		if (status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID) {
+		if (status == SaveHandler::SaveFile::LoadStatus::DIFFERENT_CID || 
+			(type == SaveHandler::SaveFile::SaveType::STATS && status == SaveHandler::SaveFile::LoadStatus::INCORRECT_CID) ||
+			(type == SaveHandler::SaveFile::SaveType::BADGES && status == SaveHandler::SaveFile::LoadStatus::INCORRECT_CID)) {
 			u32 error = 0x80000000 | (((u8)type) << 8) | ((u8)status);
 			if (R_SUCCEEDED(plgLdrInit())) {
-				PLGLDR__DisplayErrMessage(Utils::Format("CTGP-7 %d.%d.%d", GET_VERSION_MAJOR(MarioKartFramework::ctgp7ver), GET_VERSION_MINOR(MarioKartFramework::ctgp7ver), GET_VERSION_REVISION(MarioKartFramework::ctgp7ver)).c_str(), "Failed to load CTGP-7 save data.\n\nThe save data was (partially) created\non a different console and it will be\n(partially) deleted. Press B to accept\nor force power off to cancel.", error);
+				PLGLDR__DisplayErrMessage(Utils::Format("CTGP-7 %d.%d.%d", GET_VERSION_MAJOR(MarioKartFramework::ctgp7ver), GET_VERSION_MINOR(MarioKartFramework::ctgp7ver), GET_VERSION_REVISION(MarioKartFramework::ctgp7ver)).c_str(), "Failed to load CTGP-7 save data.\n\nThe save data will be (partially)\ndeleted because it was created on a\ndifferent console or is very old.\nPress B to accept or force power off\nto cancel.", error);
 				plgLdrExit();
 				g_acceptedDifferentCID = true;
 				disableSaving = false;

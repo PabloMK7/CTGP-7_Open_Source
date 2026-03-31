@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: NetHandler.cpp
-Open source lines: 461/564 (81.74%)
+Open source lines: 461/565 (81.59%)
 *****************************************************/
 
 #include "NetHandler.hpp"

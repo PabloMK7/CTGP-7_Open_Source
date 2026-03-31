@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: StatsHandler.cpp
-Open source lines: 716/716 (100.00%)
+Open source lines: 717/717 (100.00%)
 *****************************************************/
 
 #include "StatsHandler.hpp"
@@ -173,6 +173,7 @@ namespace CTRPluginFramework {
 		ret.set<bool>("scoreat", SaveHandler::saveData.IsAchievementCompleted(SaveHandler::Achievements::ALL_SCORE_COMPLETED));
 		ret.set<bool>("bluecoin", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::ALL_BLUE_COINS));
 		ret.set<bool>("dodgedblue", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::DODGED_BLUE_SHELL));
+		ret.set<bool>("mikuSing", SaveHandler::saveData.IsSpecialAchievementCompleted(SaveHandler::SpecialAchievements::MIKU_SING));
 		ret.set<bool>("watchedcredits", SaveHandler::saveData.flags1.creditsWatched);
 
 		ret.set<int>("version", achievementReportVersion);

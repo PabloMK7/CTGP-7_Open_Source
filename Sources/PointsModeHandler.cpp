@@ -1437,7 +1437,7 @@ namespace CTRPluginFramework {
 #else
         int opt = -1;
 #endif
-        if (opt == 0 && newScore > oldScore) {
+        if (opt == 0 && newScore > oldScore && !score_invalid) {
             do {
                 Keyboard kbdTemp(NAME("sc_wc_uploading"));
                 g_fetchInfoRes = 0;

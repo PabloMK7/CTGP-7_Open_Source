@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.hpp
-Open source lines: 55/55 (100.00%)
+Open source lines: 53/53 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -18,12 +18,10 @@ namespace CTRPluginFramework {
         static u32 rotateProgress;
         static u32 coinObjBase;
         static u8* blueCoinSound;
-        static u32 coinCollectedDialogFrames;
         static std::map<u32, std::pair<Vector3, u16>> coinLocations;
         static std::u16string blueCoinCollectedStr;
         static void InitCoinLocations();
         static void SetCoinCollected(u32 courseID);
-        static void closeCoinCollectedDialog();
         
         static void SaveCoinLoc();
         static void DumpCoinLocsToFile();

@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartTimer.hpp
-Open source lines: 158/158 (100.00%)
+Open source lines: 164/164 (100.00%)
 *****************************************************/
 
 #pragma once
@@ -64,6 +64,12 @@ namespace CTRPluginFramework {
         inline MarioKartTimer operator+(const MarioKartTimer& right) const
         {
             return MarioKartTimer(this->Frames + right.Frames);
+        }
+
+        inline MarioKartTimer& operator+=(const MarioKartTimer& right)
+        {
+            this->Frames += right.Frames;
+            return *this;
         }
 
         inline MarioKartTimer operator-(const MarioKartTimer& right) const

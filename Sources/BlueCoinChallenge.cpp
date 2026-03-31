@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: BlueCoinChallenge.cpp
-Open source lines: 264/394 (67.01%)
+Open source lines: 242/372 (65.05%)
 *****************************************************/
 
 #include "BlueCoinChallenge.hpp"
@@ -46,7 +46,6 @@ namespace CTRPluginFramework {
     u32 BlueCoinChallenge::rotateProgress = 0;
     u32 BlueCoinChallenge::coinObjBase = 0;
     u8* BlueCoinChallenge::blueCoinSound = nullptr;
-    u32 BlueCoinChallenge::coinCollectedDialogFrames = 0;
 
     bool BlueCoinChallenge::IsCoinCollected(u32 courseID) {
         for (auto it = SaveHandler::saveData.collectedBlueCoins.begin(); it != SaveHandler::saveData.collectedBlueCoins.end(); it++) {
@@ -170,23 +169,6 @@ namespace CTRPluginFramework {
 		MarioKartFramework::ObjModelBaseRotate(coinObjBase, rotateProgress);
     }
 
-    static std::u16string g_coinCollectedText;
-    void BlueCoinChallenge::closeCoinCollectedDialog() {
-        if (BlueCoinChallenge::coinCollectedDialogFrames) {
-            if (BlueCoinChallenge::coinCollectedDialogFrames < 180 && BlueCoinChallenge::coinCollectedDialogFrames > 65 && Controller::IsKeyDown(Key::Start))
-                BlueCoinChallenge::coinCollectedDialogFrames = 65;
-            if (BlueCoinChallenge::coinCollectedDialogFrames == 60) {
-                MarioKartFramework::closeDialog();
-            }
-            BlueCoinChallenge::coinCollectedDialogFrames--;
-            if (!BlueCoinChallenge::coinCollectedDialogFrames) {
-                MarioKartFramework::isPauseBlocked = false;
-                AsyncRunner::StopAsync(closeCoinCollectedDialog);
-                g_coinCollectedText.clear();
-            }
-        }
-    }
-
     void BlueCoinChallenge::DespawnCoin() {
         coinSpawned = false;
         ((u8*)coinObjBase)[0x7C] = 0;
@@ -214,17 +196,13 @@ namespace CTRPluginFramework {
 
             if (!coinWasCollected) {
                 if (!coinDisabledCCSelector) {
-                    g_coinCollectedText = blueCoinCollectedStr + u"\n\n";
+                    std::u16string str = blueCoinCollectedStr + u"\n\n";
                     std::string rem_text = (coinsRemaining - 1 == 0) ? NAME("blue_coin_all") : Utils::Format(NOTE("blue_coin_obtain").c_str(), coinsRemaining - 1);
-                    Utils::ConvertUTF8ToUTF16(g_coinCollectedText, rem_text);
-                    Language::MsbtHandler::SetString(CustomTextEntries::dialog, g_coinCollectedText);
+                    Utils::ConvertUTF8ToUTF16(str, rem_text);
+                    MarioKartFramework::OpenInRaceDialog(str, 270);
                 } else {
-                    Language::MsbtHandler::SetString(CustomTextEntries::dialog, NAME("blue_coin_nocc"));
+                    MarioKartFramework::OpenInRaceDialog(NAME("blue_coin_nocc"), 270);
                 }
-                MarioKartFramework::isPauseBlocked = true;
-                MarioKartFramework::openDialog(DialogFlags(DialogFlags::Mode::NOBUTTON), "", nullptr, true);
-                AsyncRunner::StartAsync(closeCoinCollectedDialog);
-                coinCollectedDialogFrames = 270;
             }
         }
     }

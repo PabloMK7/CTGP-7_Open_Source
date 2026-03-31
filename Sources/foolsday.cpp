@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: foolsday.cpp
-Open source lines: 221/248 (89.11%)
+Open source lines: 221/249 (88.76%)
 *****************************************************/
 
 #include "foolsday.hpp"

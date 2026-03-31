@@ -338,7 +338,7 @@ namespace CTRPluginFramework {
 #ifdef GOTO_TOADCIRCUIT
         skipConfig.enabled = true;
         skipConfig.skipCoursePreview = true;
-        skipConfig.cpuAmount = 8;
+        skipConfig.cpuAmount = 1;
         skipConfig.driverID = EDriverID::DRIVER_YOSHI;
         skipConfig.bodyID = EBodyID::BODY_DSH;
         skipConfig.tireID = ETireID::TIRE_BIGRED;
