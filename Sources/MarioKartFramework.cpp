@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: MarioKartFramework.cpp
-Open source lines: 4313/4461 (96.68%)
+Open source lines: 4317/4465 (96.69%)
 *****************************************************/
 
 #include "MarioKartFramework.hpp"
@@ -402,17 +402,21 @@ namespace CTRPluginFramework {
 			if (PointsModeHandler::isPointsMode) PointsModeHandler::OnRaceStart(false);
 			startedRaceScene = false;
 		}
-		if (raceEventID == 4 && userCanControlKart()) {
-			isRaceGoal = true;
-			MissionHandler::OnRaceFinish();
-			if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
-			g_StresserUpdateMode(StressMode::MOVE_PRESS_A);
+		if (raceEventID == 4) {
+			if (userCanControlKart()) {
+				isRaceGoal = true;
+				MissionHandler::OnRaceFinish();
+				if (!MissionHandler::isMissionMode) StatsHandler::OnCourseFinish();
+				g_StresserUpdateMode(StressMode::MOVE_PRESS_A);
+				
+				
+				SaveHandler::SaveSettingsAll();
+			}
 			
 			if (BlueCoinChallenge::coinSpawned) BlueCoinChallenge::DespawnCoin();
 			if (g_isFoolActive) {
 				playMemEraseJoke();
 			}
-			SaveHandler::SaveSettingsAll();
 		}
 
 		/*if (raceEventID == 4) g_checkmode = 3;*/

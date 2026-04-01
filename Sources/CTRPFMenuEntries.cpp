@@ -4,7 +4,7 @@ Please see README.md for the project license.
 (Some files may be sublicensed, please check below.)
 
 File: CTRPFMenuEntries.cpp
-Open source lines: 755/764 (98.82%)
+Open source lines: 752/761 (98.82%)
 *****************************************************/
 
 #include "types.h"
@@ -33,7 +33,6 @@ Open source lines: 755/764 (98.82%)
 #include "BlueCoinChallenge.hpp"
 #include "PointsModeHandler.hpp"
 #include "QrCode.hpp"
-#include "MicActivity.hpp"
 
 u32 g_currMenuVal = 0;
 u8 g_isOnlineMode = 2;
@@ -45,8 +44,6 @@ namespace CTRPluginFramework
 	extern RT_HOOK socinithook;
 	extern RT_HOOK socexithook;
 	
-
-	static MicActivityDetector micDetector;
 
 	void	menucallback() {
 		#ifdef SETUP_BLUE_COINS
